@@ -63,6 +63,25 @@
                 {
                     return Some(Token::CLOSED_PAREN);
                 }
+                else if self.next_char == '/'
+                {
+                    let next_next_char = self.char_iter.next()?;
+                    if next_next_char == '*' //we are in a comment block
+                    {
+                        let mut found_second_star = false;
+                        while let Some(next_char) = self.char_iter.next()
+                        {
+                            if next_char == '*'
+                            {
+                                found_second_star = true;
+                            }
+                            else if next_char == '/' && found_second_star
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
                 else if !self.next_char.is_whitespace()
                 {
                     if self.next_char == '\''
@@ -207,7 +226,30 @@
 
             assert_eq!(output, hello_world(&input));
         }
+        #[test]
+        fn hello_world_with_commentparse()
+        {
+            let input = format!("{}{}","/*This is a comment!*/",fs::read_to_string("./hello_world.pli").unwrap());
+            let output: Vec<Token> = vec![LABEL(String::from("HELLO")), PROCEDURE,
+             OPTIONS, OPEN_PAREN, Identifier(String::from("MAIN")),CLOSED_PAREN,
+            SEMICOLON,Identifier(String::from("FLAG")),EQ,NumVal(0),SEMICOLON,
+            LABEL(String::from("LOOP")), DO, WHILE, OPEN_PAREN, Identifier(String::from("FLAG")), EQ, NumVal(0),
+             CLOSED_PAREN, SEMICOLON, PUT, SKIP, DATA, OPEN_PAREN, STRING(String::from("HELLO WORLD!")),
+              CLOSED_PAREN, SEMICOLON, END, Identifier(String::from("LOOP")), SEMICOLON, END, 
+              Identifier(String::from("HELLO")), SEMICOLON
+            ];
 
+            assert_eq!(output, hello_world(&input));
+        }
+
+        #[test]
+        fn eq_with_statement()
+        {
+            let input = "/*A program to assign a variable*/A = 4;";
+            let output = vec![Identifier(String::from("A")),EQ,NumVal(4),SEMICOLON];
+
+            assert_eq!(hello_world(input),output);
+        }
     }
 
 
