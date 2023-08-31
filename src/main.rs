@@ -41,7 +41,7 @@ fn main() {
 
     
     //println!("{}", compilable_file);
-    lexer::hello_world(compilable_file);
+    lexer::hello_world(&compilable_file);
 
 
 
