@@ -1,0 +1,9 @@
+HELLO:   PROCEDURE OPTIONS (MAIN);
+
+             FLAG = 0;
+
+LOOP:     DO WHILE (FLAG = 0);        
+             PUT SKIP DATA('HELLO WORLD!');
+          END LOOP;
+
+END HELLO;
