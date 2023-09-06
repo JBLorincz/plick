@@ -1,5 +1,5 @@
 
-    pub fn hello_world(compilable_file: &str) -> Vec<Token>
+    pub fn get_list_of_vectors(compilable_file: &str) -> Vec<Token>
     {
         let mut char_iter = compilable_file.chars();
         let mut token_iter = token_iterator::new(char_iter);
@@ -207,7 +207,7 @@
 
             let output: Vec<Token> = vec![Token::Identifier("FLAG".to_string()), Token::EQ, Token::NumVal(0),Token::SEMICOLON];
 
-        assert_eq!(output,hello_world(input));            
+        assert_eq!(output,get_list_of_vectors(input));            
 
         }
 
@@ -224,7 +224,7 @@
               Identifier(String::from("HELLO")), SEMICOLON
             ];
 
-            assert_eq!(output, hello_world(&input));
+            assert_eq!(output, get_list_of_vectors(&input));
         }
         #[test]
         fn hello_world_with_commentparse()
@@ -239,7 +239,7 @@
               Identifier(String::from("HELLO")), SEMICOLON
             ];
 
-            assert_eq!(output, hello_world(&input));
+            assert_eq!(output, get_list_of_vectors(&input));
         }
 
         #[test]
@@ -248,7 +248,7 @@
             let input = "/*A program to assign a variable*/A = 4;";
             let output = vec![Identifier(String::from("A")),EQ,NumVal(4),SEMICOLON];
 
-            assert_eq!(hello_world(input),output);
+            assert_eq!(get_list_of_vectors(input),output);
         }
     }
 

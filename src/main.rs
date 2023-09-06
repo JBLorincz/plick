@@ -1,8 +1,7 @@
 use std::{env, fs::{self}};
 
-
 mod lexer;
-
+mod parser;
 //Steps:
 //1. File access - read the files
 //2. Character manipulator - read chars, maybe strip comments here.
@@ -41,7 +40,7 @@ fn main() {
 
     
     //println!("{}", compilable_file);
-    lexer::hello_world(&compilable_file);
+    lexer::get_list_of_vectors(&compilable_file);
 
 
 
