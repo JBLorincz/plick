@@ -40,11 +40,13 @@ struct Function<'a>{
 
 
 
-pub fn parse_numeric(numeric_token: &lexer::Token) -> Expr
+pub fn parse_numeric<'a>(numeric_token: &lexer::Token, token_manager: &'a mut lexer::TokenManager) -> Expr<'a>
 {
     if let Token::NumVal(value) = numeric_token
     {
-        Expr::NumVal { value: *value }
+        //TODO: implement advancing the lexer here.
+        token_manager.next_token();//loads the next token into the token manager.
+        return Expr::NumVal { value: *value  };
     }
     else {
         panic!("Failed to parse numeric!");
@@ -54,6 +56,8 @@ pub fn parse_numeric(numeric_token: &lexer::Token) -> Expr
 
 
 mod tests {
+
+    use crate::lexer::TokenManager;
 
     use super::*;
 
@@ -95,7 +99,10 @@ mod tests {
     fn test_parsing_numeric()
     {
         let my_token = lexer::Token::NumVal(4);
-        let result: Expr = parse_numeric(&my_token);
+
+        let mut tok_man = TokenManager::new("");
+
+        let result: Expr = parse_numeric(&my_token,&mut tok_man);
         
        if let Expr::NumVal{value: val} = result
        {

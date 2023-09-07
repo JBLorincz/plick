@@ -2,7 +2,7 @@
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
     {
         let mut char_iter = compilable_file.chars();
-        let mut token_iter = token_iterator::new(char_iter);
+        let mut token_iter = TokenIterator::new(char_iter);
 
         let result = token_iter.collect();
         println!("{:?}",result);
@@ -12,7 +12,7 @@
     pub fn get_next_token(compilable_file: String) -> Option<Token>
     {
         let mut char_iter = compilable_file.chars();
-        let mut token_iter = token_iterator::new(char_iter);
+        let mut token_iter = TokenIterator::new(char_iter);
         token_iter.next()
     }
     
@@ -21,16 +21,43 @@
     //    let mut char_iter = compilable_file.chars();
     //    token_iterator::new(char_iter)
     //}
-    struct token_iterator<'a> {
+    pub struct TokenManager<'a>
+    {
+        pub current_token: Option<Token>,
+        token_iter: TokenIterator<'a>
+    }
+
+    impl<'a> TokenManager<'a>
+    {
+        pub fn new(token_string: &str) -> TokenManager
+        {
+            let mut chars_over = TokenIterator::new(token_string.chars());
+            
+            let mut result = TokenManager { current_token: None, token_iter: chars_over };
+
+            result.next_token();
+
+            result
+        }
+
+        pub fn next_token(&mut self) -> &Option<Token>
+        {
+            self.current_token = self.token_iter.next();
+
+            &self.current_token
+        }
+    }
+
+    struct TokenIterator<'a> {
         char_iter: std::str::Chars<'a>,
         next_char: char,
         semicolon_next: Option<char>,
 
     }
-    impl<'a> token_iterator<'a> {
-        fn new(char_iter: std::str::Chars<'_>) -> token_iterator
+    impl<'a> TokenIterator<'a> {
+        fn new(char_iter: std::str::Chars<'_>) -> TokenIterator
         {
-            token_iterator { 
+            TokenIterator { 
                 char_iter,
                 next_char: ' ',//this is a space character. Don't touch.
                 semicolon_next: None //stores whether a semicolon was loaded and should
@@ -38,7 +65,7 @@
             }
         }
     }
-    impl Iterator for token_iterator<'_> {
+    impl Iterator for TokenIterator<'_> {
         type Item = Token;
 
         fn next(&mut self) -> Option<Self::Item>

@@ -1,5 +1,7 @@
 use std::{env, fs::{self}};
 
+use lexer::Token;
+
 mod lexer;
 mod parser;
 //Steps:
@@ -50,9 +52,14 @@ fn main() {
 
 fn drive_compilation(compilable_file: &str)
 {
-    let mut token_list: Vec<lexer::Token> = lexer::get_token_list(compilable_file);
-    while let Some(token) = token_list.pop()
+    //let mut token_list: Vec<lexer::Token> = lexer::get_token_list(compilable_file);
+    let mut token_manager = lexer::TokenManager::new(compilable_file);
+    while let Some(ref token) = token_manager.current_token
     {
-
+        match token 
+        {
+            //lexer::Token::NumVal(int) =>  parser::parse_numeric(int,&token_manager);,
+            _ => continue,
+        }
     }
 }
