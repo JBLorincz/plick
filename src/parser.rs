@@ -1,17 +1,17 @@
 use crate::lexer::{self, Token};
 
 
-pub enum Expr<'a>
+pub enum Expr
 {
     Binary {
         operator: char,
-        left: Box<Expr<'a>>,
-        right: Box<Expr<'a>>
+        left: Box<Expr>,
+        right: Box<Expr>
     },
 
     Call {
         fn_name: String,
-        args: Vec<Expr<'a>>
+        args: Vec<Expr>
     },
     NumVal {
         value: i32
@@ -20,7 +20,7 @@ pub enum Expr<'a>
         
     },
     Variable {
-        name: &'a str
+        name: String 
     }
 
         
@@ -35,16 +35,15 @@ struct Prototype<'a> {
 
 struct Function<'a>{
     proto: Prototype<'a>,
-    body: Expr<'a>
+    body: Expr
 }
 
 
 
-pub fn parse_numeric<'a>(numeric_token: &lexer::Token, token_manager: &'a mut lexer::TokenManager) -> Expr<'a>
+pub fn parse_numeric<'a>(numeric_token: &lexer::Token, token_manager: &'a mut lexer::TokenManager) -> Expr
 {
     if let Token::NumVal(value) = numeric_token
     {
-        //TODO: implement advancing the lexer here.
         token_manager.next_token();//loads the next token into the token manager.
         return Expr::NumVal { value: *value  };
     }
@@ -53,7 +52,40 @@ pub fn parse_numeric<'a>(numeric_token: &lexer::Token, token_manager: &'a mut le
     }
 }
 
+pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
+     let identifier_string: String;
+   if let Some(Token::Identifier(ref val)) = token_manager.current_token 
+   {
+        identifier_string = val.clone();
+   }
+   else {
+       panic!("failed to parse identifier!");
+   }
+        let args_list: Vec<Expr> = vec![];
+       token_manager.next_token();// prime next token
+       if let Some(Token::OPEN_PAREN) = token_manager.current_token
+       {
+           //function call here.
+           //now we loop through each expression in the arguments
+           let expecting_comma: bool = false;
+           loop {
+               token_manager.next_token();
 
+                if let Some(Token::CLOSED_PAREN) = token_manager.current_token
+                {
+                    break;
+                }
+                
+           }
+            return Expr::Call { fn_name: identifier_string, args: args_list };
+       }
+       else 
+       {
+            return Expr::Variable { name: identifier_string}; 
+       }
+   
+   
+}
 
 mod tests {
 
@@ -72,9 +104,9 @@ mod tests {
            right: Box::new(RHS),
        };
 
-       let LHSVar = Expr::Variable { name: "x" };
+       let LHSVar = Expr::Variable { name: String::from("x") };
        
-       let RHSVar = Expr::Variable { name: "y" };
+       let RHSVar = Expr::Variable { name: String::from("y") };
         
        let test = Expr::Binary {
            operator: '+',
@@ -82,7 +114,7 @@ mod tests {
            right: Box::new(RHSVar),
        };   
 
-       let LHSVar = Expr::Variable { name: "x" };
+       let LHSVar = Expr::Variable { name: String::from("x") };
        if let Expr::Variable { name } = LHSVar
        {
             assert_eq!(name, "x");
@@ -112,5 +144,5 @@ mod tests {
            panic!("Result of parse numeric was not a numeric expression!");
        }
     }
-
 }
+
