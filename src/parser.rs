@@ -61,20 +61,44 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    else {
        panic!("failed to parse identifier!");
    }
-        let args_list: Vec<Expr> = vec![];
+        let mut args_list: Vec<Expr> = vec![];
        token_manager.next_token();// prime next token
        if let Some(Token::OPEN_PAREN) = token_manager.current_token
        {
            //function call here.
            //now we loop through each expression in the arguments
-           let expecting_comma: bool = false;
+           let mut expecting_comma: bool = false;// expecting comma does not affect breaking
            loop {
                token_manager.next_token();
 
                 if let Some(Token::CLOSED_PAREN) = token_manager.current_token
                 {
+                    token_manager.next_token();// eat the next token, ready for next use
                     break;
                 }
+                else if let Some(Token::COMMA) = token_manager.current_token 
+                {
+                    if expecting_comma
+                    {
+                        token_manager.next_token();
+                        expecting_comma = false;
+
+                    }
+                    else 
+                    {
+                        panic!("Expected an expression, found a comma!!");     
+                    }
+                }
+                else if let Some(ref Token) = token_manager.current_token
+                {
+                    //parse as expression
+                    let parsed_arg: Expr = parse_expression(token_manager);
+
+                    args_list.push(parsed_arg);
+
+                    expecting_comma = true;
+                }
+
                 
            }
             return Expr::Call { fn_name: identifier_string, args: args_list };
@@ -85,6 +109,10 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
        }
    
    
+}
+
+pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+   Expr::Variable { name: String::from("test") } 
 }
 
 mod tests {

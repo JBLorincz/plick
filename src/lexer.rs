@@ -77,6 +77,7 @@
                     match cha {
                        ')' => Token::CLOSED_PAREN,
                        '(' => Token::OPEN_PAREN,
+                       ',' => Token::COMMA,
                        _ => Token::SEMICOLON,
                     }
                     );
@@ -94,6 +95,10 @@
                 else if self.next_char == ')'
                 {
                     return Some(Token::CLOSED_PAREN);
+                }
+                else if self.next_char == ','
+                {
+                    return Some(Token::COMMA);
                 }
                 else if self.next_char == '/'
                 {
@@ -157,6 +162,11 @@
                     self.semicolon_next = Some('(');
                     break;
                 }
+                else if self.next_char == ','
+                {
+                    self.semicolon_next = Some(',');
+                    break;
+                }
                 else if self.next_char == ':'
                 {
                     //current token ends in a semicolon, we can return
@@ -183,6 +193,7 @@
                 "PROCEDURE" => Token::PROCEDURE,
                 "PROC" => Token::PROCEDURE,
                 ";" => Token::SEMICOLON,
+                "," => Token::COMMA,
                 "DO" => Token::DO,
                 "=" => Token::EQ,
                 "PUT" => Token::PUT,
@@ -214,6 +225,7 @@
         STRING(String),
         EQ,
         SEMICOLON,
+        COMMA,
         DATA,
         GET,
         OPTIONS,
@@ -281,6 +293,16 @@
             let output = vec![Identifier(String::from("A")),EQ,NumVal(4),SEMICOLON];
 
             assert_eq!(get_token_list(input),output);
+        }
+
+        #[test]
+        fn test_lexing_function_call()
+        {
+let input = "MIN(2,3);";
+            let output = vec![Identifier(String::from("MIN")),OPEN_PAREN,NumVal(2),COMMA,NumVal(3),CLOSED_PAREN,SEMICOLON];
+
+            assert_eq!(get_token_list(input),output);
+
         }
     }
 
