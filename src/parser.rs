@@ -1,3 +1,5 @@
+use crate::lexer::{self, Token};
+
 
 pub enum Expr<'a>
 {
@@ -38,9 +40,15 @@ struct Function<'a>{
 
 
 
-fn parse_numeric(numeric_token: Expr)
+pub fn parse_numeric(numeric_token: &lexer::Token) -> Expr
 {
-
+    if let Token::NumVal(value) = numeric_token
+    {
+        Expr::NumVal { value: *value }
+    }
+    else {
+        panic!("Failed to parse numeric!");
+    }
 }
 
 
@@ -86,7 +94,16 @@ mod tests {
     #[test]
     fn test_parsing_numeric()
     {
-
+        let my_token = lexer::Token::NumVal(4);
+        let result: Expr = parse_numeric(&my_token);
+        
+       if let Expr::NumVal{value: val} = result
+       {
+            assert_eq!(4,val);
+       }
+       else {
+           panic!("Result of parse numeric was not a numeric expression!");
+       }
     }
 
 }

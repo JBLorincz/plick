@@ -40,9 +40,19 @@ fn main() {
 
     
     //println!("{}", compilable_file);
-    lexer::get_list_of_vectors(&compilable_file);
+
+    
 
 
 
+}
 
+
+fn drive_compilation(compilable_file: &str)
+{
+    let mut token_list: Vec<lexer::Token> = lexer::get_token_list(compilable_file);
+    while let Some(token) = token_list.pop()
+    {
+
+    }
 }

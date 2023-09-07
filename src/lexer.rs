@@ -1,5 +1,5 @@
 
-    pub fn get_list_of_vectors(compilable_file: &str) -> Vec<Token>
+    pub fn get_token_list(compilable_file: &str) -> Vec<Token>
     {
         let mut char_iter = compilable_file.chars();
         let mut token_iter = token_iterator::new(char_iter);
@@ -15,7 +15,12 @@
         let mut token_iter = token_iterator::new(char_iter);
         token_iter.next()
     }
-
+    
+    //pub fn get_token_iterator(compilable_file: String) -> token_iterator<'_>
+    //{
+    //    let mut char_iter = compilable_file.chars();
+    //    token_iterator::new(char_iter)
+    //}
     struct token_iterator<'a> {
         char_iter: std::str::Chars<'a>,
         next_char: char,
@@ -207,7 +212,7 @@
 
             let output: Vec<Token> = vec![Token::Identifier("FLAG".to_string()), Token::EQ, Token::NumVal(0),Token::SEMICOLON];
 
-        assert_eq!(output,get_list_of_vectors(input));            
+        assert_eq!(output,get_token_list(input));            
 
         }
 
@@ -224,7 +229,7 @@
               Identifier(String::from("HELLO")), SEMICOLON
             ];
 
-            assert_eq!(output, get_list_of_vectors(&input));
+            assert_eq!(output, get_token_list(&input));
         }
         #[test]
         fn hello_world_with_commentparse()
@@ -239,7 +244,7 @@
               Identifier(String::from("HELLO")), SEMICOLON
             ];
 
-            assert_eq!(output, get_list_of_vectors(&input));
+            assert_eq!(output, get_token_list(&input));
         }
 
         #[test]
@@ -248,7 +253,7 @@
             let input = "/*A program to assign a variable*/A = 4;";
             let output = vec![Identifier(String::from("A")),EQ,NumVal(4),SEMICOLON];
 
-            assert_eq!(get_list_of_vectors(input),output);
+            assert_eq!(get_token_list(input),output);
         }
     }
 
