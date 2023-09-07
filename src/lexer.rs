@@ -178,7 +178,7 @@
             {
                 return Some(Token::NumVal(number));
             }
-            Some(match current_word_buffer.as_str() 
+            Some(match current_word_buffer.to_uppercase().as_str()
             {
                 "PROCEDURE" => Token::PROCEDURE,
                 "PROC" => Token::PROCEDURE,

@@ -2,8 +2,8 @@ HELLO:   PROCEDURE OPTIONS (MAIN);
 
              FLAG = 0;
 
-LOOP:     DO WHILE (FLAG = 0);        
-             PUT SKIP DATA('HELLO WORLD!');
+LOOP:     do while (FLAG = 0);        
+             PUT skIp DATA('HELLO WORLD!');
           END LOOP;
 
-END HELLO;
+end HELLO;
