@@ -57,6 +57,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    if let Some(Token::Identifier(ref val)) = token_manager.current_token 
    {
         identifier_string = val.clone();
+        println!("The identifier string is: {}",identifier_string);
    }
    else {
        panic!("failed to parse identifier!");
@@ -65,14 +66,17 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
        token_manager.next_token();// prime next token
        if let Some(Token::OPEN_PAREN) = token_manager.current_token
        {
+           println!("Found an open parenthesis first!");
            //function call here.
            //now we loop through each expression in the arguments
            let mut expecting_comma: bool = false;// expecting comma does not affect breaking
+            println!("Turning expecting comma off!"); 
+            token_manager.next_token();
            loop {
-               token_manager.next_token();
-
+                println!("Looping!");
                 if let Some(Token::CLOSED_PAREN) = token_manager.current_token
                 {
+                    println!("found a closed parenthesis!");
                     token_manager.next_token();// eat the next token, ready for next use
                     break;
                 }
@@ -80,8 +84,9 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
                 {
                     if expecting_comma
                     {
-                        token_manager.next_token();
+                        println!("Found comma at right place, continuing!");
                         expecting_comma = false;
+                        token_manager.next_token();// eat the token
 
                     }
                     else 
@@ -92,11 +97,17 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
                 else if let Some(ref Token) = token_manager.current_token
                 {
                     //parse as expression
+                    println!("Found a token called {:#?}", *Token);
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     args_list.push(parsed_arg);
 
                     expecting_comma = true;
+                    println!("turned expecting comma on!");
+                }
+                else 
+                {
+                    panic!("{:?}",token_manager.current_token);
                 }
 
                 
@@ -112,6 +123,11 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
 }
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+    if let Some(Token::NumVal(value)) = token_manager.current_token
+    {
+        token_manager.next_token();
+        return Expr::NumVal { value };
+    }
    Expr::Variable { name: String::from("test") } 
 }
 
@@ -183,6 +199,14 @@ mod tests {
             assert_eq!(fn_name,"MIN");
             assert_eq!(args.len(),2);
 
+            if let Expr::NumVal { value } = args[0]
+            {
+                assert_eq!(value,2);
+            }
+            else
+            {
+                panic!("args[0] was not type numval");
+            }
         }
         else
         {

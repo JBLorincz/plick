@@ -31,7 +31,7 @@
     {
         pub fn new(token_string: &str) -> TokenManager
         {
-            let mut chars_over = TokenIterator::new(token_string.chars());
+            let chars_over = TokenIterator::new(token_string.chars());
             
             let mut result = TokenManager { current_token: None, token_iter: chars_over };
 
