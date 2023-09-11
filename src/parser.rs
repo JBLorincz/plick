@@ -137,15 +137,12 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 }
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
-    if let Some(Token::NumVal(value)) = token_manager.current_token
-    {
-        token_manager.next_token();
-        return Expr::NumVal { value };
-    }
-   Expr::Variable { name: String::from("test") } 
-}
-
-pub fn parse_primary(token_manager: &mut lexer::TokenManager) -> Expr {
+   // if let Some(Token::NumVal(value)) = token_manager.current_token
+   // {
+   //     token_manager.next_token();
+   //     return Expr::NumVal { value };
+   // }
+   //Expr::Variable { name: String::from("test") } 
     match token_manager.current_token.as_ref().unwrap() {
     Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
     Token::Identifier(_) => parse_identifier(token_manager),
@@ -261,6 +258,48 @@ mod tests {
         let mut tok_man = TokenManager::new("(2 min(2,3))");
         
         let result: Expr = parse_parenthesis_expression(&mut tok_man);
+    }
+
+    #[test]
+    fn test_parse_primaries()
+    {
+        let mut tok_man = TokenManager::new("2; MIN(9,254); FLAG; (4);");
+
+        
+            let result = parse_expression(&mut tok_man);
+            tok_man.next_token();
+            if let Expr::NumVal { value } = result
+            {
+                assert_eq!(value,2);
+            }
+            else { panic!("Not a numval 2!"); }
+
+            let result = parse_expression(&mut tok_man);
+            tok_man.next_token();
+            if let Expr::Call { fn_name, args } = result
+            {
+                assert_eq!("MIN", fn_name);
+            }
+            else { panic!("Not a MIN func!"); }
+
+            let result = parse_expression(&mut tok_man);
+            tok_man.next_token();
+            
+            if let Expr::Variable {name} = result
+            {
+                assert_eq!("FLAG", name);
+            }
+            else { panic!("Not a variable named FLAG!"); }
+
+            let result = parse_expression(&mut tok_man);
+            tok_man.next_token()
+                ;
+            if let Expr::NumVal { value } = result
+            {
+                assert_eq!(4, value);
+            }
+            else { panic!("Not a numval of value 4!"); }
+
     }
 }
 
