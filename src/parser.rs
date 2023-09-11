@@ -40,12 +40,12 @@ struct Function<'a>{
 
 
 
-pub fn parse_numeric<'a>(numeric_token: &lexer::Token, token_manager: &'a mut lexer::TokenManager) -> Expr
+pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
 {
-    if let Token::NumVal(value) = numeric_token
+    if let Some(Token::NumVal(value)) = token_manager.current_token
     {
         token_manager.next_token();//loads the next token into the token manager.
-        return Expr::NumVal { value: *value  };
+        return Expr::NumVal { value  };
     }
     else {
         panic!("Failed to parse numeric!");
@@ -145,6 +145,15 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
    Expr::Variable { name: String::from("test") } 
 }
 
+pub fn parse_primary(token_manager: &mut lexer::TokenManager) -> Expr {
+    match token_manager.current_token.as_ref().unwrap() {
+    Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
+    Token::Identifier(_) => parse_identifier(token_manager),
+    Token::NumVal(_) => parse_numeric(token_manager),
+    other => panic!("Can't parse another token type!")
+    }
+}
+
 mod tests {
 
     use crate::lexer::TokenManager;
@@ -188,11 +197,10 @@ mod tests {
     #[test]
     fn test_parsing_numeric()
     {
-        let my_token = lexer::Token::NumVal(4);
 
-        let mut tok_man = TokenManager::new("");
+        let mut tok_man = TokenManager::new("4");
 
-        let result: Expr = parse_numeric(&my_token,&mut tok_man);
+        let result: Expr = parse_numeric(&mut tok_man);
         
        if let Expr::NumVal{value: val} = result
        {
@@ -244,6 +252,15 @@ mod tests {
         {
             panic!("NOT A NUMVAL!");
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_parse_paren_bad_syntax()
+    {
+        let mut tok_man = TokenManager::new("(2 min(2,3))");
+        
+        let result: Expr = parse_parenthesis_expression(&mut tok_man);
     }
 }
 
