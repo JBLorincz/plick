@@ -52,6 +52,7 @@ pub fn parse_numeric<'a>(numeric_token: &lexer::Token, token_manager: &'a mut le
     }
 }
 
+//parses identifiers like variable names but also function calls
 pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
      let identifier_string: String;
    if let Some(Token::Identifier(ref val)) = token_manager.current_token 
