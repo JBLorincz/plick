@@ -1,6 +1,6 @@
 use crate::lexer::{self, Token};
 
-
+#[derive(Debug)]
 pub enum Expr
 {
     Binary {
@@ -171,6 +171,23 @@ mod tests {
        else {
            panic!("Result of parse numeric was not a numeric expression!");
        }
+    }
+
+    #[test]
+    fn test_parsing_identifier()
+    {
+        let mut tok_man = TokenManager::new("MIN(2,3);");
+        let result = parse_identifier(&mut tok_man);
+        if let Expr::Call{fn_name, args} = result
+        {
+            assert_eq!(fn_name,"MIN");
+            assert_eq!(args.len(),2);
+
+        }
+        else
+        {
+            panic!("Was not a call Expr");
+        }
     }
 }
 
