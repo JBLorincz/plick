@@ -207,6 +207,7 @@ mod tests {
             {
                 panic!("args[0] was not type numval");
             }
+            assert_eq!(Token::SEMICOLON, tok_man.current_token.unwrap());
         }
         else
         {
