@@ -137,12 +137,13 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 }
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
-   // if let Some(Token::NumVal(value)) = token_manager.current_token
-   // {
-   //     token_manager.next_token();
-   //     return Expr::NumVal { value };
-   // }
-   //Expr::Variable { name: String::from("test") } 
+    let left_handed_side = parse_primary_expression(token_manager);
+
+    left_handed_side
+}
+
+pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
+{
     match token_manager.current_token.as_ref().unwrap() {
     Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
     Token::Identifier(_) => parse_identifier(token_manager),

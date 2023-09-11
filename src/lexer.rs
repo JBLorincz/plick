@@ -118,6 +118,11 @@
                             }
                         }
                     }
+                    else if next_next_char.is_whitespace() //necessary cuz we eat the next next
+                                                           //token
+                    {
+                        return Some(Token::DIVIDE);
+                    }
                 }
                 else if !self.next_char.is_whitespace()
                 {
@@ -194,6 +199,10 @@
                 "PROC" => Token::PROCEDURE,
                 ";" => Token::SEMICOLON,
                 "," => Token::COMMA,
+                "*" => Token::MULTIPLY,
+                "/" => Token::DIVIDE,
+                "+" => Token::PLUS,
+                "-" => Token::MINUS,
                 "DO" => Token::DO,
                 "=" => Token::EQ,
                 "PUT" => Token::PUT,
@@ -217,6 +226,10 @@
         CLOSED_PAREN,
         PROCEDURE, // the procedure or proc token
         DO,
+        PLUS,
+        MINUS,
+        MULTIPLY,
+        DIVIDE,
         WHILE,
         END,
         PUT,
@@ -303,6 +316,14 @@ let input = "MIN(2,3);";
 
             assert_eq!(get_token_list(input),output);
 
+        }
+
+        #[test]
+        fn test_binary_operator_lexing()
+        {let input = "+ / / + + - *";
+            let output = vec![PLUS, DIVIDE, DIVIDE, PLUS, PLUS, MINUS, MULTIPLY];
+
+            assert_eq!(get_token_list(input),output);
         }
     }
 
