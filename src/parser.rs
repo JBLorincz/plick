@@ -123,6 +123,19 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    
 }
 
+//the current token is a '(' / Token::OPEN_PAREN
+pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> Expr {
+   token_manager.next_token();
+   let result: Expr = parse_expression(token_manager);
+    
+   if token_manager.current_token != Some(Token::CLOSED_PAREN)
+   {
+       panic!("Missing closed parenthesis on parenthesis expression!");
+   }
+
+   return result;
+}
+
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     if let Some(Token::NumVal(value)) = token_manager.current_token
     {
@@ -213,6 +226,23 @@ mod tests {
         else
         {
             panic!("Was not a call Expr");
+        }
+    }
+
+    #[test]
+    fn test_parse_parenthesis_expression() 
+    {
+        let mut tok_man = TokenManager::new("(25665)");
+
+        let result: Expr = parse_parenthesis_expression(&mut tok_man);
+
+        if let Expr::NumVal{value} =  result
+        {
+            assert_eq!(25665,value);
+        }
+        else
+        {
+            panic!("NOT A NUMVAL!");
         }
     }
 }
