@@ -4,7 +4,7 @@ use crate::lexer::{self, Token};
 pub enum Expr
 {
     Binary {
-        operator: char,
+        operator: lexer::Token,
         left: Box<Expr>,
         right: Box<Expr>
     },
@@ -138,10 +138,63 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     let left_handed_side = parse_primary_expression(token_manager);
+    return match token_manager.current_token {
+        Some(Token::PLUS) | Some(Token::MINUS) | Some(Token::DIVIDE) | Some(Token::MULTIPLY) => {
+             let token_precedence = get_binary_operator_precedence(token_manager.current_token.as_ref().unwrap());
+           // let right_handed_side = parse_right_side_of_binary_expression(token_manager, token_precedence);
 
-    left_handed_side
+           // return Expr::Binary 
+           // { 
+           //     operator: Token::PLUS,
+           //     left: Box::new(left_handed_side), 
+           //     right: Box::new(right_handed_side) 
+           // }
+           build_recursive_binary_tree(token_manager, left_handed_side, token_precedence )
+        }
+        _ =>  left_handed_side
+    }
 }
 
+pub fn parse_right_side_of_binary_expression(token_manager: &mut lexer::TokenManager, precedence: i32) -> Expr {
+   Expr::NumVal { value: 2 }
+}
+pub fn build_recursive_binary_tree(token_manager: &mut lexer::TokenManager, LHS: Expr, precendence: i32) -> Expr {
+    //LHS has to be a binary node.
+    let operator_token: Token = token_manager.current_token.as_ref().unwrap().clone(); 
+    token_manager.next_token();
+    //if the current precedence is GREATER than the lhs precendence,
+    if let Expr::Binary { operator, left, right } = LHS {
+        if precendence > get_binary_operator_precedence(&operator)
+        {                        // meaning we have to make the RHS side of the LHS the LHS of our
+                                 // new RHS
+            let new_rhs = parse_expression(token_manager);
+
+            //take 2 + 3 * 5
+            //normally it will look like a tree of
+            //           /   3
+            //    bin - >  - +
+            //           \   2
+            //
+            //    but we will make it look like
+            //
+            //           /   (3 * 5)
+            //    bin - >  - +
+            //           \   2
+            let inner_binary = Expr::Binary { operator: operator_token, left: right, right: Box::new(new_rhs) };
+            return Expr::Binary { operator, left, right: Box::new(inner_binary) };
+        }
+        else
+        {
+            let rhs_expression = parse_expression(token_manager);
+            Expr::Binary { operator: operator_token, left: Box::new(Expr::Binary { operator, left, right }), right: Box::new(rhs_expression)}
+        }
+    }
+    else
+    {
+        let right = parse_expression(token_manager);
+        return Expr::Binary { operator: operator_token, left: Box::new(LHS), right: Box::new(right) };
+    }
+}
 pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
 {
     match token_manager.current_token.as_ref().unwrap() {
@@ -150,6 +203,17 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
     Token::NumVal(_) => parse_numeric(token_manager),
     other => panic!("Can't parse another token type!")
     }
+}
+
+pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
+{
+   match token {
+    Token::PLUS => 20,
+    Token::MINUS => 20,
+    Token::MULTIPLY => 40,
+    Token::DIVIDE => 40,
+    _ => -1
+   } 
 }
 
 mod tests {
@@ -164,7 +228,7 @@ mod tests {
         let RHS = Expr::NumVal { value: 6 };
 
        let test = Expr::Binary {
-           operator: '+',
+           operator: Token::PLUS,
            left: Box::new(LHS),
            right: Box::new(RHS),
        };
@@ -174,7 +238,7 @@ mod tests {
        let RHSVar = Expr::Variable { name: String::from("y") };
         
        let test = Expr::Binary {
-           operator: '+',
+           operator: Token::PLUS,
            left: Box::new(LHSVar),
            right: Box::new(RHSVar),
        };   
@@ -301,6 +365,87 @@ mod tests {
             }
             else { panic!("Not a numval of value 4!"); }
 
+    }
+
+    #[test]
+    fn test_binaries()
+    {
+        let mut token_manager = TokenManager::new("2 + 2");
+        let result = parse_expression(&mut token_manager);
+
+        if let Expr::Binary { operator, left, right } = result
+        {
+            assert_eq!(Token::PLUS, operator);
+
+            let left_expr: Expr = *left;
+
+            if let Expr::NumVal { value } = left_expr{
+                assert_eq!(value, 2);
+            }
+            else
+            {
+                panic!("not numval");
+            }
+
+            let right_expr: Expr = *right;
+            if let Expr::NumVal { value } = right_expr{
+                assert_eq!(value, 2);
+            }
+            else
+            {
+                panic!("not numval");
+            }
+        }
+        else
+        {
+            panic!("Expression was not a binary, was a {:?}", result);
+        }
+
+        //2. nested binaries
+        //
+        let mut token_manager = TokenManager::new("2 + 3 * 5");
+        let result = parse_expression(&mut token_manager);
+
+        if let Expr::Binary { operator, left, right } = result
+        { // this is the 2 in 2 + 3 * 5
+            assert_eq!(Token::PLUS, operator);
+
+            let left_expr: Expr = *left;
+
+            if let Expr::NumVal { value } = left_expr{
+                assert_eq!(value, 2);
+            }
+            else
+            {
+                panic!("not numval");
+            }
+
+            let right_expr: Expr = *right; // this is the 3 * 5 in 2 + 3 * 5
+            if let Expr::Binary { operator, left, right } = right_expr{
+                
+                if let Expr::NumVal { value } = *left{
+                    assert_eq!(3, value);
+                }   
+                else { panic!("not a numval!")}
+                
+                if let Token::MULTIPLY  = operator{
+                }   
+                else { panic!("not a multiply!")}
+                
+                if let Expr::NumVal { value } = *right{
+                    assert_eq!(5, value);
+                }   
+                else { panic!("not a numval!")}
+            }
+            else
+            {
+                panic!("not numval");
+            }
+        }
+        else
+        {
+            panic!("Expression was not a binary, was a {:?}", result);
+        }
     }
 }
 
