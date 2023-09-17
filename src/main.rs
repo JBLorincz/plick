@@ -1,6 +1,7 @@
 use std::{env, fs::{self}};
 
 use lexer::Token;
+use parser::{parse_expression, parse_function, parse_opening};
 
 mod lexer;
 mod parser;
@@ -52,14 +53,36 @@ fn main() {
 
 fn drive_compilation(compilable_file: &str)
 {
-    //let mut token_list: Vec<lexer::Token> = lexer::get_token_list(compilable_file);
     let mut token_manager = lexer::TokenManager::new(compilable_file);
+    parse_opening(&mut token_manager);
     while let Some(ref token) = token_manager.current_token
     {
         match token 
         {
-            //lexer::Token::NumVal(int) =>  parser::parse_numeric(int,&token_manager);,
-            _ => continue,
+            Token::SEMICOLON | Token::LABEL(_)  => {
+                token_manager.next_token();
+            },
+           Token::PROCEDURE => {
+                parse_function(&mut token_manager);
+           }, 
+            _ => {parse_expression(&mut token_manager);},
         }
+    }
+}
+
+
+
+mod tests {
+    use crate::drive_compilation;
+
+    
+    #[test]
+    fn drive_hello_world(){
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        2 + 2 + 4 / 6; A + 4;";
+
+        drive_compilation(input);
+
+        
     }
 }

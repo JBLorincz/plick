@@ -298,6 +298,79 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager) -> Function
    Function { proto, body: exp } 
 }
 
+///parses the beginning of a PL/1 Program.
+///They look like this:
+/// ANY_LABEL_HERE : PROCDURE OPTIONS (MAIN);
+pub fn parse_opening(token_manager: &mut lexer::TokenManager){
+   if let Some(Token::LABEL(_)) = token_manager.current_token
+   {
+       token_manager.next_token();
+   }
+   else
+   {
+       panic!("Program not beginning with a label!");
+   }
+    if let Some(Token::PROCEDURE) = token_manager.current_token
+   {
+       token_manager.next_token();
+   }
+   else
+   {
+       panic!("Program missing main proc");
+   }
+     if let Some(Token::OPTIONS) = token_manager.current_token
+   {
+       token_manager.next_token();
+   }
+   else
+   {
+       panic!("Program missing OPTIONS attribute on main procedure!");
+   }
+      if let Some(Token::OPEN_PAREN) = token_manager.current_token
+   {
+       token_manager.next_token();
+   }
+   else
+   {
+       panic!("Program missing OPEN PAREN on main procedure!");
+   }
+   if let Some(Token::Identifier(ref var)) = token_manager.current_token
+   {
+       if var == "MAIN"
+       {
+           token_manager.next_token();
+       }
+       else
+       {
+           panic!("Option in main procedure is not MAIN");
+       }
+   }
+   else
+   {
+       panic!("Program missing MAIN OPTION on main procedure!");
+   }
+    if let Some(Token::CLOSED_PAREN) = token_manager.current_token
+   {
+       token_manager.next_token();
+   }
+   else
+   {
+       panic!("Program missing CLOSED PAREN on main procedure!");
+   }
+   parse_semicolon(token_manager);
+}
+
+pub fn parse_semicolon(token_manager: &mut lexer::TokenManager)
+{
+    if let Some(Token::SEMICOLON) = token_manager.current_token
+    {
+        token_manager.next_token();
+    }
+    else
+    {
+        panic!("Expected semicolon!");
+    }
+}
 mod tests {
 
     use crate::lexer::TokenManager;
@@ -439,8 +512,8 @@ mod tests {
             else { panic!("Not a variable named FLAG!"); }
 
             let result = parse_expression(&mut tok_man);
-            tok_man.next_token()
-                ;
+            tok_man.next_token();
+
             if let Expr::NumVal { value } = result
             {
                 assert_eq!(4, value);
