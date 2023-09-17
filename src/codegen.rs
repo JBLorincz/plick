@@ -4,6 +4,7 @@ use crate::parser;
 use inkwell::builder;
 use inkwell::context;
 use inkwell::module;
+use inkwell::values::AnyValue;
 use inkwell::values::FloatValue;
 
     ///The object that drives compilation.
@@ -19,18 +20,18 @@ use inkwell::values::FloatValue;
     pub trait CodeGenable
     {
 
-        unsafe fn codegen<'a>(&self, compiler: &'a Compiler<'a>) -> FloatValue<'a>;
+        unsafe fn codegen<'a>(&'a self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>;
     }
 
 
     impl CodeGenable for parser::Expr
     {
 
-        unsafe fn codegen<'a>(&self, compiler: &'a Compiler<'a>) -> FloatValue<'a>
+        unsafe fn codegen<'a>(&'a self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>
         {
             match self {
-                parser::Expr::NumVal { value } => compiler.generate_float_code(*value as f64),
-                _ => compiler.generate_float_code(-1.0) 
+                parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(*value as f64)),
+                _ => Box::new(compiler.generate_float_code(-1.0)) 
             }
         }
     }
