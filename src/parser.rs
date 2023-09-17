@@ -27,14 +27,14 @@ pub enum Expr
 }
 
 //Represents a function prototype
-struct Prototype<'a> {
+pub struct Prototype {
 
-        fn_name: &'a str,
-        args: Vec<&'a str> // the names of the arguments - used inside of the function itself.
+        fn_name: String,
+        args: Vec<String> // the names of the arguments - used inside of the function itself.
 }
 
-struct Function<'a>{
-    proto: Prototype<'a>,
+struct Function{
+    proto: Prototype,
     body: Expr
 }
 
@@ -123,7 +123,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    
 }
 
-//the current token is a '(' / Token::OPEN_PAREN
+///the current token is a '(' / Token::OPEN_PAREN
 pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> Expr {
    token_manager.next_token();
    let result: Expr = parse_expression(token_manager);
@@ -155,9 +155,6 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
     }
 }
 
-pub fn parse_right_side_of_binary_expression(token_manager: &mut lexer::TokenManager, precedence: i32) -> Expr {
-   Expr::NumVal { value: 2 }
-}
 pub fn build_recursive_binary_tree(token_manager: &mut lexer::TokenManager, LHS: Expr, precendence: i32) -> Expr {
     //LHS has to be a binary node.
     let operator_token: Token = token_manager.current_token.as_ref().unwrap().clone(); 
@@ -214,6 +211,80 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
     Token::DIVIDE => 40,
     _ => -1
    } 
+}
+
+//The token is currently PROCEDURE
+//CALC: PROCEDURE(A,B,C); // we are just parsing this part.
+//      RETURN(A+B+C);
+//      END;
+pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Prototype
+{
+         token_manager.next_token();
+         //token should now be open paren
+         if Some(Token::OPEN_PAREN) != token_manager.current_token
+         {
+             panic!("Was expecting an open parenthesis!");
+         }
+            token_manager.next_token();//go inside the parenthesis
+            let mut expecting_comma = false;
+            let mut args_list: Vec<String> = vec![];
+           loop {
+                println!("Looping!");
+                if let Some(Token::CLOSED_PAREN) = token_manager.current_token
+                {
+                    println!("found a closed parenthesis!");
+                    token_manager.next_token();// eat the next token, ready for next use
+                    break;
+                }
+                else if let Some(Token::COMMA) = token_manager.current_token 
+                {
+                    if expecting_comma
+                    {
+                        println!("Found comma at right place, continuing!");
+                        expecting_comma = false;
+                        token_manager.next_token();// eat the token
+
+                    }
+                    else 
+                    {
+                        panic!("Expected an expression, found a comma!!");     
+                    }
+                }
+                else if let Some(ref Token) = token_manager.current_token
+                {
+                    //parse as expression
+                    println!("Found a token called {:#?}", *Token);
+                    let parsed_arg: Expr = parse_expression(token_manager);
+
+                    let arg_name: String;
+                    if let Expr::Variable { name } = parsed_arg
+                    {
+                        arg_name = name.clone();
+                    }
+                    else
+                    {
+                        panic!("Expected variable in function prototype, found _!");
+                    }
+
+                    args_list.push(arg_name);
+
+                    expecting_comma = true;
+                    println!("turned expecting comma on!");
+                }
+                else 
+                {
+                    panic!("{:?}",token_manager.current_token);
+                }
+
+                
+           }
+
+    Prototype { fn_name: label_name, args: args_list }
+}
+
+pub fn parse_function(token_manager: &mut lexer::TokenManager)
+{
+    let proto = parse_function_prototype(token_manager, String::from("hey!"));
 }
 
 mod tests {
@@ -446,6 +517,47 @@ mod tests {
         {
             panic!("Expression was not a binary, was a {:?}", result);
         }
+    }
+
+    #[test]
+    fn test_parsing_prototype()
+    {
+        let mut token_manager = TokenManager::new("PROCEDURE(A,B,C);");
+        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"));
+
+        assert_eq!(String::from("CALC"), my_var.fn_name);
+        assert_eq!(my_var.args.len(), 3);
+        
+        let test_results = vec!["A","B","C"];
+        let mut index = 0;
+        for (siz,arg) in my_var.args.iter().enumerate()
+        {
+            assert_eq!(*arg,String::from(test_results[index]));
+            index += 1;
+            
+        }
+
+
+    }
+    #[test]
+    #[should_panic(expected = "open paren")]
+    fn test_parsing_prototype_panic()
+    {
+        let mut token_manager = TokenManager::new("PROCEDURE A,B,C);");
+        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"));
+
+        assert_eq!(String::from("CALC"), my_var.fn_name);
+        assert_eq!(my_var.args.len(), 3);
+        
+        let test_results = vec!["A","B","C"];
+        let mut index = 0;
+        for (siz,arg) in my_var.args.iter().enumerate()
+        {
+            assert_eq!(*arg,String::from(test_results[index]));
+            index += 1;
+            
+        }
+
     }
 }
 
