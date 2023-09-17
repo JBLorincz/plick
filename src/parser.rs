@@ -33,7 +33,7 @@ pub struct Prototype {
         args: Vec<String> // the names of the arguments - used inside of the function itself.
 }
 
-struct Function{
+pub struct Function{
     proto: Prototype,
     body: Expr
 }
@@ -220,6 +220,7 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
 pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Prototype
 {
          token_manager.next_token();
+         println!("Begging to parse function proto!");
          //token should now be open paren
          if Some(Token::OPEN_PAREN) != token_manager.current_token
          {
@@ -233,7 +234,8 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                 if let Some(Token::CLOSED_PAREN) = token_manager.current_token
                 {
                     println!("found a closed parenthesis!");
-                    token_manager.next_token();// eat the next token, ready for next use
+                    token_manager.next_token();// eat the closed parenthesis token, ready for next use
+                    token_manager.next_token();// eat the semicolon after the closed paren 
                     break;
                 }
                 else if let Some(Token::COMMA) = token_manager.current_token 
@@ -282,9 +284,18 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
     Prototype { fn_name: label_name, args: args_list }
 }
 
-pub fn parse_function(token_manager: &mut lexer::TokenManager)
+pub fn parse_function(token_manager: &mut lexer::TokenManager) -> Function
 {
-    let proto = parse_function_prototype(token_manager, String::from("hey!"));
+    let proto = parse_function_prototype(token_manager, String::from("hey!")); 
+    let exp = parse_expression(token_manager);
+    token_manager.next_token(); //eat the trailing semicolon
+    if token_manager.current_token != Some(Token::END)
+    {
+        panic!("{} is missing an END tag!", proto.fn_name);
+    }
+
+    token_manager.next_token();
+   Function { proto, body: exp } 
 }
 
 mod tests {
@@ -557,6 +568,17 @@ mod tests {
             index += 1;
             
         }
+
+    }
+
+    #[test]
+    fn test_parsing_function()
+    {
+        let mut token_manager = TokenManager::new("PROCEDURE (A,B,C); A + B + C; END;");
+
+        let my_function = parse_function(&mut token_manager);
+
+
 
     }
 }
