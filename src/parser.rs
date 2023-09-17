@@ -123,7 +123,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    
 }
 
-//the current token is a '(' / Token::OPEN_PAREN
+///the current token is a '(' / Token::OPEN_PAREN
 pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> Expr {
    token_manager.next_token();
    let result: Expr = parse_expression(token_manager);
@@ -280,6 +280,11 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
            }
 
     Prototype { fn_name: label_name, args: args_list }
+}
+
+pub fn parse_function(token_manager: &mut lexer::TokenManager)
+{
+    let proto = parse_function_prototype(token_manager, String::from("hey!"));
 }
 
 mod tests {

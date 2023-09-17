@@ -9,6 +9,7 @@
         result
     }
 
+        ///Thus function returns the next token from the token iterator.
     pub fn get_next_token(compilable_file: String) -> Option<Token>
     {
         let mut char_iter = compilable_file.chars();
@@ -40,6 +41,7 @@
             result
         }
 
+        ///Thus function returns the next token from the token iterator.
         pub fn next_token(&mut self) -> &Option<Token>
         {
             self.current_token = self.token_iter.next();
