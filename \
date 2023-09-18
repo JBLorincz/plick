@@ -14,20 +14,18 @@ use inkwell::types::FloatType;
 use inkwell::types::FunctionType;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
-use inkwell::values::BasicValue;
 use inkwell::values::FloatValue;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
 
     ///The object that drives compilation.
-    pub struct Compiler<'a, 'ctx>
+    pub struct Compiler<'a>
     {
-        pub context: &'ctx context::Context,
-        pub builder: &'a builder::Builder<'ctx>,       
-        pub module: &'a module::Module<'ctx>,
+        builder: builder::Builder<'a>,
+        context: context::Context,
+        module: module::Module<'a>,
 
-
-        named_values: HashMap<String,PointerValue<'ctx>>,
+        named_values: HashMap<String,PointerValue<'a>>,
     }
 
 
@@ -35,14 +33,14 @@ use inkwell::values::PointerValue;
     pub trait CodeGenable
     {
 
-        unsafe fn codegen<'a, 'ctx>(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx>>;
+        unsafe fn codegen<'a>(self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>;
     }
 
 
     impl CodeGenable for parser::Expr
     {
 
-        unsafe fn codegen<'a, 'ctx>(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx>>
+        unsafe fn codegen<'a>(self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>
         {
             match self {
                 parser::Expr::Variable { name } => compiler.generate_variable_code(&name),
@@ -52,9 +50,9 @@ use inkwell::values::PointerValue;
         }
     }
 
-    impl<'a, 'ctx> Compiler<'a, 'ctx>
+    impl<'a> Compiler<'a>
     {
-        unsafe fn generate_float_code(&'a self,value: f64) -> FloatValue<'ctx>
+        unsafe fn generate_float_code(&'a self,value: f64) -> FloatValue<'a>
         {
             self.context.f64_type().const_float(value)
         }
@@ -70,7 +68,7 @@ use inkwell::values::PointerValue;
             Box::new(self.generate_float_code(3.0))
         }
 
-        unsafe fn generate_binary_expression_code(&'a self, binary_expr: parser::Expr) -> FloatValue
+        unsafe fn generate_binary_expression_code(&'a self, binary_expr: parser::Expr) -> Box<dyn AnyValue +'a>
         {
             if let parser::Expr::Binary { operator, left, right } = binary_expr
             {
@@ -91,7 +89,7 @@ use inkwell::values::PointerValue;
                     _ => panic!("Binary operator had unexpected op!"),
                 };
 
-                return compile_result.unwrap();                   
+                return Box::new(compile_result.unwrap());                   
                 }
                 else
                 {
@@ -110,23 +108,18 @@ use inkwell::values::PointerValue;
             let ret_type = self.context.f64_type();
         
 
-            let args_types = std::iter::repeat(ret_type) //make iterator that repeats f64_type
-            .take(proto.args.len()) //limit it to the length of args iterations
-            .map(|f| f.into()) 
-            .collect::<Vec<BasicMetadataTypeEnum>>(); //convert the FloatType to BasicMetadataType
-                                                      // Enum
+            let args_types = std::iter::repeat(ret_type)
+            .take(proto.args.len())
+            .map(|f| f.into())
+            .collect::<Vec<BasicMetadataTypeEnum>>();
             
             
-            let args_types = args_types.as_slice(); //convert the vec to slice
+            let args_types = args_types.as_slice();
 
+            let fn_type = self.context.f64_type().fn_type(args_types, false);
 
-            //create the function prototype type info
-            let fn_type = self.context.f64_type().fn_type(args_types, false);// create the
-
-            // create a new function prototype
             let func_val = self.module.add_function(&proto.fn_name, fn_type, None);
 
-            //name the arguments in the IR
             for (i,param) in func_val.get_param_iter().enumerate()
             {
                param.into_float_value().set_name(proto.args[i].as_str());
@@ -136,45 +129,21 @@ use inkwell::values::PointerValue;
         }
 
 
-        unsafe fn generate_function_code(&'a mut self, func: parser::Function) -> FunctionValue
+        unsafe fn generate_function_code(&'a mut self, func: parser::Function)
         {
-            
-            //see if the function has already been defined
             if let Some(_) = self.module.get_function(&func.proto.fn_name)
             {                               //if a func already exists
                panic!("function named {} already exists!",func.proto.fn_name);
             }
-            
-            //clear the named values, which stores all the recognized identifiers
-            self.named_values.clear();
 
-            //generate the IR for the function prototype
             let proto_code = self.generate_function_prototype_code(func.proto);
 
-            //create a new scope block for the function
             let new_func_block: BasicBlock = self.context.append_basic_block(proto_code, "entry");
-
-            //position the builder's cursor inside that block
             self.builder.position_at_end(new_func_block);
 
-            //fill up the NamedValues array 
-            for (i,arg) in proto_code.get_param_iter().enumerate()
-            {
-                self.named_values.insert(func.proto.args[i],arg.into_pointer_value());
-            }
+            self.named_values.clear();
 
-            let function_code = func.body.codegen(self);
-            let func_code_enum = function_code.as_any_value_enum();
-
-            if let AnyValueEnum::FloatValue(a)  = func_code_enum {
-                self.builder.build_return(Some(&a as &dyn BasicValue));
-            }
-            else 
-            {
-                panic!("Function return type was not float value!");
-            }
-
-            proto_code
+            
         }
     }
 

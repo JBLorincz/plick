@@ -34,8 +34,8 @@ pub struct Prototype {
 }
 
 pub struct Function{
-    proto: Prototype,
-    body: Expr
+    pub proto: Prototype,
+    pub body: Expr
 }
 
 
