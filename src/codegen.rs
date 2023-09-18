@@ -2,11 +2,13 @@ mod codegen {
 
 use std::collections::HashMap;
 
+use crate::lexer;
 use crate::parser;
 use inkwell::builder;
 use inkwell::context;
 use inkwell::module;
 use inkwell::values::AnyValue;
+use inkwell::values::AnyValueEnum;
 use inkwell::values::FloatValue;
 use inkwell::values::PointerValue;
 
@@ -25,19 +27,19 @@ use inkwell::values::PointerValue;
     pub trait CodeGenable
     {
 
-        unsafe fn codegen<'a>(&'a self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>;
+        unsafe fn codegen<'a>(self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>;
     }
 
 
     impl CodeGenable for parser::Expr
     {
 
-        unsafe fn codegen<'a>(&'a self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>
+        unsafe fn codegen<'a>(self, compiler: &'a Compiler<'a>) -> Box<dyn AnyValue + 'a>
         {
             match self {
-                parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(*value as f64)),
-                parser::Expr::Variable { name } => compiler.generate_variable_code(name),
-                _ => Box::new(compiler.generate_float_code(-1.0)) 
+                parser::Expr::Variable { name } => compiler.generate_variable_code(&name),
+                parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(value as f64)),
+                _ => compiler.generate_variable_code(&String::from("ey")),
             }
         }
     }
@@ -65,9 +67,29 @@ use inkwell::values::PointerValue;
             if let parser::Expr::Binary { operator, left, right } = binary_expr
             {
                 let lhs_codegen  = left.codegen(self);
-                //let rhs_codegen = right.codegen(self);
+                let rhs_codegen = right.codegen(self);
+               
+                let lhs_float = lhs_codegen.as_any_value_enum();
+                let rhs_float = rhs_codegen.as_any_value_enum();
+                
+                if let (AnyValueEnum::FloatValue( lhs_float ), AnyValueEnum::FloatValue(rhs_float)) = (lhs_float,rhs_float)
+                {
+ 
+                let compile_result = match operator {
+                    lexer::Token::PLUS => self.builder.build_float_add(lhs_float, rhs_float, "tmpadd"),
+                    lexer::Token::MINUS => self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub"),
+                    lexer::Token::MULTIPLY => self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul"),
+                    lexer::Token::DIVIDE => self.builder.build_float_div(lhs_float,rhs_float,"tmpdiv"),
+                    _ => panic!("Binary operator had unexpected op!"),
+                };
 
-                lhs_codegen
+                return Box::new(compile_result.unwrap());                   
+                }
+                else
+                {
+                    panic!("binary expression code did not have float values!");
+                }
+
             }
             else
             {
