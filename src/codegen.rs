@@ -173,7 +173,7 @@ use inkwell::values::PointerValue;
             let func_code_enum = function_code.as_any_value_enum();
 
             if let AnyValueEnum::FloatValue(a)  = func_code_enum {
-                self.builder.build_return(Some(&a as &dyn BasicValue));
+                let output = self.builder.build_return(Some(&a as &dyn BasicValue));
             }
             else 
             {
