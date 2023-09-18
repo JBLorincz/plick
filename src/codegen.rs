@@ -9,6 +9,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder;
 use inkwell::context;
 use inkwell::module;
+use inkwell::types::AnyType;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::FloatType;
 use inkwell::types::FunctionType;
@@ -32,17 +33,17 @@ use inkwell::values::PointerValue;
 
 
     ///A trait which all provides an interface to compile a syntax element
-    pub trait CodeGenable
+    pub trait CodeGenable<'a,'ctx>
     {
 
-        unsafe fn codegen<'a, 'ctx>(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx>>;
+        unsafe fn codegen(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> + 'ctx>;
     }
 
 
-    impl CodeGenable for parser::Expr
+    impl<'a, 'ctx> CodeGenable<'a, 'ctx> for parser::Expr
     {
 
-        unsafe fn codegen<'a, 'ctx>(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx>>
+        unsafe fn codegen(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
             match self {
                 parser::Expr::Variable { name } => compiler.generate_variable_code(&name),
@@ -54,23 +55,26 @@ use inkwell::values::PointerValue;
 
     impl<'a, 'ctx> Compiler<'a, 'ctx>
     {
-        unsafe fn generate_float_code(&'a self,value: f64) -> FloatValue<'ctx>
+        unsafe fn generate_float_code(&self,value: f64) -> FloatValue<'ctx>
         {
             self.context.f64_type().const_float(value)
         }
-        unsafe fn generate_variable_code(&'a self,variable_name: &String) -> Box<dyn AnyValue +'a>
+        unsafe fn generate_variable_code(&self,variable_name: &str) -> Box<dyn AnyValue<'ctx> + 'ctx>
         {
             let result: Option<&PointerValue> = self.named_values.get(variable_name);
             if let Some(&val) = result 
             {
-                let myvar: Box<dyn AnyValue> = Box::new(val);
+                let myvar: Box<dyn AnyValue<'ctx>> = Box::new(val);
                 return myvar;
             }
+            else
+            {
+                panic!("Could not find variable named {}",variable_name);
+            }
 
-            Box::new(self.generate_float_code(3.0))
         }
 
-        unsafe fn generate_binary_expression_code(&'a self, binary_expr: parser::Expr) -> FloatValue
+        unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> FloatValue
         {
             if let parser::Expr::Binary { operator, left, right } = binary_expr
             {
@@ -105,13 +109,13 @@ use inkwell::values::PointerValue;
             }
         }
 
-        unsafe fn generate_function_prototype_code(&'a self, proto: parser::Prototype) -> FunctionValue
+        unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, proto_args: Vec<String>) -> FunctionValue<'ctx>
         {
             let ret_type = self.context.f64_type();
         
 
             let args_types = std::iter::repeat(ret_type) //make iterator that repeats f64_type
-            .take(proto.args.len()) //limit it to the length of args iterations
+            .take(proto_args.len()) //limit it to the length of args iterations
             .map(|f| f.into()) 
             .collect::<Vec<BasicMetadataTypeEnum>>(); //convert the FloatType to BasicMetadataType
                                                       // Enum
@@ -124,12 +128,12 @@ use inkwell::values::PointerValue;
             let fn_type = self.context.f64_type().fn_type(args_types, false);// create the
 
             // create a new function prototype
-            let func_val = self.module.add_function(&proto.fn_name, fn_type, None);
+            let func_val = self.module.add_function(&fn_name, fn_type, None);
 
             //name the arguments in the IR
             for (i,param) in func_val.get_param_iter().enumerate()
             {
-               param.into_float_value().set_name(proto.args[i].as_str());
+               param.into_float_value().set_name(proto_args[i].as_str());
             }
 
             func_val
@@ -149,7 +153,9 @@ use inkwell::values::PointerValue;
             self.named_values.clear();
 
             //generate the IR for the function prototype
-            let proto_code = self.generate_function_prototype_code(func.proto);
+            let func_name = func.proto.fn_name.clone();
+            let proto_args = func.proto.args.clone();
+            let proto_code = self.generate_function_prototype_code(func_name,proto_args);
 
             //create a new scope block for the function
             let new_func_block: BasicBlock = self.context.append_basic_block(proto_code, "entry");
@@ -160,7 +166,7 @@ use inkwell::values::PointerValue;
             //fill up the NamedValues array 
             for (i,arg) in proto_code.get_param_iter().enumerate()
             {
-                self.named_values.insert(func.proto.args[i],arg.into_pointer_value());
+                self.named_values.insert(func.proto.args[i].clone(),arg.into_pointer_value());
             }
 
             let function_code = func.body.codegen(self);
