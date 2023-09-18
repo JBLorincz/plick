@@ -1,15 +1,20 @@
 mod codegen {
 
 use std::collections::HashMap;
+use std::vec;
 
 use crate::lexer;
 use crate::parser;
 use inkwell::builder;
 use inkwell::context;
 use inkwell::module;
+use inkwell::types::BasicMetadataTypeEnum;
+use inkwell::types::FloatType;
+use inkwell::types::FunctionType;
 use inkwell::values::AnyValue;
 use inkwell::values::AnyValueEnum;
 use inkwell::values::FloatValue;
+use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
 
     ///The object that drives compilation.
@@ -95,6 +100,24 @@ use inkwell::values::PointerValue;
             {
                 panic!("Fed non binary expression to generate binary expression code!");
             }
+        }
+
+        unsafe fn generate_function_prototype_code(&'a self, proto: parser::Prototype) -> FunctionValue
+        {
+            let ret_type = self.context.f64_type();
+        
+
+            let args_types = std::iter::repeat(ret_type)
+            .take(proto.args.len())
+            .map(|f| f.into())
+            .collect::<Vec<BasicMetadataTypeEnum>>();
+            
+            
+            let args_types = args_types.as_slice();
+
+            let fn_type = self.context.f64_type().fn_type(args_types, false);
+
+            self.module.add_function(&proto.fn_name, fn_type, None)
         }
     }
 
