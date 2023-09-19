@@ -5,6 +5,7 @@ use parser::{parse_expression, parse_function, parse_opening};
 
 mod lexer;
 mod parser;
+mod codegen;
 //Steps:
 //1. File access - read the files
 //2. Character manipulator - read chars, maybe strip comments here.
@@ -79,7 +80,7 @@ mod tests {
     #[test]
     fn drive_hello_world(){
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        2 + 2 + 4 / 6; A + 4;";
+        2 + 2 + 4 / 6; A + 4";
 
         drive_compilation(input);
 

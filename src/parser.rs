@@ -29,13 +29,13 @@ pub enum Expr
 //Represents a function prototype
 pub struct Prototype {
 
-        fn_name: String,
-        args: Vec<String> // the names of the arguments - used inside of the function itself.
+        pub fn_name: String,
+        pub args: Vec<String> // the names of the arguments - used inside of the function itself.
 }
 
 pub struct Function{
-    proto: Prototype,
-    body: Expr
+    pub proto: Prototype,
+    pub body: Expr
 }
 
 
