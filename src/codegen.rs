@@ -6,19 +6,12 @@ use std::vec;
 use crate::lexer;
 use crate::parser;
 use inkwell::basic_block::BasicBlock;
-use inkwell::builder;
-use inkwell::context;
-use inkwell::module;
+use inkwell::{builder, context, module};
 use inkwell::types::AnyType;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::FloatType;
 use inkwell::types::FunctionType;
-use inkwell::values::AnyValue;
-use inkwell::values::AnyValueEnum;
-use inkwell::values::BasicValue;
-use inkwell::values::FloatValue;
-use inkwell::values::FunctionValue;
-use inkwell::values::PointerValue;
+use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionValue, PointerValue };
 
     ///The object that drives compilation.
     pub struct Compiler<'a, 'ctx>
@@ -28,7 +21,7 @@ use inkwell::values::PointerValue;
         pub module: &'a module::Module<'ctx>,
 
 
-        named_values: HashMap<String,PointerValue<'ctx>>,
+        pub named_values: HashMap<String,PointerValue<'ctx>>,
     }
 
 
@@ -47,6 +40,7 @@ use inkwell::values::PointerValue;
         {
             match self {
                 parser::Expr::Variable { name } => compiler.generate_variable_code(&name),
+                parser::Expr::Binary{operator, left, right}  => Box::new(compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right})),
                 parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(value as f64)),
                 _ => compiler.generate_variable_code(&String::from("ey")),
             }
@@ -62,6 +56,8 @@ use inkwell::values::PointerValue;
         unsafe fn generate_variable_code(&self,variable_name: &str) -> Box<dyn AnyValue<'ctx> + 'ctx>
         {
             let result: Option<&PointerValue> = self.named_values.get(variable_name);
+            let result_float: FloatValue = self.builder.build_load(*result.unwrap(),variable_name).unwrap().into_float_value();
+            return Box::new(result_float);
             if let Some(&val) = result 
             {
                 let myvar: Box<dyn AnyValue<'ctx>> = Box::new(val);
@@ -74,17 +70,17 @@ use inkwell::values::PointerValue;
 
         }
 
-        unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> FloatValue
+        unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> FloatValue<'ctx>
         {
             if let parser::Expr::Binary { operator, left, right } = binary_expr
             {
                 let lhs_codegen  = left.codegen(self);
                 let rhs_codegen = right.codegen(self);
                
-                let lhs_float = lhs_codegen.as_any_value_enum();
-                let rhs_float = rhs_codegen.as_any_value_enum();
+                let lhs_float = lhs_codegen.as_any_value_enum().into_float_value();
+                let rhs_float = rhs_codegen.as_any_value_enum().into_float_value();
                 
-                if let (AnyValueEnum::FloatValue( lhs_float ), AnyValueEnum::FloatValue(rhs_float)) = (lhs_float,rhs_float)
+                if true
                 {
  
                 let compile_result = match operator {
@@ -99,6 +95,8 @@ use inkwell::values::PointerValue;
                 }
                 else
                 {
+                    dbg!(lhs_float);
+                    dbg!(rhs_float);
                     panic!("binary expression code did not have float values!");
                 }
 
@@ -139,8 +137,19 @@ use inkwell::values::PointerValue;
             func_val
         }
 
+        fn create_entry_block_alloca(&self, name: &str, funct: &FunctionValue) -> PointerValue<'ctx> {
+        let builder = self.context.create_builder();
 
-        unsafe fn generate_function_code(&'a mut self, func: parser::Function) -> FunctionValue
+        let entry = funct.get_first_basic_block().unwrap();
+
+        match entry.get_first_instruction() {
+            Some(first_instr) => builder.position_before(&first_instr),
+            None => builder.position_at_end(entry),
+        }
+
+        builder.build_alloca(self.context.f64_type(), name).unwrap()
+    }
+        pub unsafe fn generate_function_code(&'a mut self, func: parser::Function) -> FunctionValue
         {
             
             //see if the function has already been defined
@@ -151,22 +160,29 @@ use inkwell::values::PointerValue;
             
             //clear the named values, which stores all the recognized identifiers
             self.named_values.clear();
-
+    
             //generate the IR for the function prototype
             let func_name = func.proto.fn_name.clone();
             let proto_args = func.proto.args.clone();
-            let proto_code = self.generate_function_prototype_code(func_name,proto_args);
+            let function = self.generate_function_prototype_code(func_name,proto_args);
+
+            //TODO: Check if function body is empty
+            //if so, return function here. 
+            
+
 
             //create a new scope block for the function
-            let new_func_block: BasicBlock = self.context.append_basic_block(proto_code, "entry");
+            let new_func_block: BasicBlock = self.context.append_basic_block(function, "entry");
 
             //position the builder's cursor inside that block
             self.builder.position_at_end(new_func_block);
 
             //fill up the NamedValues array 
-            for (i,arg) in proto_code.get_param_iter().enumerate()
+            for (i,arg) in function.get_param_iter().enumerate()
             {
-                self.named_values.insert(func.proto.args[i].clone(),arg.into_pointer_value());
+                let alloca = self.create_entry_block_alloca(&func.proto.args[i], &function);
+                self.builder.build_store(alloca, arg).unwrap();
+                self.named_values.insert(func.proto.args[i].clone(),alloca);
             }
 
             let function_code = func.body.codegen(self);
@@ -180,7 +196,7 @@ use inkwell::values::PointerValue;
                 panic!("Function return type was not float value!");
             }
 
-            proto_code
+            function
         }
     }
 
@@ -189,5 +205,66 @@ use inkwell::values::PointerValue;
 } 
 
 mod tests {
+    use std::collections::HashMap;
+
+    use inkwell::{values::PointerValue, context::Context, builder::Builder, module::Module};
+
+    use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
+    use inkwell::context;
+    use super::*;
+
+    fn get_test_compiler<'a, 'ctx>(c: &'ctx Context, m: &'a Module<'ctx>, b: &'a Builder<'ctx>) -> Compiler<'a, 'ctx>
+    {
+        let context = c;
+        let module = m;
+        let builder = b;
+        let named_values: HashMap<String,PointerValue> = HashMap::new();
+        let compiler = Compiler {
+           context,
+           module,
+           builder,
+           named_values
+        };
+        compiler
+    }
+    #[test]
+    fn test_constant_codegen()
+    {
+        let c = Context::create();
+        let m = c.create_module("repl");
+        let b = c.create_builder();
+        let compiler = get_test_compiler(&c, &m, &b);
+        
+        let consta = Expr::NumVal { value: 3 };
+
+        unsafe {
+        let result = consta.codegen(&compiler);
+           println!("{}",result.print_to_string()); 
+        dbg!("{}", result);
+        }
+    }
+
+    #[test]
+    fn test_binary_codegen()
+    {
+        
+    let c = Context::create();
+    let m = c.create_module("repl");
+    let b = c.create_builder();
+    let mut compiler = get_test_compiler(&c, &m, &b);
+        
+        let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
+        let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")]};
+        let my_func = Function {proto: my_proto, body: binop};
+
+        unsafe {
+            
+            let result = compiler.generate_function_code(my_func);//binop.codegen(&compiler);
+           println!("{}",result); 
+            dbg!("{}", result);
+            panic!("yo!");
+        }
+    }
+
 
 }
