@@ -1,3 +1,5 @@
+use std::{collections::HashMap, error::Error};
+
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
     {
@@ -17,11 +19,6 @@
         token_iter.next()
     }
     
-    //pub fn get_token_iterator(compilable_file: String) -> token_iterator<'_>
-    //{
-    //    let mut char_iter = compilable_file.chars();
-    //    token_iterator::new(char_iter)
-    //}
     pub struct TokenManager<'a>
     {
         pub current_token: Option<Token>,
@@ -52,8 +49,7 @@
 
     struct TokenIterator<'a> {
         char_iter: std::str::Chars<'a>,
-        next_char: char,
-        semicolon_next: Option<char>,
+        next_char: Option<char>,
 
     }
     impl<'a> TokenIterator<'a> {
@@ -61,147 +57,160 @@
         {
             TokenIterator { 
                 char_iter,
-                next_char: ' ',//this is a space character. Don't touch.
-                semicolon_next: None //stores whether a semicolon was loaded and should
-                                      //immediately be returned.
+                next_char: Some(' '),//this is a space character. Don't touch.
             }
         }
+        fn get_next_char(&mut self) -> Option<char>
+        {
+            self.next_char = self.char_iter.next();
+            self.next_char
+        }
+        fn is_character_special(ch: char) -> bool
+        {
+            let special_chars = vec!['/','(',')','\'','+','-','*',',','=',';'];
+
+            
+            if special_chars.contains(&ch)
+            {
+                true
+            }
+            else
+            {
+                false
+            }
+        }
+            //next_char is '
+            fn process_string(&mut self, mut current_word_buffer: String) -> String
+            {
+                self.get_next_char(); //skip over the first tick
+                while let Some(char) = self.next_char
+                {
+                    match char 
+                    {
+                        '\'' => break,
+                        ch => current_word_buffer.push(ch)
+                    }
+                    self.get_next_char();
+                    
+                }
+                self.get_next_char();
+                current_word_buffer
+            }
+
+            //current char is *
+            fn process_comment(&mut self) -> Option<()>
+            {
+                let mut found_second_star = false;
+                loop
+                {
+                    let current_char = self.get_next_char()?;
+                    if current_char == '*'
+                    {
+                        found_second_star = true;
+                    }
+                    else if current_char == '/' && found_second_star
+                    {
+                        self.get_next_char();
+                        break;
+                    }
+                }
+                Some(())
+            }
+
     }
     impl Iterator for TokenIterator<'_> {
         type Item = Token;
 
         fn next(&mut self) -> Option<Self::Item>
         {
-            if let Some(cha) = self.semicolon_next
+            if let None = self.next_char
             {
-                self.semicolon_next = None;
-                return Some(
-                    match cha {
-                       ')' => Token::CLOSED_PAREN,
-                       '(' => Token::OPEN_PAREN,
-                       ',' => Token::COMMA,
-                       _ => Token::SEMICOLON,
-                    }
-                    );
-            }
-            let mut current_word_buffer = String::new();
-            let mut string_mode = false; //if we found a open tick signifying string mode
-            //we are looping until we find the first nonwhitespace.
-            while let Some(next_char) = self.char_iter.next()
-            {
-                self.next_char = next_char;
-                if self.next_char == '('
-                {
-                    return Some(Token::OPEN_PAREN);
-                }
-                else if self.next_char == ')'
-                {
-                    return Some(Token::CLOSED_PAREN);
-                }
-                else if self.next_char == ','
-                {
-                    return Some(Token::COMMA);
-                }
-                else if self.next_char == '/'
-                {
-                    let next_next_char = self.char_iter.next()?;
-                    if next_next_char == '*' //we are in a comment block
-                    {
-                        let mut found_second_star = false;
-                        while let Some(next_char) = self.char_iter.next()
-                        {
-                            if next_char == '*'
-                            {
-                                found_second_star = true;
-                            }
-                            else if next_char == '/' && found_second_star
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    else if next_next_char.is_whitespace() //necessary cuz we eat the next next
-                                                           //token
-                    {
-                        return Some(Token::DIVIDE);
-                    }
-                }
-                else if !self.next_char.is_whitespace()
-                {
-                    if self.next_char == '\''
-                    {
-                        string_mode = true;
-                    }
-                    current_word_buffer.push(self.next_char);
-                    break;
-                }
-            }
-            
-            //now we are looping through characters until we find
-            //a special ending character like a semicolon, colon,
-            //or another whitespace and handle accordingly.
-            while let Some(next_char) = self.char_iter.next()
-            {
-                self.next_char = next_char;
-                if self.next_char.is_whitespace() && !string_mode
-                {
-                    break;
-                }
-                else if string_mode && self.next_char == '\''
-                {
-                    return Some(Token::STRING(String::from(&current_word_buffer[1..])));
-                }
-                else if self.next_char == ';'
-                { //the current word ends in a semicolon
-                  //we break now, not loading the semicolon to the
-                  //string, and set a boolean so we can return a 
-                  //semicolon token the very next iteration.
-                    self.semicolon_next = Some(';');
-                    break;
-                }
-                else if self.next_char == ')'
-                {
-                    self.semicolon_next = Some(')');
-                    break;
-                }
-                else if self.next_char == '('
-                {
-                    self.semicolon_next = Some('(');
-                    break;
-                }
-                else if self.next_char == ','
-                {
-                    self.semicolon_next = Some(',');
-                    break;
-                }
-                else if self.next_char == ':'
-                {
-                    //current token ends in a semicolon, we can return
-                    //the current token early knowing its a label definition.
-                    return Some(Token::LABEL(current_word_buffer));
-                }
-                current_word_buffer.push(self.next_char);
-            }
-            println!("The word is: {}", current_word_buffer);
-            
-
-            //the token has been parsed, now we return
-            //the proper token type.
-            if current_word_buffer == ""
-            { //no valid chars were added, must be EOF.
                 return None;
             }
-            if let Ok(number) = current_word_buffer.parse()
+            let mut current_word_buffer = String::new();
+            while let Some(current_character) = self.next_char
+            {
+                if current_word_buffer.is_empty() && current_character.is_whitespace()
+                {
+
+                    self.get_next_char();
+                    continue;
+                }
+                let is_special = TokenIterator::is_character_special(current_character);
+                
+                if is_special && current_character == '\''
+                {
+                    current_word_buffer = self.process_string(current_word_buffer);
+                    return Some(Token::STRING(current_word_buffer));
+                }
+                else if is_special && current_character == '/'
+                {
+                    println!("THIS IS THE CHAR!");
+                    let next_lext_char = self.get_next_char();
+                    let ch = next_lext_char?;
+
+                    if ch == '*'
+                    {
+                        self.process_comment()?;
+                        continue;
+                    }
+                    else
+                    {
+                        self.get_next_char();
+                        return Some(Token::DIVIDE);
+                    }
+
+                }
+
+                //we have skipped over all the whitespace and are now building are buffer.
+                if !current_character.is_whitespace() && !is_special
+                {
+                    current_word_buffer.push(current_character);
+                }
+                else if is_special && current_word_buffer.len() == 0
+                {
+                    current_word_buffer.push(current_character);
+                    self.get_next_char();
+                    break;
+                }
+                else if is_special
+                {
+                    break; //we dont need to get next char because itll be handled next iteration
+                }
+                else //if the current character is whitespace
+                {
+                    self.get_next_char();
+                    break;
+                }
+                
+                if current_character == ':'
+                {
+                    self.get_next_char();
+                    current_word_buffer.pop();
+                    return Some(Token::LABEL(current_word_buffer));
+                }
+
+                self.get_next_char();
+            }
+
+        if let Ok(number) = current_word_buffer.parse()
             {
                 return Some(Token::NumVal(number));
             }
-            Some(match current_word_buffer.to_uppercase().as_str()
+            if current_word_buffer.len() == 0
+            {
+                return None;
+            }
+    return Some(match current_word_buffer.to_uppercase().as_str()
             {
                 "PROCEDURE" => Token::PROCEDURE,
                 "PROC" => Token::PROCEDURE,
                 ";" => Token::SEMICOLON,
                 "," => Token::COMMA,
                 "*" => Token::MULTIPLY,
+                "(" => Token::OPEN_PAREN,
+                ")" => Token::CLOSED_PAREN,
+                "," => Token::COMMA,
                 "/" => Token::DIVIDE,
                 "+" => Token::PLUS,
                 "-" => Token::MINUS,
@@ -214,15 +223,18 @@
                 "SKIP" => Token::SKIP,
                 "OPTIONS" => Token::OPTIONS,
                 _ => Token::Identifier(current_word_buffer)
-            })
+            });
+        //}
+            None
         }
 
-
-        }
+        
+    }
     
 
     #[derive(Debug, PartialEq,Clone)]
-    pub enum Token{
+    pub enum Token
+    {
         EOF,
         OPEN_PAREN,
         CLOSED_PAREN,
@@ -269,7 +281,16 @@
         assert_eq!(output,get_token_list(input));            
 
         }
-
+        #[test]
+        fn special_char_good()
+        {
+            assert_eq!(TokenIterator::is_character_special('(') , true);
+        }
+        #[test]
+        fn special_char_bad()
+        {
+            assert_eq!(TokenIterator::is_character_special(' ') , false);
+        }
         #[test]
         fn hello_world_parse()
         {
@@ -324,6 +345,13 @@ let input = "MIN(2,3);";
         fn test_binary_operator_lexing()
         {let input = "+ / / + + - *";
             let output = vec![PLUS, DIVIDE, DIVIDE, PLUS, PLUS, MINUS, MULTIPLY];
+
+            assert_eq!(get_token_list(input),output);
+        }
+        #[test]
+        fn test_touching_binary_lexing()
+        {let input = "2+2";
+            let output = vec![NumVal(2), PLUS, NumVal(2)];
 
             assert_eq!(get_token_list(input),output);
         }
