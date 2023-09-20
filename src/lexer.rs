@@ -19,11 +19,6 @@ use std::{collections::HashMap, error::Error};
         token_iter.next()
     }
     
-    //pub fn get_token_iterator(compilable_file: String) -> token_iterator<'_>
-    //{
-    //    let mut char_iter = compilable_file.chars();
-    //    token_iterator::new(char_iter)
-    //}
     pub struct TokenManager<'a>
     {
         pub current_token: Option<Token>,
@@ -234,158 +229,12 @@ use std::{collections::HashMap, error::Error};
         }
 
         
-        //{
-        //    if let Some(cha) = self.semicolon_next
-        //    {
-        //        self.semicolon_next = None;
-        //        return Some(
-        //            match cha {
-        //               ')' => Token::CLOSED_PAREN,
-        //               '(' => Token::OPEN_PAREN,
-        //               ',' => Token::COMMA,
-        //               _ => Token::SEMICOLON,
-        //            }
-        //            );
-        //    }
-        //    let mut current_word_buffer = String::new();
-        //    let mut string_mode = false; //if we found a open tick signifying string mode
-        //    //we are looping until we find the first nonwhitespace.
-        //    while let Some(next_char) = self.char_iter.next()
-        //    {
-        //        self.next_char = next_char;
-        //        if self.next_char == '('
-        //        {
-        //            return Some(Token::OPEN_PAREN);
-        //        }
-        //        else if self.next_char == ')'
-        //        {
-        //            return Some(Token::CLOSED_PAREN);
-        //        }
-        //        else if self.next_char == ','
-        //        {
-        //            return Some(Token::COMMA);
-        //        }
-        //        else if self.next_char == '/'
-        //        {
-        //            let next_next_char = self.char_iter.next()?;
-        //            if next_next_char == '*' //we are in a comment block
-        //            {
-        //                let mut found_second_star = false;
-        //                while let Some(next_char) = self.char_iter.next()
-        //                {
-        //                    if next_char == '*'
-        //                    {
-        //                        found_second_star = true;
-        //                    }
-        //                    else if next_char == '/' && found_second_star
-        //                    {
-        //                        break;
-        //                    }
-        //                }
-        //            }
-        //            else if next_next_char.is_whitespace() //necessary cuz we eat the next next
-        //                                                   //token
-        //            {
-        //                return Some(Token::DIVIDE);
-        //            }
-        //        }
-        //        else if !self.next_char.is_whitespace()
-        //        {
-        //            if self.next_char == '\''
-        //            {
-        //                string_mode = true;
-        //            }
-        //            current_word_buffer.push(self.next_char);
-        //            break;
-        //        }
-        //    }
-        //    
-        //    //now we are looping through characters until we find
-        //    //a special ending character like a semicolon, colon,
-        //    //or another whitespace and handle accordingly.
-        //    while let Some(next_char) = self.char_iter.next()
-        //    {
-        //        self.next_char = next_char;
-        //        if self.next_char.is_whitespace() && !string_mode
-        //        {
-        //            break;
-        //        }
-        //        else if string_mode && self.next_char == '\''
-        //        {
-        //            return Some(Token::STRING(String::from(&current_word_buffer[1..])));
-        //        }
-        //        else if self.next_char == ';'
-        //        { //the current word ends in a semicolon
-        //          //we break now, not loading the semicolon to the
-        //          //string, and set a boolean so we can return a 
-        //          //semicolon token the very next iteration.
-        //            self.semicolon_next = Some(';');
-        //            break;
-        //        }
-        //        else if self.next_char == ')'
-        //        {
-        //            self.semicolon_next = Some(')');
-        //            break;
-        //        }
-        //        else if self.next_char == '('
-        //        {
-        //            self.semicolon_next = Some('(');
-        //            break;
-        //        }
-        //        else if self.next_char == ','
-        //        {
-        //            self.semicolon_next = Some(',');
-        //            break;
-        //        }
-        //        else if self.next_char == ':'
-        //        {
-        //            //current token ends in a semicolon, we can return
-        //            //the current token early knowing its a label definition.
-        //            return Some(Token::LABEL(current_word_buffer));
-        //        }
-        //        current_word_buffer.push(self.next_char);
-        //    }
-        //    println!("The word is: {}", current_word_buffer);
-        //    
-
-        //    //the token has been parsed, now we return
-        //    //the proper token type.
-        //    if current_word_buffer == ""
-        //    { //no valid chars were added, must be EOF.
-        //        return None;
-        //    }
-        //    if let Ok(number) = current_word_buffer.parse()
-        //    {
-        //        return Some(Token::NumVal(number));
-        //    }
-        //    Some(match current_word_buffer.to_uppercase().as_str()
-        //    {
-        //        "PROCEDURE" => Token::PROCEDURE,
-        //        "PROC" => Token::PROCEDURE,
-        //        ";" => Token::SEMICOLON,
-        //        "," => Token::COMMA,
-        //        "*" => Token::MULTIPLY,
-        //        "/" => Token::DIVIDE,
-        //        "+" => Token::PLUS,
-        //        "-" => Token::MINUS,
-        //        "DO" => Token::DO,
-        //        "=" => Token::EQ,
-        //        "PUT" => Token::PUT,
-        //        "DATA" => Token::DATA,
-        //        "END" => Token::END,
-        //        "WHILE" => Token::WHILE,
-        //        "SKIP" => Token::SKIP,
-        //        "OPTIONS" => Token::OPTIONS,
-        //        _ => Token::Identifier(current_word_buffer)
-        //    })
-        //}
-
-
-        }
+    }
     
 
     #[derive(Debug, PartialEq,Clone)]
-    pub enum Token{
+    pub enum Token
+    {
         EOF,
         OPEN_PAREN,
         CLOSED_PAREN,
