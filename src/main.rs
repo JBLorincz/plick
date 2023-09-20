@@ -58,7 +58,7 @@ fn drive_compilation<'a,'ctx>(compilable_file: &str,  mut compiler: Compiler<'a,
     let mut token_manager = lexer::TokenManager::new(compilable_file);
     parse_opening(&mut token_manager);
 
-
+    let mut found_top_level_end = false;
     while let Some(ref token) = token_manager.current_token
     {
         match token 
@@ -71,14 +71,25 @@ fn drive_compilation<'a,'ctx>(compilable_file: &str,  mut compiler: Compiler<'a,
                    compiler.generate_function_code(parse_function(&mut token_manager));
                }
            }, 
+            Token::END => {
+                println!("FOUND MY TOPPLVEL");
+                found_top_level_end = true;
+                break; 
+            },
             _ => {
                 unsafe {
                 parse_expression(&mut token_manager).codegen(&compiler);
                 }
             },
+            
         }
+         
+        
     }
-    
+         if !found_top_level_end
+         {
+             panic!("Did not find an end to the program!");
+         }
     return compiler;
 }
 
@@ -129,7 +140,7 @@ mod tests {
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
         
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PROCEDURE (); 2 + 2; END;";
+        PROCEDURE (); 2 + 2; END; END;";
 
         drive_compilation(input,compiler);
         target_machine.write_to_file(&m, inkwell::targets::FileType::Assembly, Path::new(filename));
@@ -146,21 +157,4 @@ mod tests {
 
         
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
