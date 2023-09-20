@@ -235,7 +235,8 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                 {
                     println!("found a closed parenthesis!");
                     token_manager.next_token();// eat the closed parenthesis token, ready for next use
-                    token_manager.next_token();// eat the semicolon after the closed paren 
+                    //token_manager.next_token();// eat the semicolon after the closed paren 
+                    parse_semicolon(token_manager);
                     break;
                 }
                 else if let Some(Token::COMMA) = token_manager.current_token 
@@ -288,7 +289,9 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager) -> Function
 {
     let proto = parse_function_prototype(token_manager, String::from("hey!")); 
     let exp = parse_expression(token_manager);
-    token_manager.next_token(); //eat the trailing semicolon
+
+    parse_semicolon(token_manager);//eat the trailing semicolon
+                                   //
     if token_manager.current_token != Some(Token::END)
     {
         panic!("{} is missing an END tag!", proto.fn_name);
