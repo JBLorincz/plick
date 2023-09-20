@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error};
 
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
@@ -72,7 +72,8 @@ use std::collections::HashMap;
         }
         fn is_character_special(ch: char) -> bool
         {
-            let special_chars = vec!['(',')','+','-','*',',','=',';'];
+            let special_chars = vec!['/','(',')','\'','+','-','*',',','=',';'];
+
             
             if special_chars.contains(&ch)
             {
@@ -83,6 +84,44 @@ use std::collections::HashMap;
                 false
             }
         }
+            //next_char is '
+            fn process_string(&mut self, mut current_word_buffer: String) -> String
+            {
+                self.get_next_char(); //skip over the first tick
+                while let Some(char) = self.next_char
+                {
+                    match char 
+                    {
+                        '\'' => break,
+                        ch => current_word_buffer.push(ch)
+                    }
+                    self.get_next_char();
+                    
+                }
+                self.get_next_char();
+                current_word_buffer
+            }
+
+            //current char is *
+            fn process_comment(&mut self) -> Option<()>
+            {
+                let mut found_second_star = false;
+                loop
+                {
+                    let current_char = self.get_next_char()?;
+                    if current_char == '*'
+                    {
+                        found_second_star = true;
+                    }
+                    else if current_char == '/' && found_second_star
+                    {
+                        self.get_next_char();
+                        break;
+                    }
+                }
+                Some(())
+            }
+
     }
     impl Iterator for TokenIterator<'_> {
         type Item = Token;
@@ -93,7 +132,6 @@ use std::collections::HashMap;
             {
                 return None;
             }
-            dbg!("Running next!");
             let mut current_word_buffer = String::new();
             while let Some(current_character) = self.next_char
             {
@@ -101,12 +139,33 @@ use std::collections::HashMap;
                 {
 
                     self.get_next_char();
-                    println!("skipping over WHITESPACE {}",current_character);
                     continue;
                 }
                 let is_special = TokenIterator::is_character_special(current_character);
                 
-                
+                if is_special && current_character == '\''
+                {
+                    current_word_buffer = self.process_string(current_word_buffer);
+                    return Some(Token::STRING(current_word_buffer));
+                }
+                else if is_special && current_character == '/'
+                {
+                    println!("THIS IS THE CHAR!");
+                    let next_lext_char = self.get_next_char();
+                    let ch = next_lext_char?;
+
+                    if ch == '*'
+                    {
+                        self.process_comment()?;
+                        continue;
+                    }
+                    else
+                    {
+                        self.get_next_char();
+                        return Some(Token::DIVIDE);
+                    }
+
+                }
 
                 //we have skipped over all the whitespace and are now building are buffer.
                 if !current_character.is_whitespace() && !is_special
@@ -123,7 +182,7 @@ use std::collections::HashMap;
                 {
                     break; //we dont need to get next char because itll be handled next iteration
                 }
-                else
+                else //if the current character is whitespace
                 {
                     self.get_next_char();
                     break;
@@ -132,18 +191,21 @@ use std::collections::HashMap;
                 if current_character == ':'
                 {
                     self.get_next_char();
+                    current_word_buffer.pop();
                     return Some(Token::LABEL(current_word_buffer));
                 }
 
                 self.get_next_char();
-                dbg!(self.next_char);
             }
 
         if let Ok(number) = current_word_buffer.parse()
             {
                 return Some(Token::NumVal(number));
             }
-
+            if current_word_buffer.len() == 0
+            {
+                return None;
+            }
     return Some(match current_word_buffer.to_uppercase().as_str()
             {
                 "PROCEDURE" => Token::PROCEDURE,
@@ -170,6 +232,8 @@ use std::collections::HashMap;
         //}
             None
         }
+
+        
         //{
         //    if let Some(cha) = self.semicolon_next
         //    {
