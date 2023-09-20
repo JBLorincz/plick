@@ -270,10 +270,9 @@ mod tests {
 
         unsafe {
             
-            let result = compiler.generate_function_code(my_func);//binop.codegen(&compiler);
+            let result = compiler.generate_function_code(my_func);
            println!("{}",result); 
             dbg!("{}", result);
-            panic!("yo!");
         }
     }
 
