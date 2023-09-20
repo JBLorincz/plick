@@ -1,11 +1,15 @@
-mod codegen {
+pub mod codegen {
 
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::vec;
 
 use crate::lexer;
 use crate::parser;
 use inkwell::basic_block::BasicBlock;
+use inkwell::builder::Builder;
+use inkwell::context::Context;
+use inkwell::module::Module;
 use inkwell::{builder, context, module};
 use inkwell::types::AnyType;
 use inkwell::types::BasicMetadataTypeEnum;
@@ -35,6 +39,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
     impl<'a, 'ctx> CodeGenable<'a, 'ctx> for parser::Expr
     {
+       
 
         unsafe fn codegen(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
@@ -49,6 +54,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
     impl<'a, 'ctx> Compiler<'a, 'ctx>
     {
+         pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>) -> Compiler<'a, 'ctx>
+        {
+
+            let named_values: HashMap<String,PointerValue<'ctx>> = HashMap::new();
+            Compiler { context: c, builder: b, module: m, named_values }
+        }
         unsafe fn generate_float_code(&self,value: f64) -> FloatValue<'ctx>
         {
             self.context.f64_type().const_float(value)
@@ -149,7 +160,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
         builder.build_alloca(self.context.f64_type(), name).unwrap()
     }
-        pub unsafe fn generate_function_code(&'a mut self, func: parser::Function) -> FunctionValue
+        pub unsafe fn generate_function_code(&mut self, func: parser::Function) -> FunctionValue<'ctx>
         {
             
             //see if the function has already been defined
