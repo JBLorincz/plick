@@ -646,7 +646,15 @@ mod tests {
         }
 
     }
+    #[test]
+    fn test_parsing_prototype_noargs()
+    {
+        let mut token_manager = TokenManager::new("PROCEDURE();");
+        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"));
 
+        assert_eq!(String::from("CALC"), my_var.fn_name);
+        assert_eq!(my_var.args.len(), 0);
+    }
     #[test]
     fn test_parsing_function()
     {

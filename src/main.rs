@@ -140,7 +140,7 @@ mod tests {
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
         
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PROCEDURE ();  2+2; END; END;";
+        PROCEDURE ();  2+2; END; hey!(); END;";
 
         drive_compilation(input,compiler);
         target_machine.write_to_file(&m, inkwell::targets::FileType::Assembly, Path::new(filename));
