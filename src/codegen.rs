@@ -13,12 +13,15 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::values::BasicMetadataValueEnum;
+use inkwell::values::BasicValueEnum;
 use inkwell::values::CallSiteValue;
+use inkwell::values::InstructionValue;
 use inkwell::{builder, context, module};
 use inkwell::types::AnyType;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::types::FloatType;
 use inkwell::types::FunctionType;
+use std::cell::Cell;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionValue, PointerValue };
 
     ///The object that drives compilation.
@@ -30,6 +33,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 
         pub named_values: HashMap<String,PointerValue<'ctx>>,
+        pub arg_stores: Vec<Vec<BasicMetadataValueEnum<'ctx>>>,
     }
 
 
@@ -51,7 +55,11 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 parser::Expr::Variable { name } => compiler.generate_variable_code(&name),
                 parser::Expr::Binary{operator, left, right}  => Box::new(compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right})),
                 parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(value as f64)),
-                parser::Expr::Call { fn_name, args } => Box::new(compiler.generate_function_call_code( fn_name, args )),
+                parser::Expr::Call { fn_name, args } => {
+                    let myfc = compiler.generate_function_call_code( fn_name, args );
+                    dbg!(&myfc);
+                    myfc
+                },
                 _ => compiler.generate_variable_code(&String::from("ey")),
             }
         }
@@ -63,38 +71,69 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         {
 
             let named_values: HashMap<String,PointerValue<'ctx>> = HashMap::new();
-            Compiler { context: c, builder: b, module: m, named_values }
+            let arg_stores: Vec<Vec<BasicMetadataValueEnum>> = vec![]; 
+            Compiler { context: c, builder: b, module: m, named_values, arg_stores }
         }
-        unsafe fn generate_function_call_code(&self,fn_name: String, args: Vec<parser::Expr>) -> CallSiteValue<'ctx>
+        unsafe fn generate_function_call_code(&self,fn_name: String, mut args: Vec<parser::Expr>) -> Box<dyn AnyValue<'ctx> + 'ctx>
         {
-            let get_func_result = self.module.get_function(&fn_name);
-            let func_to_call = get_func_result.unwrap();
+            let get_func_result:Option<FunctionValue<'ctx>> = self.module.get_function(&fn_name);
+            let func_to_call: FunctionValue<'ctx> = get_func_result.unwrap();
+
 
             //handle argument checks here
             if args.len() != func_to_call.get_params().len()
             {
                 panic!("argument mismatch trying to create a call to function {}", fn_name);
             }
+
             //end argument checks
-            let codegen_args: Vec<BasicMetadataValueEnum>;
+            let mut codegen_args: Vec<BasicMetadataValueEnum> = vec![];
+            //codegen_args.reserve_exact(args.len());
             
-            for i in 0..args.len()
+            
+             while args.len() > 0
             {
-                                let v: AnyValueEnum<'ctx> = args[i].codegen(self).as_any_value_enum();
-                                let bmve :BasicMetadataValueEnum = v as BasicMetadataValueEnum;
-            }
-                                                
-                                                    
-                                                
+                                let current_arg = args.remove(0);
+                                let v: Box<dyn AnyValue<'ctx>> = current_arg.codegen(self);
+                                let bve: BasicValueEnum =  match v.as_any_value_enum()
+                                {
+                                    AnyValueEnum::ArrayValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::IntValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::FloatValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::PointerValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::StructValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::VectorValue(v) => v.as_basic_value_enum(),
+                                    _ => panic!("what the hell!"),
+                                    //AnyValueEnum::MetadataValue(v) => 
+                                };
+                                codegen_args.push(bve.into());
 
-            let call_result = self.builder.build_call(func_to_call, &codegen_args, &fn_name);
-
+                                //let bmve :BasicMetadataValueEnum = ;
+            }                                    
+                self.arg_stores.push(codegen_args);
+            //func_to_call.get_first 
+            let call_result = self.builder.build_call(func_to_call, &self.arg_stores.last().unwrap(), &fn_name);
             match call_result {
-                Ok(var) => var,
+                Ok(var) => {
+                    if let Some(resultValue) = var.try_as_basic_value().left()
+                    {
+                        println!("BASIC VALUE ENUM!");
+                        dbg!(&resultValue);
+                        Box::new(resultValue)
+                    }
+                    else
+                    {
+                        println!("instruction set");
+                        Box::new(var.try_as_basic_value().right().unwrap())
+                    }
+                },
                 Err(e) => panic!("Error trying to build a call to function {}", fn_name) 
             }
         }
-        unsafe fn generate_float_code(&self,value: f64) -> FloatValue<'ctx>
+
+
+
+        unsafe fn generate_float_code(&'a self, value: f64) -> FloatValue<'ctx>
         {
             self.context.f64_type().const_float(value)
         }
@@ -252,23 +291,25 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 mod tests {
     use std::collections::HashMap;
 
-    use inkwell::{values::PointerValue, context::Context, builder::Builder, module::Module};
+    use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module};
 
     use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
     use inkwell::context;
     use super::*;
-
+    use std::cell::Cell;
     fn get_test_compiler<'a, 'ctx>(c: &'ctx Context, m: &'a Module<'ctx>, b: &'a Builder<'ctx>) -> Compiler<'a, 'ctx>
     {
         let context = c;
         let module = m;
         let builder = b;
         let named_values: HashMap<String,PointerValue> = HashMap::new();
+        let arg_stores: Vec<Vec<BasicMetadataValueEnum>> = vec![];
         let compiler = Compiler {
            context,
            module,
            builder,
-           named_values
+           named_values,
+           arg_stores
         };
         compiler
     }

@@ -78,7 +78,7 @@ fn drive_compilation<'a,'ctx>(compilable_file: &str,  mut compiler: Compiler<'a,
             },
             _ => {
                 unsafe {
-                parse_expression(&mut token_manager).codegen(&compiler);
+                parse_expression(&mut token_manager).codegen(&mut compiler);
                 }
             },
             
