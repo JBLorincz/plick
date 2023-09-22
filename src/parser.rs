@@ -287,7 +287,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
 
 pub fn parse_function(token_manager: &mut lexer::TokenManager) -> Function
 {
-    let proto = parse_function_prototype(token_manager, String::from("hey!")); 
+    let proto = parse_function_prototype(token_manager, String::from("TESTFUNC")); 
     let exp = parse_expression(token_manager);
 
     parse_semicolon(token_manager);//eat the trailing semicolon
