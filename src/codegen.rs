@@ -55,12 +55,23 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         {
             match self {
                 parser::Expr::Variable { name } => compiler.generate_variable_code(&name).unwrap(),
-                parser::Expr::Binary{operator, left, right}  => Box::new(compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right})),
-                parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(value as f64)),
-                parser::Expr::Call { ref fn_name, ref mut args } => {
-                     compiler.generate_function_call_code( fn_name, args )
+                parser::Expr::Binary{operator, left, right}  => {
+                
+                    let bin_res = compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right});
+                    let binary_value = bin_res.unwrap();
+                    Box::new(binary_value)
                 },
-                _ => compiler.generate_variable_code(&String::from("ey")).unwrap(),
+                parser::Expr::NumVal { value } => 
+                {
+                    Box::new(compiler.generate_float_code(value as f64))
+                },
+                parser::Expr::Call { ref fn_name, ref mut args } => {
+                     let function_call_result = compiler.generate_function_call_code( fn_name, args );
+                    function_call_result.unwrap()
+                },
+                _ => {
+                    compiler.generate_variable_code(&String::from("ey")).unwrap()
+                },
             }
         }
     }
@@ -74,7 +85,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
             Compiler { context: c, builder: b, module: m, named_values, arg_stores }
         }
-        unsafe fn generate_function_call_code(&self,fn_name: &String,args: &mut Vec<parser::Expr>) -> Box<dyn AnyValue<'ctx> + 'ctx>
+        unsafe fn generate_function_call_code(&self,fn_name: &String,args: &mut Vec<parser::Expr>) 
+            -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
             let get_func_result:Option<FunctionValue<'ctx>> = self.module.get_function(&fn_name);
             let func_to_call: FunctionValue<'ctx> = get_func_result.unwrap();
@@ -83,7 +95,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //handle argument checks here
             if args.len() != func_to_call.get_params().len()
             {
-                panic!("argument mismatch trying to create a call to function {}", fn_name);
+                return Err(format!("argument mismatch trying to create a call to function {}", fn_name));
             }
 
             let mut codegen_args: Vec<BasicMetadataValueEnum> = vec![];
@@ -101,7 +113,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                                     AnyValueEnum::PointerValue(v) => v.as_basic_value_enum(),
                                     AnyValueEnum::StructValue(v) => v.as_basic_value_enum(),
                                     AnyValueEnum::VectorValue(v) => v.as_basic_value_enum(),
-                                    _ => panic!("what the hell!"),
+                                    _ => return Err("one of the arguments was not a basic value".to_string()),
                                 };
                                 codegen_args.push(bve.into());
 
@@ -113,14 +125,14 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 Ok(var) => {
                     if let Some(result_value) = var.try_as_basic_value().left()
                     {
-                        Box::new(result_value.into_float_value())
+                        Ok(Box::new(result_value.into_float_value()))
                     }
                     else
                     {
-                        Box::new(var.try_as_basic_value().right().unwrap())
+                        Ok(Box::new(var.try_as_basic_value().right().unwrap()))
                     }
                 },
-                Err(e) => panic!("Error trying to build a call to function {}", fn_name) 
+                Err(e) => Err(format!("Error trying to build a call to function {}", fn_name))
             }
         }
 
@@ -142,7 +154,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             return Ok(Box::new(result_float));
         }
 
-        unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> FloatValue<'ctx>
+        unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> Result<FloatValue<'ctx>, String>
         {
             if let parser::Expr::Binary { operator, left, right } = binary_expr
             {
@@ -160,22 +172,20 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     lexer::Token::MINUS => self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub"),
                     lexer::Token::MULTIPLY => self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul"),
                     lexer::Token::DIVIDE => self.builder.build_float_div(lhs_float,rhs_float,"tmpdiv"),
-                    _ => panic!("Binary operator had unexpected op!"),
+                    _ => return Err(format!("Binary operator had unexpected operator! {:?}", operator)),
                 };
 
-                return compile_result.unwrap();                   
+                return compile_result.map_err(|builder_error| "There was an error building the binary expression.".to_string());                   
                 }
                 else
                 {
-                    dbg!(lhs_float);
-                    dbg!(rhs_float);
-                    panic!("binary expression code did not have float values!");
+                    Err("Cannot generate binary expression IR without float values!".to_string())
                 }
 
             }
             else
             {
-                panic!("Fed non binary expression to generate binary expression code!");
+                Err("Fed non binary expression to generate binary expression code!".to_string())
             }
         }
 
@@ -221,13 +231,13 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
         builder.build_alloca(self.context.f64_type(), name).unwrap()
     }
-        pub unsafe fn generate_function_code(&mut self, func: parser::Function) -> FunctionValue<'ctx>
+        pub unsafe fn generate_function_code(&mut self, func: parser::Function) -> Result<FunctionValue<'ctx>, String>
         {
             
             //see if the function has already been defined
             if let Some(_) = self.module.get_function(&func.proto.fn_name)
             {                               //if a func already exists
-               panic!("function named {} already exists!",func.proto.fn_name);
+               return Err(format!("function named {} already exists!",func.proto.fn_name));
             }
             
             //clear the named values, which stores all the recognized identifiers
@@ -253,7 +263,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             for (i,arg) in function.get_param_iter().enumerate()
             {
                 let alloca = self.create_entry_block_alloca(&func.proto.args[i], &function);
-                self.builder.build_store(alloca, arg).unwrap();
+                self.builder.build_store(alloca, arg).map_err(|builder_err| format!("Was unable to build_store for {:?}",arg).to_string())?;
                 self.named_values.insert(func.proto.args[i].clone(),alloca);
             }
 
@@ -265,10 +275,10 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
             else 
             {
-                panic!("Function return type was not float value!");
+                return Err("Function return type was not float value!".to_string());
             }
 
-            function
+            Ok(function)
         }
     }
 
@@ -282,8 +292,6 @@ mod tests {
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module};
 
     use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
-    use inkwell::context;
-    use super::*;
     use std::cell::RefCell;
     fn get_test_compiler<'a, 'ctx>(c: &'ctx Context, m: &'a Module<'ctx>, b: &'a Builder<'ctx>) -> Compiler<'a, 'ctx>
     {
@@ -334,8 +342,6 @@ mod tests {
         unsafe {
             
             let result = compiler.generate_function_code(my_func);
-           println!("{}",result); 
-            dbg!("{}", result);
         }
     }
 
