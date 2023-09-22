@@ -58,10 +58,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 parser::Expr::Binary{operator, left, right}  => Box::new(compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right})),
                 parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(value as f64)),
                 parser::Expr::Call { ref fn_name, ref mut args } => {
-                    let myfc = compiler.generate_function_call_code( fn_name, args );
-                    //dbg!(&myfc);
-                    myfc
-                    //Box::new(compiler.generate_float_code(360.00))
+                     compiler.generate_function_call_code( fn_name, args )
                 },
                 _ => compiler.generate_variable_code(&String::from("ey")),
             }
@@ -89,9 +86,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 panic!("argument mismatch trying to create a call to function {}", fn_name);
             }
 
-            //end argument checks
             let mut codegen_args: Vec<BasicMetadataValueEnum> = vec![];
-            //codegen_args.reserve_exact(args.len());
             
             
              while args.len() > 0
@@ -114,23 +109,17 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
                                 //let bmve :BasicMetadataValueEnum = ;
             }                                    
-                //self.arg_stores.borrow_mut().push(codegen_args);
-                dbg!(func_to_call);
-                println!("The length is: {}",func_to_call.get_params().len());
-                //let call_result = self.builder.build_call(func_to_call, &[]/*self.arg_stores.borrow().last().unwrap()*/, func_to_call.get_name().to_str().unwrap());
-            let call_result = self.builder.build_call(func_to_call,&[],"tmppino");
-            dbg!(&call_result);
+                let call_result = self.builder.build_call
+                    (func_to_call, self.arg_stores.borrow().last().unwrap_or(&codegen_args), func_to_call.get_name().to_str().unwrap());
+
             match call_result {
                 Ok(var) => {
                     if let Some(result_value) = var.try_as_basic_value().left()
                     {
-                        println!("BASIC VALUE ENUM!");
-                        dbg!(&result_value);
                         Box::new(result_value.into_float_value())
                     }
                     else
                     {
-                        println!("instruction set");
                         Box::new(var.try_as_basic_value().right().unwrap())
                     }
                 },

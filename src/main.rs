@@ -1,25 +1,16 @@
-use std::{env, fs::{self}, rc::Rc, cell::RefCell};
-
+use std::{env, fs::{self}, process};
 use codegen::codegen::{Compiler, CodeGenable};
 use lexer::{Token, TokenManager};
-use parser::{parse_expression, parse_function, parse_opening, Function, Prototype};
-use inkwell::{targets::{TargetMachine, TargetTriple}, types::BasicMetadataTypeEnum};
+use parser::{parse_expression, parse_function, parse_opening };
+use inkwell::{targets::TargetMachine, types::BasicMetadataTypeEnum};
 use inkwell::context;
 use std::path::Path;
-use std::io::Write;
+
 mod lexer;
 mod parser;
 mod codegen;
-//Steps:
-//1. File access - read the files
-//2. Character manipulator - read chars, maybe strip comments here.
-//3. Scanner - parse into tokens
-// 2 and 3 comprise the LEXER
-//4. Parser - parse tokens into an Abstract Syntax Tree (AST)
-// Below is back-end (handled by LLVM)
-//5. Optimizer - produces a Reduced AST
-//6. Code Generator - produces Raw object code
-//7. Peep hole optimizer - produces optimized object code
+
+
 fn main() {
     
     let mut args_iter = env::args();
@@ -36,63 +27,26 @@ fn main() {
     None => {
         println!("fatal error: no input files");
         println!("compilation terminated.");
-        //return;
+        process::exit(1);
     }
     }
 
     //now we have the path as compilable_file_path
-    //let compilable_file = fs::read_to_string(compilable_file_path).unwrap(); 
-    // handle error stuff here.
-
-    //BIG TODO: Handle all the linking or whatever, making one big giant compilable file.
-
-    
-    //println!("{}", compilable_file);
-
-    
-         let filename = "a.o";
-        dbg!("heyo");
-        let default_triple = TargetMachine::get_default_triple();
-        dbg!("{}", &default_triple);
-        let init_config = inkwell::targets::InitializationConfig
+    let input: String;
+        match fs::read_to_string(compilable_file_path)
         {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: false,
-            info: true,
-            machine_code: true
-        };
-
-        dbg!("writing all!");
-        let my_trip = default_triple.as_str();
-       let mut res = fs::File::create(filename).unwrap();
-       res.write_all(my_trip.to_bytes());
-       
-
-        inkwell::targets::Target::initialize_all(&init_config);
-        let my_target = inkwell::targets::Target::from_triple(&default_triple).unwrap();
-        dbg!("{}", &default_triple);
-    let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
-    inkwell::OptimizationLevel::None, inkwell::targets::RelocMode::Default, inkwell::targets::CodeModel::Default).unwrap();
+            Ok(file_text) => input = file_text,
+            Err(err) => 
+            {
+                println!("fatal error: {}", err);
+                process::exit(1);
+            }
+        }
 
 
-        let c = context::Context::create(); 
-        let b = c.create_builder();
-        let m = c.create_module("globalMod");
-        
-        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PROCEDURE ();  2+2; END; hey!(); END;";
-
-
-        let mut token_manager = lexer::TokenManager::new(input);
-        drive_compilation(&mut token_manager,&mut compiler);
-        println!("We are printing the module!");
-        dbg!(&m);
-        //panic!("What?");
-        target_machine.write_to_file(&m, inkwell::targets::FileType::Assembly, Path::new(filename));
-
+    let conf = Config::default();
+    compile_input(&input,conf);
+    
 
 
 }
@@ -125,7 +79,6 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
                }
            }, 
             Token::END => {
-                println!("FOUND MY TOPPLVEL");
                 found_top_level_end = true;
                 compiler.builder.build_return(None);
                 break; 
@@ -146,23 +99,11 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
          }
 }
 
-
-
-mod tests {
-    use std::{fs, io::Write, path::Path};
-
-    use inkwell::{targets::TargetMachine, passes::PassManager, context};
-
-    use crate::{drive_compilation, codegen};
-    use std::error::Error;
-    use crate::lexer::TokenManager;
-    #[test]
-    fn file_test() -> Result<(), Box<dyn Error>> 
-    {
-        let filename = "a.o";
-        dbg!("heyo");
+fn compile_input(input: &str, config: Config)
+{
+         let filename = config.filename;
         let default_triple = TargetMachine::get_default_triple();
-        dbg!("{}", &default_triple);
+        println!("Building for {}", &default_triple.as_str().to_string_lossy());
         let init_config = inkwell::targets::InitializationConfig
         {
             asm_parser: true,
@@ -173,15 +114,11 @@ mod tests {
             machine_code: true
         };
 
-        dbg!("writing all!");
-        let my_trip = default_triple.as_str();
-       let mut res = fs::File::create(filename)?;
-       res.write_all(my_trip.to_bytes());
-       
 
         inkwell::targets::Target::initialize_all(&init_config);
-        let my_target = inkwell::targets::Target::from_triple(&default_triple)?;
-        dbg!("{}", &default_triple);
+
+        let my_target = inkwell::targets::Target::from_triple(&default_triple).unwrap();
+
     let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
     inkwell::OptimizationLevel::None, inkwell::targets::RelocMode::Default, inkwell::targets::CodeModel::Default).unwrap();
 
@@ -191,33 +128,74 @@ mod tests {
         let m = c.create_module("globalMod");
         
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
-        
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PROCEDURE ();  2+2; END; TESTFUNC();  END;";
 
-        let mut token_manager = TokenManager::new(input);
+        let mut token_manager = lexer::TokenManager::new(input);
         drive_compilation(&mut token_manager,&mut compiler);
-        println!("We are printing the module!");
-        dbg!(&m);
-        dbg!(&m.get_functions());
-        //panic!("What?");
-        let res = m.verify();
-        match res
-        {
-            Ok(()) => println!("verify good!"),
-            Err(val) => panic!("{}",val)
-        }
-        target_machine.write_to_file(&m, inkwell::targets::FileType::Assembly, Path::new(filename));
 
-       Ok(())
+        let module_verification_result = m.verify();
+        match module_verification_result
+        {
+            Ok(()) => println!("Module verified successfully!"),
+            Err(err_message) => {
+                println!("Module verification failed:");
+                println!("{}",err_message);
+                process::exit(1);
+            }
+        }
+
+        let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Assembly, Path::new(&filename));
+        match write_to_file_result
+        {
+            Ok(()) => println!("Written to file successfully!"),
+            Err(err_message) => {
+                println!("file write failed:");
+                println!("{}",err_message);
+                process::exit(1);
+            }
+        }
+
+
+
+}
+
+
+struct Config {
+    filename: String
+}
+
+impl Default for Config {
+   fn default() -> Config {
+        Config {
+            filename: String::from("a.o")
+        } 
+   }
+}
+
+mod tests {
+    use crate::{drive_compilation, codegen, compile_input};
+    use std::error::Error;
+    use crate::Config;
+
+    #[test]
+    fn file_test() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        PROCEDURE ();  999-444; END; TESTFUNC();  END;";
+        
+    let conf = Config::default();
+        compile_input(input,conf);
+        Ok(())
     }
     
     #[test]
     fn drive_hello_world(){
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        2 + 2 + 4 / 6; A + 4";
-
-        //drive_compilation(input);
+        2 + 2 + 4 / 6; 2 + 4; END;";
+    //let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+    //    PROCEDURE ();  2+2; END; TESTFUNC(); END;";
+        let conf = Config::default();
+        compile_input(input,conf);
 
         
     }
