@@ -54,13 +54,13 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
             match self {
-                parser::Expr::Variable { name } => compiler.generate_variable_code(&name),
+                parser::Expr::Variable { name } => compiler.generate_variable_code(&name).unwrap(),
                 parser::Expr::Binary{operator, left, right}  => Box::new(compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right})),
                 parser::Expr::NumVal { value } => Box::new(compiler.generate_float_code(value as f64)),
                 parser::Expr::Call { ref fn_name, ref mut args } => {
                      compiler.generate_function_call_code( fn_name, args )
                 },
-                _ => compiler.generate_variable_code(&String::from("ey")),
+                _ => compiler.generate_variable_code(&String::from("ey")).unwrap(),
             }
         }
     }
@@ -91,7 +91,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             
              while args.len() > 0
             {
-                panic!("DOES THIS MATTER?");
                                 let current_arg = args.remove(0);
                                 let v: Box<dyn AnyValue<'ctx>> = current_arg.codegen(self);
                                 let bve: BasicValueEnum =  match v.as_any_value_enum()
@@ -103,11 +102,9 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                                     AnyValueEnum::StructValue(v) => v.as_basic_value_enum(),
                                     AnyValueEnum::VectorValue(v) => v.as_basic_value_enum(),
                                     _ => panic!("what the hell!"),
-                                    //AnyValueEnum::MetadataValue(v) => 
                                 };
                                 codegen_args.push(bve.into());
 
-                                //let bmve :BasicMetadataValueEnum = ;
             }                                    
                 let call_result = self.builder.build_call
                     (func_to_call, self.arg_stores.borrow().last().unwrap_or(&codegen_args), func_to_call.get_name().to_str().unwrap());
@@ -133,21 +130,16 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         {
             self.context.f64_type().const_float(value)
         }
-        unsafe fn generate_variable_code(&self,variable_name: &str) -> Box<dyn AnyValue<'ctx> + 'ctx>
+        unsafe fn generate_variable_code(&self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, &'static str>
         {
             let result: Option<&PointerValue> = self.named_values.get(variable_name);
-            let result_float: FloatValue = self.builder.build_load(*result.unwrap(),variable_name).unwrap().into_float_value();
-            return Box::new(result_float);
-            if let Some(&val) = result 
-            {
-                let myvar: Box<dyn AnyValue<'ctx>> = Box::new(val);
-                return myvar;
-            }
-            else
-            {
-                panic!("Could not find variable named {}",variable_name);
-            }
+            let result_float: FloatValue = self
+                .builder
+                .build_load(*result.ok_or("Could not find {} in the scope")?,variable_name)
+                .map_err(|err| "error building a variable code")?
+                .into_float_value();
 
+            return Ok(Box::new(result_float));
         }
 
         unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> FloatValue<'ctx>
