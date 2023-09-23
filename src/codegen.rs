@@ -188,6 +188,35 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     lexer::Token::MINUS => self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub"),
                     lexer::Token::MULTIPLY => self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul"),
                     lexer::Token::DIVIDE => self.builder.build_float_div(lhs_float,rhs_float,"tmpdiv"),
+                    lexer::Token::LESS_THAN => {
+                            let val = self.builder
+                            .build_float_compare(inkwell::FloatPredicate::OLT, lhs_float,rhs_float, "tmplt")
+                            .map_err(
+                                |builder_error| 
+                                format!("Unable to create less than situation: {}",
+                                        builder_error)
+                                )?
+                            ;
+                            
+                            let cmp_as_float = self
+                                .builder
+                                .build_unsigned_int_to_float(val, self.context.f64_type(), "tmpbool")
+                                .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
+                           Ok(cmp_as_float) 
+                    },
+                     lexer::Token::GREATER_THAN => {
+                            let val = self.builder
+                            .build_float_compare(inkwell::FloatPredicate::OGT, lhs_float,rhs_float, "tmpgt")
+                            .map_err(
+                                |builder_error| format!("Unable to create greater than situation: {}", builder_error))?
+                            ;
+                            
+                            let cmp_as_float = self
+                                .builder
+                                .build_unsigned_int_to_float(val, self.context.f64_type(), "tmpbool")
+                                .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
+                           Ok(cmp_as_float) 
+                    },
                     _ => return Err(format!("Binary operator had unexpected operator! {:?}", operator)),
                 };
 
@@ -305,7 +334,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 mod tests {
     use std::collections::HashMap;
 
-    use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module};
+    use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
     use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
     use std::cell::RefCell;
@@ -337,6 +366,39 @@ mod tests {
 
         unsafe {
         let result = consta.codegen(&compiler);
+           println!("{}",result.print_to_string()); 
+        dbg!("{}", result);
+        }
+    }
+
+    #[test]
+    fn test_comparisons()
+    {
+        let c = Context::create();
+        let m = c.create_module("repl");
+        let b = c.create_builder();
+        let compiler = get_test_compiler(&c, &m, &b);
+        
+        //create a MAIN function here
+            let args: Vec<BasicMetadataTypeEnum> = vec![];
+    let main_function_type = compiler.context.void_type().fn_type(&args, false);
+    let main_func = compiler.module.add_function("main", main_function_type, None);
+            //create a new scope block for the function
+            let new_func_block = compiler.context.append_basic_block(main_func, "entry");
+
+            //position the builder's cursor inside that block
+            compiler.builder.position_at_end(new_func_block);
+
+
+        //finish creating a main function
+
+        let left = Box::new(Expr::NumVal { value: 3 });
+        
+        let right = Box::new(Expr::NumVal { value: 5});
+
+        let my_binary = Expr::Binary { operator: Token::LESS_THAN, left, right };
+        unsafe {
+        let result = my_binary.codegen(&compiler);
            println!("{}",result.print_to_string()); 
         dbg!("{}", result);
         }

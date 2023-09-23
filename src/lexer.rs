@@ -67,7 +67,7 @@ use std::{collections::HashMap, error::Error};
         }
         fn is_character_special(ch: char) -> bool
         {
-            let special_chars = vec!['/','(',')','\'','+','-','*',',','=',';'];
+            let special_chars = vec!['/','(',')','\'','+','-','*',',','=',';','<','>'];
 
             
             if special_chars.contains(&ch)
@@ -210,6 +210,8 @@ use std::{collections::HashMap, error::Error};
                 "*" => Token::MULTIPLY,
                 "(" => Token::OPEN_PAREN,
                 ")" => Token::CLOSED_PAREN,
+                "<" => Token::LESS_THAN,
+                ">" => Token::GREATER_THAN,
                 "," => Token::COMMA,
                 "/" => Token::DIVIDE,
                 "+" => Token::PLUS,
@@ -224,8 +226,6 @@ use std::{collections::HashMap, error::Error};
                 "OPTIONS" => Token::OPTIONS,
                 _ => Token::Identifier(current_word_buffer)
             });
-        //}
-            None
         }
 
         
@@ -247,6 +247,8 @@ use std::{collections::HashMap, error::Error};
         WHILE,
         END,
         PUT,
+        LESS_THAN,
+        GREATER_THAN,
         LABEL(String),
         SKIP,
         STRING(String),

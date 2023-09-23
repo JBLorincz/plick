@@ -66,6 +66,8 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
             //position the builder's cursor inside that block
             compiler.builder.position_at_end(new_func_block);
 
+        //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
+
         let printf_arg_type: PointerType<'ctx> = compiler.context.i8_type().ptr_type(AddressSpace::default());
             let printf_type: FunctionType<'ctx> = compiler.context.i32_type().fn_type(&[BasicMetadataTypeEnum::from(printf_arg_type)], true);
             let printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
