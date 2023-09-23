@@ -276,6 +276,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
         builder.build_alloca(self.context.f64_type(), name).unwrap()
     }
+
         pub unsafe fn generate_function_code(&mut self, func: parser::Function) -> Result<FunctionValue<'ctx>, String>
         {
             
@@ -325,10 +326,25 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
             Ok(function)
         }
+
+
+    pub fn initalize_main_function(&self)
+    {
+            let args: Vec<BasicMetadataTypeEnum> = vec![];
+            let main_function_type = self.context.void_type().fn_type(&args, false);
+            let main_func = self.module.add_function("main", main_function_type, None);
+            //create a new scope block for the function
+            let new_func_block = self.context.append_basic_block(main_func, "entry");
+
+            //position the builder's cursor inside that block
+            self.builder.position_at_end(new_func_block);
+
+
+
     }
 
-    
 
+    }
 } 
 
 mod tests {
@@ -380,16 +396,7 @@ mod tests {
         let compiler = get_test_compiler(&c, &m, &b);
         
         //create a MAIN function here
-            let args: Vec<BasicMetadataTypeEnum> = vec![];
-    let main_function_type = compiler.context.void_type().fn_type(&args, false);
-    let main_func = compiler.module.add_function("main", main_function_type, None);
-            //create a new scope block for the function
-            let new_func_block = compiler.context.append_basic_block(main_func, "entry");
-
-            //position the builder's cursor inside that block
-            compiler.builder.position_at_end(new_func_block);
-
-
+        compiler.initalize_main_function();
         //finish creating a main function
 
         let left = Box::new(Expr::NumVal { value: 3 });

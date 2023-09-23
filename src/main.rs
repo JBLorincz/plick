@@ -57,14 +57,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
     parse_opening(token_manager);
 
     let mut found_top_level_end = false;
-    let args: Vec<BasicMetadataTypeEnum> = vec![];
-    let main_function_type = compiler.context.void_type().fn_type(&args, false);
-    let main_func = compiler.module.add_function("main", main_function_type, None);
-            //create a new scope block for the function
-            let new_func_block = compiler.context.append_basic_block(main_func, "entry");
-
-            //position the builder's cursor inside that block
-            compiler.builder.position_at_end(new_func_block);
+    compiler.initalize_main_function();
 
         //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
 
