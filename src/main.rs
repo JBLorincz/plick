@@ -65,16 +65,35 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
 
             //position the builder's cursor inside that block
             compiler.builder.position_at_end(new_func_block);
+
+
+    let mut current_label_string: Option<String> = None;
     while let Some(ref token) = token_manager.current_token
     {
         match token 
         {
-            Token::SEMICOLON | Token::LABEL(_)  => {
+            Token::SEMICOLON  => {
                 token_manager.next_token();
+                current_label_string = None;
+            },
+            Token::LABEL(label_string) => {
+                
+                if let Some(_) = current_label_string
+                {
+                    panic!("Can't declare two labels in a row!");
+                }
+
+                current_label_string = Some(label_string.to_string()); //store the fact something
+                token_manager.next_token();                                                     //is labelled
             },
            Token::PROCEDURE => {
+               let fn_name: String;
+               match current_label_string {
+                   Some(ref val) => fn_name = val.clone(),
+                   None => panic!("Could not find the label associated with a function definition!")
+               }
                unsafe {
-                   compiler.generate_function_code(parse_function(token_manager));
+                   compiler.generate_function_code(parse_function(token_manager,fn_name));
                    compiler.builder.position_at_end(compiler.module.get_first_function().unwrap().get_first_basic_block().unwrap());
                }
            }, 
@@ -181,7 +200,15 @@ mod tests {
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PROCEDURE ();  999-444; END; TESTFUNC();  END;";
+                    LOL: PROCEDURE ();  999-444;
+                END;
+                BOL: PROCEDURE(); 4-7; END;
+                LOL();
+                LOL();
+                BOL();
+                BOL();
+                LOL();
+                END;";
         
     let conf = Config::default();
         compile_input(input,conf);

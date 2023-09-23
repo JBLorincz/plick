@@ -285,9 +285,9 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
     Prototype { fn_name: label_name, args: args_list }
 }
 
-pub fn parse_function(token_manager: &mut lexer::TokenManager) -> Function
+pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Function
 {
-    let proto = parse_function_prototype(token_manager, String::from("TESTFUNC")); 
+    let proto = parse_function_prototype(token_manager, label_name); 
     let exp = parse_expression(token_manager);
 
     parse_semicolon(token_manager);//eat the trailing semicolon
@@ -660,7 +660,7 @@ mod tests {
     {
         let mut token_manager = TokenManager::new("PROCEDURE (A,B,C); A + B + C; END;");
 
-        let my_function = parse_function(&mut token_manager);
+        let my_function = parse_function(&mut token_manager, "TESTFUNC".to_string());
 
 
 

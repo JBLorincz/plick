@@ -89,6 +89,10 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
             let get_func_result:Option<FunctionValue<'ctx>> = self.module.get_function(&fn_name);
+            if let None = get_func_result
+            {
+                return Err(format!("Could not find a function named {}",fn_name.to_string()));
+            }
             let func_to_call: FunctionValue<'ctx> = get_func_result.unwrap();
 
 
