@@ -9,10 +9,12 @@ use crate::lexer;
 use crate::parser;
 use crate::parser::Expr;
 use crate::parser::Function;
+use inkwell::AddressSpace;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::types::PointerType;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::CallSiteValue;
@@ -141,6 +143,16 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         }
 
 
+        pub unsafe fn generate_hello_world_print(&'a self,) -> CallSiteValue<'ctx>
+        {
+            
+            let glob_string_ptr = self.builder.build_global_string_ptr("Hello World from PL/1!\n", "hello_world_str");
+            
+            let myptr = glob_string_ptr.unwrap().as_pointer_value();
+
+            let res = self.builder.build_call(self.module.get_function("printf").unwrap(), &[BasicMetadataValueEnum::from(myptr)], "teffy");
+            return res.unwrap();
+        }
 
         unsafe fn generate_float_code(&'a self, value: f64) -> FloatValue<'ctx>
         {

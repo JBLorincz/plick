@@ -2,7 +2,7 @@ use std::{env, fs::{self}, process};
 use codegen::codegen::{Compiler, CodeGenable};
 use lexer::{Token, TokenManager};
 use parser::{parse_expression, parse_function, parse_opening };
-use inkwell::{targets::TargetMachine, types::BasicMetadataTypeEnum};
+use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType, FunctionType}, AddressSpace, module};
 use inkwell::context;
 use std::path::Path;
 
@@ -66,6 +66,9 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
             //position the builder's cursor inside that block
             compiler.builder.position_at_end(new_func_block);
 
+        let printf_arg_type: PointerType<'ctx> = compiler.context.i8_type().ptr_type(AddressSpace::default());
+            let printf_type: FunctionType<'ctx> = compiler.context.i32_type().fn_type(&[BasicMetadataTypeEnum::from(printf_arg_type)], true);
+            let printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
 
     let mut current_label_string: Option<String> = None;
     while let Some(ref token) = token_manager.current_token
@@ -86,6 +89,12 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
                 current_label_string = Some(label_string.to_string()); //store the fact something
                 token_manager.next_token();                                                     //is labelled
             },
+            Token::PUT => {
+                unsafe {
+                compiler.generate_hello_world_print();
+                }
+                token_manager.next_token();
+            }
            Token::PROCEDURE => {
                let fn_name: String;
                match current_label_string {
@@ -162,7 +171,7 @@ fn compile_input(input: &str, config: Config)
             }
         }
 
-        let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Assembly, Path::new(&filename));
+        let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
         match write_to_file_result
         {
             Ok(()) => println!("Written to file successfully!"),
@@ -204,6 +213,15 @@ mod tests {
                 END;
                 BOL: PROCEDURE(); 4-7; END;
                 LOL();
+                PUT;
+                PUT;
+                PUT;
+                PUT;
+                PUT;
+                PUT;
+                PUT;
+                PUT;
+                PUT;
                 LOL();
                 BOL();
                 BOL();
