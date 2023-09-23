@@ -214,7 +214,48 @@ mod tests {
         compile_input(input,conf);
         Ok(())
     }
-    
+     #[test]
+    fn test_func_with_param() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                    LOL: PROCEDURE (A);  A-4;
+                END;
+                BOL: PROCEDURE(); 4-7; END;
+                LOL(6);
+                LOL(8);
+                BOL();
+                BOL();
+                LOL(2);
+                END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "testtwo.o".to_string();
+        compile_input(input,conf);
+        Ok(())
+    }
+
+     #[test]
+     #[should_panic(expected = "two labels")]
+    fn test_double_label_panic() -> ()
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                    LOL: LOL: PROCEDURE (A);  A-4;
+                END;
+                BOL: PROCEDURE(); 4-7; END;
+                LOL(6);
+                LOL(8);
+                BOL();
+                BOL();
+                LOL(2);
+                END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "failfile.o".to_string();
+        compile_input(input,conf);
+    }
+
     #[test]
     fn drive_hello_world(){
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
