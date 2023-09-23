@@ -139,16 +139,15 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     let left_handed_side = parse_primary_expression(token_manager);
     return match token_manager.current_token {
-        Some(Token::PLUS) | Some(Token::MINUS) | Some(Token::DIVIDE) | Some(Token::MULTIPLY) => {
+              Some(Token::PLUS)
+            | Some(Token::MINUS) 
+            | Some(Token::DIVIDE) 
+            | Some(Token::MULTIPLY)
+            | Some(Token::GREATER_THAN)
+            | Some(Token::LESS_THAN)
+            => {
              let token_precedence = get_binary_operator_precedence(token_manager.current_token.as_ref().unwrap());
-           // let right_handed_side = parse_right_side_of_binary_expression(token_manager, token_precedence);
 
-           // return Expr::Binary 
-           // { 
-           //     operator: Token::PLUS,
-           //     left: Box::new(left_handed_side), 
-           //     right: Box::new(right_handed_side) 
-           // }
            build_recursive_binary_tree(token_manager, left_handed_side, token_precedence )
         }
         _ =>  left_handed_side
@@ -209,6 +208,8 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
     Token::MINUS => 20,
     Token::MULTIPLY => 40,
     Token::DIVIDE => 40,
+    Token::LESS_THAN => 10,
+    Token::GREATER_THAN => 10,
     _ => -1
    } 
 }
