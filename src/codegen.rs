@@ -281,17 +281,17 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         {
             
             //see if the function has already been defined
-            if let Some(_) = self.module.get_function(&func.proto.fn_name)
+            if let Some(_) = self.module.get_function(&func.prototype.fn_name)
             {                               //if a func already exists
-               return Err(format!("function named {} already exists!",func.proto.fn_name));
+               return Err(format!("function named {} already exists!",func.prototype.fn_name));
             }
             
             //clear the named values, which stores all the recognized identifiers
             self.named_values.clear();
     
             //generate the IR for the function prototype
-            let func_name = func.proto.fn_name.clone();
-            let proto_args = func.proto.args.clone();
+            let func_name = func.prototype.fn_name.clone();
+            let proto_args = func.prototype.args.clone();
             let function = self.generate_function_prototype_code(func_name,proto_args);
 
             //TODO: Check if function body is empty
@@ -308,9 +308,9 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //fill up the NamedValues array 
             for (i,arg) in function.get_param_iter().enumerate()
             {
-                let alloca = self.create_entry_block_alloca(&func.proto.args[i], &function);
+                let alloca = self.create_entry_block_alloca(&func.prototype.args[i], &function);
                 self.builder.build_store(alloca, arg).map_err(|builder_err| format!("Was unable to build_store for {:?}",arg).to_string())?;
-                self.named_values.insert(func.proto.args[i].clone(),alloca);
+                self.named_values.insert(func.prototype.args[i].clone(),alloca);
             }
 
             let function_code = func.body.codegen(self);
@@ -422,7 +422,7 @@ mod tests {
         
         let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
         let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")]};
-        let my_func = Function {proto: my_proto, body: binop};
+        let my_func = Function {prototype: my_proto, body: binop};
 
         unsafe {
             

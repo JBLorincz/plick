@@ -26,18 +26,36 @@ pub enum Expr
         
 }
 
-//Represents a function prototype
+///Represents a function prototype
 pub struct Prototype {
 
         pub fn_name: String,
         pub args: Vec<String> // the names of the arguments - used inside of the function itself.
 }
 
-pub struct Function{
-    pub proto: Prototype,
-    pub body: Expr
+///Represents a user-deined function.
+pub struct Function {
+    pub prototype: Prototype,
+    pub body_statements: Vec<Statement>,
+    pub return_value: Option<Expr>
 }
 
+///Represents a "full-line" of execution, terminated by a semicolon.
+pub struct Statement {
+    label: Option<String>, //The label attached to this statement
+    command: Command, 
+}
+
+///A "command" is the first keyword in a PL/1 statement, denoting
+///what the entire statement's purpose is.
+#[derive(Debug)]
+pub enum Command {
+    Empty, //represents a statement that is just a semicolon by itself.
+    END,
+    PUT,
+    EXPR(Expr),   //"EXPR" is not a command in pl/1 this just represents a expression statement.
+    RETURN(Expr), // specifies the return value of a function
+}
 
 
 pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
@@ -286,20 +304,111 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
     Prototype { fn_name: label_name, args: args_list }
 }
 
-pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Function
+pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Function, String>
 {
     let proto = parse_function_prototype(token_manager, label_name); 
-    let exp = parse_expression(token_manager);
+    let mut body_statements: Vec<Statement> = vec![];
+    let mut return_value: Option<Expr> = None;
 
-    parse_semicolon(token_manager);//eat the trailing semicolon
-                                   //
-    if token_manager.current_token != Some(Token::END)
-    {
-        panic!("{} is missing an END tag!", proto.fn_name);
+
+    loop {
+        let current_statement = parse_statement(token_manager)?;
+        body_statements.push(current_statement);
+        
+        if let Command::RETURN(expr) = current_statement.command
+        {
+            //handle double return statements error in a function
+            if let Some(expr) = return_value
+            {
+                return Err("Duplicate return statements!".to_string());
+            }
+
+            return_value = Some(expr);
+
+            //lets remove the return from body_statements as well
+            body_statements.pop();
+        }
+        if let Command::END = current_statement.command 
+        {
+            body_statements.pop();//remove this from the body_statements.
+            break;
+        }
     }
+    //let exp = parse_expression(token_manager);
+
+    //parse_semicolon(token_manager);//eat the trailing semicolon
+    //                               //
+    //if token_manager.current_token != Some(Token::END)
+    //{
+    //    panic!("{} is missing an END tag!", proto.fn_name);
+    //}
+
+    parse_statement(token_manager);
 
     token_manager.next_token();
-   Function { proto, body: exp } 
+   Ok(Function { prototype: proto, body_statements, return_value })
+}
+
+
+///Parses a PL/1 statement
+pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statement, String>
+{
+    let mut command: Command = Command::Empty;
+    let mut label: Option<String> = None;
+    while let Some(ref token) = token_manager.current_token
+    {
+        match token 
+        {
+            Token::SEMICOLON  => {
+                token_manager.next_token(); //eat the semicolon
+                break; //statement is now over since semicolon has been found.
+            },
+            Token::LABEL(label_string) => {
+                
+                if let Some(other_label) = label
+                {
+                    return Err(format!("Can't declare label {} after label {}", label_string, other_label));
+                }
+
+                label = Some(label_string.to_string()); //store the fact something
+                token_manager.next_token();                                                     //is labelled
+            },
+            Token::PUT => {
+                match command {
+                    Empty => command = Command::PUT,             
+                    cmd => return Err(format!("Can't put command PUT  after {:?}", cmd ))
+                }
+                token_manager.next_token();
+            }
+           Token::PROCEDURE => {
+               let fn_name: String;
+               match label {
+                   Some(ref val) => fn_name = val.clone(),
+                   None => panic!("Could not find the label associated with a function definition!")
+               }
+
+                parse_function(token_manager, fn_name);
+           }, 
+            Token::END => {
+                 match command {
+                    Empty => command = Command::END,             
+                    cmd => return Err(format!("Can't put command END after {:?}", cmd ))
+                }
+                token_manager.next_token();
+                break; 
+            },
+            _ => {
+                match command {
+                    Empty => command = Command::EXPR(parse_expression(token_manager)),
+                    cmd => return Err(format!("Can't put expression after {:?}", cmd ))
+                }
+            },
+            
+        }          
+        
+    } // end while loop
+
+    Ok(Statement { label, command })
 }
 
 ///parses the beginning of a PL/1 Program.
