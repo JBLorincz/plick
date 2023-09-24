@@ -97,8 +97,11 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
                    None => panic!("Could not find the label associated with a function definition!")
                }
                unsafe {
-                   compiler.generate_function_code(parse_function(token_manager,fn_name));
+                   let parsed_function = parse_function(token_manager,fn_name).unwrap();
+                   compiler.generate_function_code(parsed_function);
                    compiler.builder.position_at_end(compiler.module.get_first_function().unwrap().get_first_basic_block().unwrap());
+
+                   current_label_string = None; //stopgap for transition to statement-driven logic
                }
            }, 
             Token::END => {
@@ -162,6 +165,7 @@ fn compile_input(input: &str, config: Config)
             Err(err_message) => {
                 println!("Module verification failed:");
                 println!("{}",err_message);
+                panic!("WHAAA");
                 process::exit(1);
             }
         }
@@ -173,6 +177,7 @@ fn compile_input(input: &str, config: Config)
             Err(err_message) => {
                 println!("file write failed:");
                 println!("{}",err_message);
+                panic!("WHOO");
                 process::exit(1);
             }
         }
@@ -206,21 +211,15 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  999-444;
                 END;
-                BOL: PROCEDURE(); 4-7; END;
+                BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
                 PUT;
                 LOL();
                 BOL();
                 BOL();
                 LOL();
+                PUT;
+                PUT;
                 END;";
         
     let conf = Config::default();
@@ -234,7 +233,7 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE (A);  A-4;
                 END;
-                BOL: PROCEDURE(); 4-7; END;
+                BOL: PROCEDURE(); 4-7; PUT; END;
                 LOL(6);
                 LOL(8);
                 BOL();
@@ -262,6 +261,19 @@ mod tests {
                 BOL();
                 BOL();
                 LOL(2);
+                END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "failfile.o".to_string();
+        compile_input(input,conf);
+    }
+     #[test]
+     #[should_panic]
+    fn test_unknown_function_panic_test() 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                LOLOLOLOL();
                 END;";
         
         let mut conf = Config::default();

@@ -1,6 +1,6 @@
-use crate::lexer::{self, Token};
+use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr
 {
     Binary {
@@ -41,14 +41,15 @@ pub struct Function {
 }
 
 ///Represents a "full-line" of execution, terminated by a semicolon.
+#[derive(Debug,Clone)]
 pub struct Statement {
     label: Option<String>, //The label attached to this statement
-    command: Command, 
+    pub command: Command, 
 }
 
 ///A "command" is the first keyword in a PL/1 statement, denoting
 ///what the entire statement's purpose is.
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
@@ -215,7 +216,7 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
     Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
     Token::Identifier(_) => parse_identifier(token_manager),
     Token::NumVal(_) => parse_numeric(token_manager),
-    other => panic!("Can't parse another token type!")
+    other => panic!("Can't parse top level token type {:?}", other)
     }
 }
 
@@ -314,38 +315,33 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
     loop {
         let current_statement = parse_statement(token_manager)?;
         body_statements.push(current_statement);
-        
-        if let Command::RETURN(expr) = current_statement.command
+       
+        //dbg!(&body_statements);
+
+        if let Command::RETURN(ref expr) = body_statements.last().unwrap().command
         {
             //handle double return statements error in a function
-            if let Some(expr) = return_value
+            if let Some(_expr) = return_value
             {
                 return Err("Duplicate return statements!".to_string());
             }
 
-            return_value = Some(expr);
+            return_value = Some(expr.clone());
 
             //lets remove the return from body_statements as well
             body_statements.pop();
         }
-        if let Command::END = current_statement.command 
+        else if let Command::END = body_statements.last().unwrap().command 
         {
             body_statements.pop();//remove this from the body_statements.
             break;
         }
     }
-    //let exp = parse_expression(token_manager);
 
-    //parse_semicolon(token_manager);//eat the trailing semicolon
-    //                               //
-    //if token_manager.current_token != Some(Token::END)
-    //{
-    //    panic!("{} is missing an END tag!", proto.fn_name);
-    //}
+    println!("Exiting the function parsing!");
+    
 
-    parse_statement(token_manager);
-
-    token_manager.next_token();
+    parse_semicolon(token_manager);
    Ok(Function { prototype: proto, body_statements, return_value })
 }
 
@@ -375,7 +371,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             },
             Token::PUT => {
                 match command {
-                    Empty => command = Command::PUT,             
+                    Command::Empty => command = Command::PUT,             
                     cmd => return Err(format!("Can't put command PUT  after {:?}", cmd ))
                 }
                 token_manager.next_token();
@@ -391,7 +387,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
            }, 
             Token::END => {
                  match command {
-                    Empty => command = Command::END,             
+                    Command::Empty => command = Command::END,             
                     cmd => return Err(format!("Can't put command END after {:?}", cmd ))
                 }
                 token_manager.next_token();
@@ -399,7 +395,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             },
             _ => {
                 match command {
-                    Empty => command = Command::EXPR(parse_expression(token_manager)),
+                    Command::Empty => command = Command::EXPR(parse_expression(token_manager)),
                     cmd => return Err(format!("Can't put expression after {:?}", cmd ))
                 }
             },

@@ -7,8 +7,10 @@ use std::vec;
 
 use crate::lexer;
 use crate::parser;
+use crate::parser::Command;
 use crate::parser::Expr;
 use crate::parser::Function;
+use crate::parser::Statement;
 use inkwell::AddressSpace;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -77,6 +79,18 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
         }
     }
+    impl<'a, 'ctx> CodeGenable<'a,'ctx> for Statement
+    {
+        unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
+        {
+            if let Command::PUT = self.command
+            {
+                return Box::new(compiler.generate_hello_world_print());
+            }
+            Box::new(compiler.generate_float_code(4.0))
+        }
+    }
+
 
     impl<'a, 'ctx> Compiler<'a, 'ctx>
     {
@@ -234,7 +248,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
         }
 
-        unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, proto_args: Vec<String>) -> FunctionValue<'ctx>
+        unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, proto_args: Vec<String>, is_void: bool) -> FunctionValue<'ctx>
         {
             let ret_type = self.context.f64_type();
         
@@ -250,8 +264,13 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 
             //create the function prototype type info
-            let fn_type = self.context.f64_type().fn_type(args_types, false);// create the
+            let mut fn_type = self.context.f64_type().fn_type(args_types, false);// create the
+             
 
+            if is_void
+            {
+                fn_type = self.context.void_type().fn_type(args_types, false);// create the
+            }
             // create a new function prototype
             let func_val = self.module.add_function(&fn_name, fn_type, None);
 
@@ -292,7 +311,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
-            let function = self.generate_function_prototype_code(func_name,proto_args);
+            let function = self.generate_function_prototype_code(func_name,proto_args, func.return_value.is_none());
 
             //TODO: Check if function body is empty
             //if so, return function here. 
@@ -313,8 +332,25 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 self.named_values.insert(func.prototype.args[i].clone(),alloca);
             }
 
-            let function_code = func.body.codegen(self);
-            let func_code_enum = function_code.as_any_value_enum();
+            for statement in func.body_statements.iter()
+            {
+                statement.clone().codegen(self);
+            }
+
+            match func.return_value
+            {
+                None => 
+                {
+                    self.builder.build_return(None)
+                        .map_err(|builder_func| format!("error building function return with no value: {}",builder_func))?;
+                    return Ok(function);
+                }
+                Some(_) => {},
+            }
+
+            let function_return_value = func.return_value.unwrap().codegen(self);
+            
+            let func_code_enum = function_return_value.as_any_value_enum();
 
             if let AnyValueEnum::FloatValue(a)  = func_code_enum {
                 let output = self.builder.build_return(Some(&a as &dyn BasicValue));
@@ -322,6 +358,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             else 
             {
                 return Err("Function return type was not float value!".to_string());
+            }
+
+            let failed_verification = !function.verify(true);
+            if failed_verification
+            {
+                panic!("func failed verify");
             }
 
             Ok(function)
@@ -422,7 +464,7 @@ mod tests {
         
         let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
         let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")]};
-        let my_func = Function {prototype: my_proto, body: binop};
+        let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop)};
 
         unsafe {
             
