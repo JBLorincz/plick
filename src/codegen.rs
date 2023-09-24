@@ -83,11 +83,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
     {
         unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
-            if let Command::PUT = self.command
+            match self.command 
             {
-                return Box::new(compiler.generate_hello_world_print());
+            Command::PUT => Box::new(compiler.generate_hello_world_print()),
+            Command::EXPR(expr) => expr.codegen(compiler),
+            other => {panic!("Did not know what to expect!")},
             }
-            Box::new(compiler.generate_float_code(4.0))
         }
     }
 
