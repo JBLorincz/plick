@@ -80,6 +80,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
           {
               let msg = format!("Finished parsing: {}", err_msg);
               println!("{}",msg);
+              panic!("{}",err_msg);
               break;
           }
           let parser_result = parser_result.unwrap();
@@ -293,7 +294,7 @@ mod tests {
     }
 
      #[test]
-     #[should_panic(expected = "two labels")]
+     #[should_panic(expected = "after label")]
     fn test_double_label_panic() -> ()
     {
 

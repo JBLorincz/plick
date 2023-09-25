@@ -219,6 +219,7 @@ use std::{collections::HashMap, error::Error};
                 "DO" => Token::DO,
                 "=" => Token::EQ,
                 "PUT" => Token::PUT,
+                "RETURN" | "RET" => Token::RETURN,
                 "DATA" => Token::DATA,
                 "END" => Token::END,
                 "WHILE" => Token::WHILE,
@@ -236,6 +237,7 @@ use std::{collections::HashMap, error::Error};
     pub enum Token
     {
         EOF,
+        RETURN,
         OPEN_PAREN,
         CLOSED_PAREN,
         PROCEDURE, // the procedure or proc token
