@@ -38,7 +38,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         pub module: &'a module::Module<'ctx>,
 
 
-        pub named_values: HashMap<String,PointerValue<'ctx>>,
+        pub named_values: RefCell<HashMap<String,PointerValue<'ctx>>>,
         pub arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum<'ctx>>>>,
     }
 
@@ -74,7 +74,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     function_call_result.unwrap()
                 },
                 _ => {
-                    compiler.generate_variable_code(&String::from("ey")).unwrap()
+                    panic!("Hit exhaustive match on codegen expressions!");
+                    //compiler.generate_variable_code(&String::from("ey")).unwrap()
                 },
             }
         }
@@ -83,11 +84,23 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
     {
         unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
+            //DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
+            //IF NEW COMMANDS ARE ADDED.
             match self.command 
             {
             Command::PUT => Box::new(compiler.generate_hello_world_print()),
             Command::EXPR(expr) => expr.codegen(compiler),
-            other => {panic!("Did not know what to expect!")},
+            Command::END => panic!("found END"),
+            Command::RETURN(_expr) => panic!("found RETURN!"),
+            Command::Empty => panic!("found EMPTY"),
+            Command::FunctionDec(func) =>{
+
+                let current_function = compiler.builder.get_insert_block().unwrap();
+                let return_val = Box::new(compiler.generate_function_code(func).unwrap());
+                compiler.builder.position_at_end(current_function);
+                return_val
+            }
+            
             }
         }
     }
@@ -98,7 +111,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
          pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>) -> Compiler<'a, 'ctx>
         {
 
-            let named_values: HashMap<String,PointerValue<'ctx>> = HashMap::new();
+            let named_values: RefCell<HashMap<String,PointerValue<'ctx>>> = RefCell::new(HashMap::new());
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
             Compiler { context: c, builder: b, module: m, named_values, arg_stores }
         }
@@ -175,7 +188,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         }
         unsafe fn generate_variable_code(&self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, &'static str>
         {
-            let result: Option<&PointerValue> = self.named_values.get(variable_name);
+            let named_values_borrow = self.named_values.borrow();
+            let result: Option<&PointerValue> = named_values_borrow.get(variable_name);
             let result_float: FloatValue = self
                 .builder
                 .build_load(*result.ok_or("Could not find {} in the scope")?,variable_name)
@@ -297,7 +311,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         builder.build_alloca(self.context.f64_type(), name).unwrap()
     }
 
-        pub unsafe fn generate_function_code(&mut self, func: parser::Function) -> Result<FunctionValue<'ctx>, String>
+        pub unsafe fn generate_function_code(&self, func: parser::Function) -> Result<FunctionValue<'ctx>, String>
         {
             
             //see if the function has already been defined
@@ -307,7 +321,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
             
             //clear the named values, which stores all the recognized identifiers
-            self.named_values.clear();
+            self.named_values.borrow_mut().clear();
     
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
@@ -330,7 +344,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             {
                 let alloca = self.create_entry_block_alloca(&func.prototype.args[i], &function);
                 self.builder.build_store(alloca, arg).map_err(|builder_err| format!("Was unable to build_store for {:?}",arg).to_string())?;
-                self.named_values.insert(func.prototype.args[i].clone(),alloca);
+                self.named_values.borrow_mut().insert(func.prototype.args[i].clone(),alloca);
             }
 
             for statement in func.body_statements.iter()
@@ -371,7 +385,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         }
 
 
-    pub fn initalize_main_function(&self)
+    ///creates the main func and returns its value
+    pub fn initalize_main_function(&self) -> FunctionValue<'ctx>
     {
             let args: Vec<BasicMetadataTypeEnum> = vec![];
             let main_function_type = self.context.void_type().fn_type(&args, false);
@@ -382,7 +397,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //position the builder's cursor inside that block
             self.builder.position_at_end(new_func_block);
 
-
+            main_func
 
     }
 
@@ -402,7 +417,7 @@ mod tests {
         let context = c;
         let module = m;
         let builder = b;
-        let named_values: HashMap<String,PointerValue> = HashMap::new();
+        let named_values: RefCell<HashMap<String,PointerValue>> = RefCell::new(HashMap::new());
         let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]);
         let compiler = Compiler {
            context,

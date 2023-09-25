@@ -27,6 +27,7 @@ pub enum Expr
 }
 
 ///Represents a function prototype
+#[derive(Debug,Clone)]
 pub struct Prototype {
 
         pub fn_name: String,
@@ -34,6 +35,7 @@ pub struct Prototype {
 }
 
 ///Represents a user-deined function.
+#[derive(Debug,Clone)]
 pub struct Function {
     pub prototype: Prototype,
     pub body_statements: Vec<Statement>,
@@ -54,6 +56,7 @@ pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
     PUT,
+    FunctionDec(Function), 
     EXPR(Expr),   //"EXPR" is not a command in pl/1 this just represents a expression statement.
     RETURN(Expr), // specifies the return value of a function
 }
@@ -365,6 +368,11 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 {
                     return Err(format!("Can't declare label {} after label {}", label_string, other_label));
                 }
+                match command
+                {
+                    Command::Empty => (),
+                    other_command => { return Err(format!("Can't declare a label after a {:?} command!",other_command)); }
+                }
 
                 label = Some(label_string.to_string()); //store the fact something
                 token_manager.next_token();                                                     //is labelled
@@ -382,8 +390,9 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                    Some(ref val) => fn_name = val.clone(),
                    None => panic!("Could not find the label associated with a function definition!")
                }
-
-                parse_function(token_manager, fn_name);
+                label = None; // this is so the label used in the function definition is not held.
+                let result = parse_function(token_manager, fn_name.clone())?;
+                return Ok(Statement { label: Some(fn_name), command: Command::FunctionDec(result) });
            }, 
             Token::END => {
                  match command {
