@@ -404,7 +404,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             },
             Token::RETURN => {
                  token_manager.next_token();
-                 let token_after_return = &token_manager.current_token.clone().unwrap().clone();
+                 let token_after_return = &token_manager.current_token.unwrap();
                 if let Token::SEMICOLON = token_after_return
                 {
                     match command {

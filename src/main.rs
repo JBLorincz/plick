@@ -66,56 +66,82 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
             let printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
 
     let mut current_label_string: Option<String> = None;
-    while let Some(ref token) = token_manager.current_token
-    {
-        match token 
-        {
-            Token::SEMICOLON  => {
-                token_manager.next_token();
-                current_label_string = None;
-            },
-            Token::LABEL(label_string) => {
-                
-                if let Some(_) = current_label_string
-                {
-                    panic!("Can't declare two labels in a row!");
-                }
+      while let Some(ref token) = token_manager.current_token
+      {
+          if let Token::END = token
+          {
+              found_top_level_end = true;
+              compiler.builder.build_return(None);
+              break;
+          }
+          let parser_result = parser::parse_statement(token_manager);
+          
+          if let Err(err_msg) = parser_result
+          {
+              let msg = format!("Finished parsing: {}", err_msg);
+              println!("{}",msg);
+              panic!("{}",err_msg);
+              break;
+          }
+          let parser_result = parser_result.unwrap();
 
-                current_label_string = Some(label_string.to_string()); //store the fact something
-                token_manager.next_token();                                                     //is labelled
-            },
-            Token::PUT => {
-                unsafe {
-                compiler.generate_hello_world_print();
-                }
-                token_manager.next_token();
-            }
-           Token::PROCEDURE => {
-               let fn_name: String;
-               match current_label_string {
-                   Some(ref val) => fn_name = val.clone(),
-                   None => panic!("Could not find the label associated with a function definition!")
-               }
-               unsafe {
-                   compiler.generate_function_code(parse_function(token_manager,fn_name));
-                   compiler.builder.position_at_end(compiler.module.get_first_function().unwrap().get_first_basic_block().unwrap());
-               }
-           }, 
-            Token::END => {
-                found_top_level_end = true;
-                compiler.builder.build_return(None);
-                break; 
-            },
-            _ => {
-                unsafe {
-                parse_expression(token_manager).codegen(&mut compiler);
-                }
-            },
-            
+          unsafe {
+            parser_result.codegen(compiler);
         }
-         
-        
-    }
+      }
+//    while let Some(ref token) = token_manager.current_token
+//    {
+//        match token 
+//        {
+//            Token::SEMICOLON  => {
+//                token_manager.next_token();
+//                current_label_string = None;
+//            },
+//            Token::LABEL(label_string) => {
+//                
+//                if let Some(_) = current_label_string
+//                {
+//                    panic!("Can't declare two labels in a row!");
+//                }
+//
+//                current_label_string = Some(label_string.to_string()); //store the fact something
+//                token_manager.next_token();                                                     //is labelled
+//            },
+//            Token::PUT => {
+//                unsafe {
+//                compiler.generate_hello_world_print();
+//                }
+//                token_manager.next_token();
+//            }
+//           Token::PROCEDURE => {
+//               let fn_name: String;
+//               match current_label_string {
+//                   Some(ref val) => fn_name = val.clone(),
+//                   None => panic!("Could not find the label associated with a function definition!")
+//               }
+//               unsafe {
+//                   let parsed_function = parse_function(token_manager,fn_name).unwrap();
+//                   compiler.generate_function_code(parsed_function);
+//                   compiler.builder.position_at_end(compiler.module.get_first_function().unwrap().get_first_basic_block().unwrap());
+//
+//                   current_label_string = None; //stopgap for transition to statement-driven logic
+//               }
+//           }, 
+//            Token::END => {
+//                found_top_level_end = true;
+//                compiler.builder.build_return(None);
+//                break; 
+//            },
+//            _ => {
+//                unsafe {
+//                parse_expression(token_manager).codegen(&mut compiler);
+//                }
+//            },
+//            
+//        }
+//         
+//        
+//    }
          if !found_top_level_end
          {
              panic!("Did not find an end to the program!");
@@ -156,12 +182,14 @@ fn compile_input(input: &str, config: Config)
         drive_compilation(&mut token_manager,&mut compiler);
 
         let module_verification_result = m.verify();
+        println!("{}",m.print_to_string());
         match module_verification_result
         {
             Ok(()) => println!("Module verified successfully!"),
             Err(err_message) => {
                 println!("Module verification failed:");
                 println!("{}",err_message);
+                panic!("WHAAA");
                 process::exit(1);
             }
         }
@@ -173,6 +201,7 @@ fn compile_input(input: &str, config: Config)
             Err(err_message) => {
                 println!("file write failed:");
                 println!("{}",err_message);
+                panic!("WHOO");
                 process::exit(1);
             }
         }
@@ -206,21 +235,37 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  999-444;
                 END;
-                BOL: PROCEDURE(); 4-7; END;
+                BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
-                PUT;
                 PUT;
                 LOL();
                 BOL();
                 BOL();
                 LOL();
+                PUT;
+                PUT;
+                END;";
+        
+    let conf = Config::default();
+        compile_input(input,conf);
+        Ok(())
+    }
+     #[test]
+    fn return_test() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                    LOL: PROCEDURE ();  RETURN 999-444;
+                END;
+                BOL: PROCEDURE(); PUT; 4-7; END;
+                LOL();
+                PUT;
+                LOL();
+                BOL();
+                BOL();
+                LOL();
+                PUT;
+                PUT;
                 END;";
         
     let conf = Config::default();
@@ -234,7 +279,7 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE (A);  A-4;
                 END;
-                BOL: PROCEDURE(); 4-7; END;
+                BOL: PROCEDURE(); 4-7; PUT; END;
                 LOL(6);
                 LOL(8);
                 BOL();
@@ -249,7 +294,7 @@ mod tests {
     }
 
      #[test]
-     #[should_panic(expected = "two labels")]
+     #[should_panic(expected = "after label")]
     fn test_double_label_panic() -> ()
     {
 
@@ -262,6 +307,19 @@ mod tests {
                 BOL();
                 BOL();
                 LOL(2);
+                END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "failfile.o".to_string();
+        compile_input(input,conf);
+    }
+     #[test]
+     #[should_panic]
+    fn test_unknown_function_panic_test() 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                LOLOLOLOL();
                 END;";
         
         let mut conf = Config::default();
