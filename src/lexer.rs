@@ -1,10 +1,8 @@
-use std::{collections::HashMap, error::Error};
-
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
     {
-        let mut char_iter = compilable_file.chars();
-        let mut token_iter = TokenIterator::new(char_iter);
+        let char_iter = compilable_file.chars();
+        let token_iter = TokenIterator::new(char_iter);
 
         let result = token_iter.collect();
         println!("{:?}",result);
@@ -14,7 +12,7 @@ use std::{collections::HashMap, error::Error};
         ///Thus function returns the next token from the token iterator.
     pub fn get_next_token(compilable_file: String) -> Option<Token>
     {
-        let mut char_iter = compilable_file.chars();
+        let char_iter = compilable_file.chars();
         let mut token_iter = TokenIterator::new(char_iter);
         token_iter.next()
     }
@@ -201,7 +199,8 @@ use std::{collections::HashMap, error::Error};
             {
                 return None;
             }
-    return Some(match current_word_buffer.to_uppercase().as_str()
+            
+            Some(match current_word_buffer.to_uppercase().as_str()
             {
                 "PROCEDURE" => Token::PROCEDURE,
                 "PROC" => Token::PROCEDURE,
@@ -212,7 +211,7 @@ use std::{collections::HashMap, error::Error};
                 ")" => Token::CLOSED_PAREN,
                 "<" => Token::LESS_THAN,
                 ">" => Token::GREATER_THAN,
-                "," => Token::COMMA,
+                //"," => Token::COMMA,
                 "/" => Token::DIVIDE,
                 "+" => Token::PLUS,
                 "-" => Token::MINUS,
@@ -226,7 +225,7 @@ use std::{collections::HashMap, error::Error};
                 "SKIP" => Token::SKIP,
                 "OPTIONS" => Token::OPTIONS,
                 _ => Token::Identifier(current_word_buffer)
-            });
+            })
         }
 
         
@@ -234,9 +233,10 @@ use std::{collections::HashMap, error::Error};
     
 
     #[derive(Debug, PartialEq,Clone)]
+    #[allow(non_camel_case_types)]
     pub enum Token
     {
-        EOF,
+        //EOF,
         RETURN,
         OPEN_PAREN,
         CLOSED_PAREN,
@@ -258,9 +258,9 @@ use std::{collections::HashMap, error::Error};
         SEMICOLON,
         COMMA,
         DATA,
-        GET,
+        //GET,
         OPTIONS,
-        LIST,
+        //LIST,
         NumVal(i32), // integer
         Identifier(String), //an identifier / variable name
 

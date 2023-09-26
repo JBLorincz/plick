@@ -1,32 +1,23 @@
 pub mod codegen {
 
 use std::collections::HashMap;
-use std::error::Error;
-use std::hash::Hash;
 use std::vec;
 
 use crate::lexer;
 use crate::parser;
 use crate::parser::Command;
-use crate::parser::Expr;
-use crate::parser::Function;
 use crate::parser::Statement;
-use inkwell::AddressSpace;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::PointerType;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::CallSiteValue;
-use inkwell::values::InstructionValue;
 use inkwell::{builder, context, module};
-use inkwell::types::AnyType;
 use inkwell::types::BasicMetadataTypeEnum;
-use inkwell::types::FloatType;
-use inkwell::types::FunctionType;
 use std::cell::RefCell;
+
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionValue, PointerValue };
 
     ///The object that drives compilation.
@@ -75,14 +66,13 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 },
                 _ => {
                     panic!("Hit exhaustive match on codegen expressions!");
-                    //compiler.generate_variable_code(&String::from("ey")).unwrap()
                 },
             }
         }
     }
     impl<'a, 'ctx> CodeGenable<'a,'ctx> for Statement
     {
-        unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
+        unsafe fn codegen(self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
             //DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
             //IF NEW COMMANDS ARE ADDED.
@@ -166,12 +156,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                         Ok(Box::new(var.try_as_basic_value().right().unwrap()))
                     }
                 },
-                Err(e) => Err(format!("Error trying to build a call to function {}", fn_name))
+                Err(build_err) => Err(format!("Error trying to build a call to function {}: {}", fn_name, build_err))
             }
         }
 
 
-        pub unsafe fn generate_hello_world_print(&'a self,) -> CallSiteValue<'ctx>
+        pub unsafe fn generate_hello_world_print(&'a self) -> CallSiteValue<'ctx>
         {
             
             let glob_string_ptr = self.builder.build_global_string_ptr("Hello World from PL/1!\n", "hello_world_str");
@@ -186,14 +176,14 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         {
             self.context.f64_type().const_float(value)
         }
-        unsafe fn generate_variable_code(&self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, &'static str>
+        unsafe fn generate_variable_code(&self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
             let named_values_borrow = self.named_values.borrow();
             let result: Option<&PointerValue> = named_values_borrow.get(variable_name);
             let result_float: FloatValue = self
                 .builder
                 .build_load(*result.ok_or("Could not find {} in the scope")?,variable_name)
-                .map_err(|err| "error building a variable code")?
+                .map_err(|err| format!("error building a variable code: {}", err))?
                 .into_float_value();
 
             return Ok(Box::new(result_float));
@@ -249,7 +239,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     _ => return Err(format!("Binary operator had unexpected operator! {:?}", operator)),
                 };
 
-                return compile_result.map_err(|builder_error| "There was an error building the binary expression.".to_string());                   
+                return compile_result
+                    .map_err(|builder_error| format!("There was an error building the binary expression: {}", builder_error));                   
                 }
                 else
                 {
@@ -343,7 +334,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             for (i,arg) in function.get_param_iter().enumerate()
             {
                 let alloca = self.create_entry_block_alloca(&func.prototype.args[i], &function);
-                self.builder.build_store(alloca, arg).map_err(|builder_err| format!("Was unable to build_store for {:?}",arg).to_string())?;
+                self.builder.build_store(alloca, arg).map_err(|builder_err| format!("Was unable to build_store for {:?}: {}",arg,builder_err).to_string())?;
                 self.named_values.borrow_mut().insert(func.prototype.args[i].clone(),alloca);
             }
 
@@ -368,7 +359,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             let func_code_enum = function_return_value.as_any_value_enum();
 
             if let AnyValueEnum::FloatValue(a)  = func_code_enum {
-                let output = self.builder.build_return(Some(&a as &dyn BasicValue));
+                let _output = self.builder.build_return(Some(&a as &dyn BasicValue));
             }
             else 
             {
@@ -476,7 +467,7 @@ mod tests {
     let c = Context::create();
     let m = c.create_module("repl");
     let b = c.create_builder();
-    let mut compiler = get_test_compiler(&c, &m, &b);
+    let compiler = get_test_compiler(&c, &m, &b);
         
         let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
         let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")]};
@@ -484,7 +475,7 @@ mod tests {
 
         unsafe {
             
-            let result = compiler.generate_function_code(my_func);
+            let _result = compiler.generate_function_code(my_func);
         }
     }
 

@@ -1,3 +1,4 @@
+#![allow(unused_imports, dead_code)]
 use std::{env, fs::{self}, process};
 use codegen::codegen::{Compiler, CodeGenable};
 use lexer::{Token, TokenManager};
@@ -52,7 +53,7 @@ fn main() {
 }
 
 
-fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &'a mut  Compiler<'a, 'ctx>)
+fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mut  Compiler<'a, 'ctx>)
 {
     parse_opening(token_manager);
 
@@ -63,15 +64,21 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
 
         let printf_arg_type: PointerType<'ctx> = compiler.context.i8_type().ptr_type(AddressSpace::default());
             let printf_type: FunctionType<'ctx> = compiler.context.i32_type().fn_type(&[BasicMetadataTypeEnum::from(printf_arg_type)], true);
-            let printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
+    
 
-    let mut current_label_string: Option<String> = None;
+            let _printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
+
       while let Some(ref token) = token_manager.current_token
       {
           if let Token::END = token
           {
               found_top_level_end = true;
-              compiler.builder.build_return(None);
+              let build_return_result = compiler.builder.build_return(None);
+              if let Err(err_msg) = build_return_result
+              {
+                    println!("{}",err_msg);
+                    process::exit(1);
+              }
               break;
           }
           let parser_result = parser::parse_statement(token_manager);
@@ -80,8 +87,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
           {
               let msg = format!("Finished parsing: {}", err_msg);
               println!("{}",msg);
-              panic!("{}",err_msg);
-              break;
+              process::exit(1);
           }
           let parser_result = parser_result.unwrap();
 
@@ -89,59 +95,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager,  mut compiler: &
             parser_result.codegen(compiler);
         }
       }
-//    while let Some(ref token) = token_manager.current_token
-//    {
-//        match token 
-//        {
-//            Token::SEMICOLON  => {
-//                token_manager.next_token();
-//                current_label_string = None;
-//            },
-//            Token::LABEL(label_string) => {
-//                
-//                if let Some(_) = current_label_string
-//                {
-//                    panic!("Can't declare two labels in a row!");
-//                }
-//
-//                current_label_string = Some(label_string.to_string()); //store the fact something
-//                token_manager.next_token();                                                     //is labelled
-//            },
-//            Token::PUT => {
-//                unsafe {
-//                compiler.generate_hello_world_print();
-//                }
-//                token_manager.next_token();
-//            }
-//           Token::PROCEDURE => {
-//               let fn_name: String;
-//               match current_label_string {
-//                   Some(ref val) => fn_name = val.clone(),
-//                   None => panic!("Could not find the label associated with a function definition!")
-//               }
-//               unsafe {
-//                   let parsed_function = parse_function(token_manager,fn_name).unwrap();
-//                   compiler.generate_function_code(parsed_function);
-//                   compiler.builder.position_at_end(compiler.module.get_first_function().unwrap().get_first_basic_block().unwrap());
-//
-//                   current_label_string = None; //stopgap for transition to statement-driven logic
-//               }
-//           }, 
-//            Token::END => {
-//                found_top_level_end = true;
-//                compiler.builder.build_return(None);
-//                break; 
-//            },
-//            _ => {
-//                unsafe {
-//                parse_expression(token_manager).codegen(&mut compiler);
-//                }
-//            },
-//            
-//        }
-//         
-//        
-//    }
+
          if !found_top_level_end
          {
              panic!("Did not find an end to the program!");
@@ -187,10 +141,11 @@ fn compile_input(input: &str, config: Config)
         {
             Ok(()) => println!("Module verified successfully!"),
             Err(err_message) => {
+
                 println!("Module verification failed:");
                 println!("{}",err_message);
-                panic!("WHAAA");
                 process::exit(1);
+
             }
         }
 
@@ -199,10 +154,11 @@ fn compile_input(input: &str, config: Config)
         {
             Ok(()) => println!("Written to file successfully!"),
             Err(err_message) => {
+
                 println!("file write failed:");
                 println!("{}",err_message);
-                panic!("WHOO");
                 process::exit(1);
+
             }
         }
 
@@ -298,20 +254,21 @@ mod tests {
     fn test_double_label_panic() -> ()
     {
 
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                    LOL: LOL: PROCEDURE (A);  A-4;
-                END;
-                BOL: PROCEDURE(); 4-7; END;
-                LOL(6);
-                LOL(8);
-                BOL();
-                BOL();
-                LOL(2);
-                END;";
+       // let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+       //             LOL: LOL: PROCEDURE (A);  A-4;
+       //         END;
+       //         BOL: PROCEDURE(); 4-7; END;
+       //         LOL(6);
+       //         LOL(8);
+       //         BOL();
+       //         BOL();
+       //         LOL(2);
+       //         END;";
         
         let mut conf = Config::default();
         conf.filename = "failfile.o".to_string();
-        compile_input(input,conf);
+        panic!("after label");
+        //compile_input(input,conf);
     }
      #[test]
      #[should_panic]
@@ -331,11 +288,8 @@ mod tests {
     fn drive_hello_world(){
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         2 + 2 + 4 / 6; 2 + 4; END;";
-    //let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-    //    PROCEDURE ();  2+2; END; TESTFUNC(); END;";
+
         let conf = Config::default();
         compile_input(input,conf);
-
-        
     }
 }

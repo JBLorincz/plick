@@ -117,10 +117,10 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
                         panic!("Expected an expression, found a comma!!");     
                     }
                 }
-                else if let Some(ref Token) = token_manager.current_token
+                else if let Some(ref token) = token_manager.current_token
                 {
                     //parse as expression
-                    println!("Found a token called {:#?}", *Token);
+                    println!("Found a token called {:#?}", *token);
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     args_list.push(parsed_arg);
@@ -176,12 +176,12 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
     }
 }
 
-pub fn build_recursive_binary_tree(token_manager: &mut lexer::TokenManager, LHS: Expr, precendence: i32) -> Expr {
+pub fn build_recursive_binary_tree(token_manager: &mut lexer::TokenManager, lhs: Expr, precendence: i32) -> Expr {
     //LHS has to be a binary node.
     let operator_token: Token = token_manager.current_token.as_ref().unwrap().clone(); 
     token_manager.next_token();
     //if the current precedence is GREATER than the lhs precendence,
-    if let Expr::Binary { operator, left, right } = LHS {
+    if let Expr::Binary { operator, left, right } = lhs {
         if precendence > get_binary_operator_precedence(&operator)
         {                        // meaning we have to make the RHS side of the LHS the LHS of our
                                  // new RHS
@@ -210,7 +210,7 @@ pub fn build_recursive_binary_tree(token_manager: &mut lexer::TokenManager, LHS:
     else
     {
         let right = parse_expression(token_manager);
-        return Expr::Binary { operator: operator_token, left: Box::new(LHS), right: Box::new(right) };
+        return Expr::Binary { operator: operator_token, left: Box::new(lhs), right: Box::new(right) };
     }
 }
 pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
@@ -258,7 +258,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                 {
                     println!("found a closed parenthesis!");
                     token_manager.next_token();// eat the closed parenthesis token, ready for next use
-                    //token_manager.next_token();// eat the semicolon after the closed paren 
+
                     parse_semicolon(token_manager);
                     break;
                 }
@@ -276,10 +276,10 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                         panic!("Expected an expression, found a comma!!");     
                     }
                 }
-                else if let Some(ref Token) = token_manager.current_token
+                else if let Some(ref token) = token_manager.current_token
                 {
                     //parse as expression
-                    println!("Found a token called {:#?}", *Token);
+                    println!("Found a token called {:#?}", *token);
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     let arg_name: String;
@@ -319,8 +319,6 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
         let current_statement = parse_statement(token_manager)?;
         body_statements.push(current_statement);
        
-        //dbg!(&body_statements);
-
         if let Command::RETURN(ref expr) = body_statements.last().unwrap().command
         {
             //handle double return statements error in a function
@@ -345,6 +343,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
     
 
     parse_semicolon(token_manager);
+
    Ok(Function { prototype: proto, body_statements, return_value })
 }
 
@@ -390,7 +389,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                    Some(ref val) => fn_name = val.clone(),
                    None => panic!("Could not find the label associated with a function definition!")
                }
-                label = None; // this is so the label used in the function definition is not held.
+
                 let result = parse_function(token_manager, fn_name.clone())?;
                 return Ok(Statement { label: Some(fn_name), command: Command::FunctionDec(result) });
            }, 
@@ -497,6 +496,7 @@ pub fn parse_opening(token_manager: &mut lexer::TokenManager){
    parse_semicolon(token_manager);
 }
 
+
 pub fn parse_semicolon(token_manager: &mut lexer::TokenManager)
 {
     if let Some(Token::SEMICOLON) = token_manager.current_token
@@ -508,6 +508,11 @@ pub fn parse_semicolon(token_manager: &mut lexer::TokenManager)
         panic!("Expected semicolon!");
     }
 }
+
+
+
+
+
 mod tests {
 
     use crate::lexer::TokenManager;
@@ -516,27 +521,27 @@ mod tests {
 
     #[test]
     fn construct_binary(){
-        let LHS = Expr::NumVal { value: 4 };
-        let RHS = Expr::NumVal { value: 6 };
+        let lhs = Expr::NumVal { value: 4 };
+        let rhs = Expr::NumVal { value: 6 };
 
-       let test = Expr::Binary {
+       let _test = Expr::Binary {
            operator: Token::PLUS,
-           left: Box::new(LHS),
-           right: Box::new(RHS),
+           left: Box::new(lhs),
+           right: Box::new(rhs),
        };
 
-       let LHSVar = Expr::Variable { name: String::from("x") };
+       let lhsvar = Expr::Variable { name: String::from("x") };
        
-       let RHSVar = Expr::Variable { name: String::from("y") };
+       let rhsvar = Expr::Variable { name: String::from("y") };
         
-       let test = Expr::Binary {
+       let _test = Expr::Binary {
            operator: Token::PLUS,
-           left: Box::new(LHSVar),
-           right: Box::new(RHSVar),
+           left: Box::new(lhsvar),
+           right: Box::new(rhsvar),
        };   
 
-       let LHSVar = Expr::Variable { name: String::from("x") };
-       if let Expr::Variable { name } = LHSVar
+       let lhsvar = Expr::Variable { name: String::from("x") };
+       if let Expr::Variable { name } = lhsvar
        {
             assert_eq!(name, "x");
        }
@@ -614,7 +619,7 @@ mod tests {
     {
         let mut tok_man = TokenManager::new("(2 min(2,3))");
         
-        let result: Expr = parse_parenthesis_expression(&mut tok_man);
+        let _result: Expr = parse_parenthesis_expression(&mut tok_man);
     }
 
     #[test]
@@ -633,7 +638,7 @@ mod tests {
 
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
-            if let Expr::Call { fn_name, args } = result
+            if let Expr::Call { fn_name, .. } = result
             {
                 assert_eq!("MIN", fn_name);
             }
@@ -751,7 +756,7 @@ mod tests {
         
         let test_results = vec!["A","B","C"];
         let mut index = 0;
-        for (siz,arg) in my_var.args.iter().enumerate()
+        for (_siz,arg) in my_var.args.iter().enumerate()
         {
             assert_eq!(*arg,String::from(test_results[index]));
             index += 1;
@@ -772,7 +777,7 @@ mod tests {
         
         let test_results = vec!["A","B","C"];
         let mut index = 0;
-        for (siz,arg) in my_var.args.iter().enumerate()
+        for (_siz,arg) in my_var.args.iter().enumerate()
         {
             assert_eq!(*arg,String::from(test_results[index]));
             index += 1;
@@ -794,7 +799,7 @@ mod tests {
     {
         let mut token_manager = TokenManager::new("PROCEDURE (A,B,C); A + B + C; END;");
 
-        let my_function = parse_function(&mut token_manager, "TESTFUNC".to_string());
+        let _my_function = parse_function(&mut token_manager, "TESTFUNC".to_string());
 
 
 
