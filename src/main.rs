@@ -161,7 +161,7 @@ fn compile_input(input: &str, config: Config)
             Err(err_message) => {
 
                 println!("file write failed:");
-                panic!("{}",err_message);
+                println!("{}",err_message);
                 process::exit(1);
 
             }
@@ -196,7 +196,7 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  999-444;
                 END;
-                BOL: BOL: PROCEDURE(); PUT; 4-7; END;
+                BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
                 PUT;
                 LOL();

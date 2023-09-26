@@ -10,6 +10,3 @@ macro_rules! create_errors
     )
 
 }
-
-
-

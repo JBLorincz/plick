@@ -62,6 +62,13 @@ pub enum Command {
     RETURN(Expr), // specifies the return value of a function
 }
 
+impl Command
+{
+    pub fn to_string(&self) -> String
+    {
+        format!("{:?}",self)
+    }
+}
 
 pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
 {
@@ -372,7 +379,8 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 match command
                 {
                     Command::Empty => (),
-                    other_command => { return Err(format!("Can't declare a label after a {:?} command!",other_command)); }
+                    //other_command => { return Err(format!("Can't declare a label after a {:?} command!",other_command)); }
+                    other_command => { return Err(get_error(&["4","LABEL", &other_command.to_string()])); }
                 }
 
                 label = Some(label_string.to_string()); //store the fact something
@@ -381,7 +389,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             Token::PUT => {
                 match command {
                     Command::Empty => command = Command::PUT,             
-                    cmd => return Err(format!("Can't put command PUT  after {:?}", cmd ))
+                    other_command => { return Err(get_error(&["4","PUT", &other_command.to_string()])); }
                 }
                 token_manager.next_token();
             }
@@ -398,7 +406,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             Token::END => {
                  match command {
                     Command::Empty => command = Command::END,             
-                    cmd => return Err(format!("Can't put command END after {:?}", cmd ))
+                    other_command => { return Err(get_error(&["4","END", &other_command.to_string()])); }
                 }
                 token_manager.next_token();
                 break; 
@@ -410,14 +418,14 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 {
                     match command {
                         Command::Empty => command = Command::RETURN(Expr::NumVal { value: -1 }),             
-                        cmd => return Err(format!("Can't put command RETURN after {:?}", cmd ))
+                    other_command => { return Err(get_error(&["4","RETURN", &other_command.to_string()])); }
                     }
                     token_manager.next_token();
                     return Ok(Statement { label, command });
                 }
                  match command {
                     Command::Empty => command = Command::RETURN(parse_expression(token_manager)),             
-                    cmd => return Err(format!("Can't put command END after {:?}", cmd ))
+                    other_command => { return Err(get_error(&["4","RETURN", &other_command.to_string()])); }
                 }
                 token_manager.next_token();
                 break; 
@@ -425,7 +433,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             _ => {
                 match command {
                     Command::Empty => command = Command::EXPR(parse_expression(token_manager)),
-                    cmd => return Err(format!("Can't put expression after {:?}", cmd ))
+                    other_command => { return Err(get_error(&["4","expression", &other_command.to_string()])); }
                 }
             },
             

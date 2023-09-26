@@ -10,13 +10,13 @@ pub fn get_error(error_code: &[&str]) -> String
     {
         return "Unknown Error".to_string();
     }
-    let splitOp = error_code.split_first();
-    if let None = splitOp
+    let split_op = error_code.split_first();
+    if let None = split_op
     {
         return "Unknown Error".to_string();
     }
 
-    let arguments = splitOp.unwrap().1;
+    let arguments = split_op.unwrap().1;
 
 
     for error in DIAGNOSTICS.iter()
@@ -28,7 +28,8 @@ pub fn get_error(error_code: &[&str]) -> String
             {
                 inner_message = inner_message.replace(format!("[{}]",i).as_str(), arg);
             }
-            //let inner_message = //format!(myvar, arguments..);
+
+
             let msg = format!("Error {}: {}",error.0,inner_message);
             return msg;
         }
@@ -44,4 +45,5 @@ create_errors!{
     E001: "Test",
     E002: "Second Error",
     E003: "Can't declare label '[0]' after label '[1]'",
+    E004: "Can't invoke command '[0]' after command'[1]'",
 }
