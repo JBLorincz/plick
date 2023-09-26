@@ -10,7 +10,7 @@ use std::path::Path;
 mod lexer;
 mod parser;
 mod codegen;
-
+mod error;
 
 fn main() {
     
@@ -53,7 +53,7 @@ fn main() {
 }
 
 
-fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mut  Compiler<'a, 'ctx>)
+fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mut  Compiler<'a, 'ctx>) -> Result<(),String>
 {
     parse_opening(token_manager);
 
@@ -76,8 +76,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
               let build_return_result = compiler.builder.build_return(None);
               if let Err(err_msg) = build_return_result
               {
-                    println!("{}",err_msg);
-                    process::exit(1);
+                  return Err(err_msg.to_string());
               }
               break;
           }
@@ -86,8 +85,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
           if let Err(err_msg) = parser_result
           {
               let msg = format!("Finished parsing: {}", err_msg);
-              println!("{}",msg);
-              process::exit(1);
+              return Err(msg);
           }
           let parser_result = parser_result.unwrap();
 
@@ -98,8 +96,9 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
 
          if !found_top_level_end
          {
-             panic!("Did not find an end to the program!");
+             return Err("Did not find an end to the program!".to_string());
          }
+         Ok(())
 }
 
 fn compile_input(input: &str, config: Config)
@@ -133,7 +132,13 @@ fn compile_input(input: &str, config: Config)
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
 
         let mut token_manager = lexer::TokenManager::new(input);
-        drive_compilation(&mut token_manager,&mut compiler);
+
+        let compilation_result = drive_compilation(&mut token_manager,&mut compiler);
+
+        if let Err(err_msg) = compilation_result
+        {
+            panic!("{}",err_msg);
+        }
 
         let module_verification_result = m.verify();
         println!("{}",m.print_to_string());
@@ -156,7 +161,7 @@ fn compile_input(input: &str, config: Config)
             Err(err_message) => {
 
                 println!("file write failed:");
-                println!("{}",err_message);
+                panic!("{}",err_message);
                 process::exit(1);
 
             }
@@ -191,7 +196,7 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  999-444;
                 END;
-                BOL: PROCEDURE(); PUT; 4-7; END;
+                BOL: BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
                 PUT;
                 LOL();

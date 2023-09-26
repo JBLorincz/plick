@@ -1,4 +1,5 @@
-use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable};
+use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error};
+use crate::error;
 
 #[derive(Debug, Clone)]
 pub enum Expr
@@ -365,7 +366,8 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 
                 if let Some(other_label) = label
                 {
-                    return Err(format!("Can't declare label {} after label {}", label_string, other_label));
+                    return Err(get_error(&["3", &label_string, &other_label]));
+                    //return Err(format!("Can't declare label {} after label {}", label_string, other_label));
                 }
                 match command
                 {
