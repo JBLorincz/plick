@@ -80,6 +80,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             {
             Command::PUT => Box::new(compiler.generate_hello_world_print()),
             Command::EXPR(expr) => expr.codegen(compiler),
+            Command::IF(_if) => panic!("Haven't implemented IF generation!"),
             Command::END => panic!("found END"),
             Command::RETURN(_expr) => panic!("found RETURN!"),
             Command::Empty => panic!("found EMPTY"),

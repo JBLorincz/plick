@@ -57,6 +57,7 @@ pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
     PUT,
+    IF(If),
     FunctionDec(Function), 
     EXPR(Expr),   //"EXPR" is not a command in pl/1 this just represents a expression statement.
     RETURN(Expr), // specifies the return value of a function
@@ -70,6 +71,39 @@ impl Command
     }
 }
 
+#[derive(Debug,Clone)]
+pub struct If
+{
+    pub conditional: Expr,
+    pub then_statements: Vec<Statement>,
+    pub else_statements: Option<Vec<Statement>>
+}
+
+
+pub fn parse_token(token_manager: &mut lexer::TokenManager, token_to_check_for: Token) -> Result<(),String>
+{
+    let current_tok_copy = token_manager.current_token.clone();
+    if let None =  current_tok_copy
+    {
+        let err_msg = get_error(&["2"]);
+        return Err(err_msg);
+    }
+   
+    let current_tok_copy = current_tok_copy.unwrap();
+
+    if std::mem::discriminant(&token_to_check_for) == std::mem::discriminant(&current_tok_copy) 
+    {
+        token_manager.next_token();
+        Ok(())
+    }
+    else
+    {
+        let err_msg = get_error(&["1", &token_to_check_for.to_string(), &current_tok_copy.to_string()]);
+        Err(err_msg)
+    }
+}
+
+
 pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
 {
     if let Some(Token::NumVal(value)) = token_manager.current_token
@@ -80,6 +114,44 @@ pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
     else {
         panic!("Failed to parse numeric!");
     }
+}
+
+///parses an IF clause
+///So far, only supports IF *expr* THEN *statement*;
+///or IF *expr* THEN DO *statements*;
+pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, String>
+{ //current token is IF
+
+  let _if = parse_token(token_manager,Token::IF)?;
+    let conditional = parse_expression(token_manager);
+    let mut else_statements: Option<Vec<Statement>> = None;
+    let mut then_statements: Vec<Statement> = vec![];
+
+  let _then = parse_token(token_manager,Token::THEN)?;
+
+  let possible_do = parse_token(token_manager, Token::DO);
+
+  if let Ok(()) = possible_do
+  {
+    panic!("If Then *expr* DO not implemented yet.");
+  }
+
+  let statement = parse_statement(token_manager)?;
+  then_statements.push(statement);
+
+  let possible_else = parse_token(token_manager, Token::ELSE);
+ 
+  if let Ok(()) = possible_else
+  {
+      //handle else statements here.
+      let mut else_vec = vec![];
+      let else_statement = parse_statement(token_manager)?;
+      else_vec.push(else_statement);
+      else_statements = Some(else_vec);
+  }
+
+  Ok(If {conditional, then_statements, else_statements})
+
 }
 
 //parses identifiers like variable names but also function calls
@@ -795,6 +867,20 @@ mod tests {
         }
 
     }
+
+    #[test]
+    fn test_parsing_if()
+    {
+        let mut token_manager = TokenManager::new("IF 1 THEN PUT;");
+        let res = parse_if(&mut token_manager);
+
+        dbg!(&res);
+        if let Err(err_msg) = res
+        {
+            panic!("{}", err_msg);
+        }
+    }
+
     #[test]
     fn test_parsing_prototype_noargs()
     {

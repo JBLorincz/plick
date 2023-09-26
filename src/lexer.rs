@@ -215,6 +215,9 @@
                 "/" => Token::DIVIDE,
                 "+" => Token::PLUS,
                 "-" => Token::MINUS,
+                "IF" => Token::IF,
+                "ELSE" => Token::ELSE,
+                "THEN" => Token::THEN,
                 "DO" => Token::DO,
                 "=" => Token::EQ,
                 "PUT" => Token::PUT,
@@ -237,6 +240,9 @@
     pub enum Token
     {
         //EOF,
+        IF,
+        THEN,
+        ELSE,
         RETURN,
         OPEN_PAREN,
         CLOSED_PAREN,
@@ -266,8 +272,13 @@
 
     }
 
-
-
+    impl Token 
+    {
+        pub fn to_string(&self) -> String
+        {
+            format!("{:?}", self)
+        }
+    }
 
     mod tests{
         use std::fs;
