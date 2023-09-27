@@ -150,6 +150,8 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
       else_statements = Some(else_vec);
   }
 
+ //parse_token(token_manager, Token::SEMICOLON)?;
+
   Ok(If {conditional, then_statements, else_statements})
 
 }
@@ -481,6 +483,15 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                     other_command => { return Err(get_error(&["4","END", &other_command.to_string()])); }
                 }
                 token_manager.next_token();
+                break; 
+            },
+            Token::IF => {
+                let if_statement = parse_if(token_manager).unwrap();
+                 match command {
+                    Command::Empty => command = Command::IF(if_statement),             
+                    other_command => { return Err(get_error(&["4","IF", &other_command.to_string()])); }
+                }
+                //token_manager.next_token();
                 break; 
             },
             Token::RETURN => {
@@ -871,13 +882,30 @@ mod tests {
     #[test]
     fn test_parsing_if()
     {
-        let mut token_manager = TokenManager::new("IF 1 THEN PUT;");
+        let mut token_manager = TokenManager::new("IF 1 THEN PUT; END;");
         let res = parse_if(&mut token_manager);
-
+        let end = parse_statement(&mut token_manager);
         dbg!(&res);
         if let Err(err_msg) = res
         {
             panic!("{}", err_msg);
+        }
+
+        dbg!(&end);
+        if let Err(err_msg) = end
+        {
+            panic!("{}", err_msg);
+        }
+        else if let Ok(statement) = end
+        {
+            if let Command::END = statement.command
+            {
+
+            }
+            else 
+            {
+                panic!("EXPECTED Command::END, GOT {:?}", statement.command);
+            }
         }
     }
 
