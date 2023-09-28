@@ -272,6 +272,20 @@ mod tests {
     }
 
      #[test]
+    fn test_if_else_statement() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                IF 0 THEN DO; PUT; PUT; PUT; END; ELSE DO; PUT; PUT; PUT; PUT; END; END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "testif_else_false.o".to_string();
+        compile_input(input,conf);
+        panic!("What?");
+        Ok(())
+    }
+
+     #[test]
      #[should_panic(expected = "after label")]
     fn test_double_label_panic() -> ()
     {

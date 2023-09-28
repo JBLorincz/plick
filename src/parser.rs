@@ -71,6 +71,7 @@ impl Command
     }
 }
 
+//TODO: Think about making DO its own command
 #[derive(Debug,Clone)]
 pub struct If
 {
@@ -133,11 +134,14 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
 
   if let Ok(()) = possible_do
   {
-    panic!("If Then *expr* DO not implemented yet.");
+      then_statements = parse_do_block(token_manager)?;
   }
+  else
+    {
+        let statement = parse_statement(token_manager)?;
+        then_statements.push(statement);
+    }
 
-  let statement = parse_statement(token_manager)?;
-  then_statements.push(statement);
 
   let possible_else = parse_token(token_manager, Token::ELSE);
  
@@ -145,15 +149,52 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
   {
       //handle else statements here.
       let mut else_vec = vec![];
+
+  let possible_do = parse_token(token_manager, Token::DO);
+
+    if let Ok(()) = possible_do
+    {
+        else_statements = Some(parse_do_block(token_manager)?);
+    }
+    else
+    {
       let else_statement = parse_statement(token_manager)?;
       else_vec.push(else_statement);
       else_statements = Some(else_vec);
+    }
+
+
   }
 
  //parse_token(token_manager, Token::SEMICOLON)?;
 
   Ok(If {conditional, then_statements, else_statements})
 
+}
+
+//current token is the semicolon AFTER do
+pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Statement>, String>
+{
+    let mut statements: Vec<Statement> = vec![];
+
+    //parse_token(token_manager,Token::DO)?;
+    parse_token(token_manager,Token::SEMICOLON)?;
+  loop
+      {
+          if let Token::END = token_manager.current_token.as_mut().unwrap()
+          {
+              parse_token(token_manager, Token::END)?;
+              parse_token(token_manager, Token::SEMICOLON)?;
+              break;
+          }
+
+          
+        let statement = parse_statement(token_manager)?;
+        statements.push(statement);
+
+      }
+
+  Ok(statements)
 }
 
 //parses identifiers like variable names but also function calls
