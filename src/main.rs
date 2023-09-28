@@ -90,7 +90,10 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
           let parser_result = parser_result.unwrap();
 
           unsafe {
+              dbg!(&parser_result);
             parser_result.codegen(compiler);
+            println!("Genned above stuff.");
+            println!("New token is: {:?}", token_manager.current_token);
         }
       }
 
@@ -167,7 +170,8 @@ fn compile_input(input: &str, config: Config)
             }
         }
 
-
+        let r = m.print_to_string();
+        println!("{}",r);
 
 }
 
@@ -251,6 +255,33 @@ mod tests {
         let mut conf = Config::default();
         conf.filename = "testtwo.o".to_string();
         compile_input(input,conf);
+        Ok(())
+    }
+     #[test]
+    fn test_if_statement() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                IF 0 THEN PUT; END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "testif_false.o".to_string();
+        compile_input(input,conf);
+        panic!("What?");
+        Ok(())
+    }
+
+     #[test]
+    fn test_if_else_statement() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                IF 0 THEN DO; PUT; PUT; PUT; END; ELSE DO; PUT; PUT; PUT; PUT; END; END;";
+        
+        let mut conf = Config::default();
+        conf.filename = "testif_else_false.o".to_string();
+        compile_input(input,conf);
+        panic!("What?");
         Ok(())
     }
 

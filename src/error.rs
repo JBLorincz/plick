@@ -42,8 +42,8 @@ pub fn get_error(error_code: &[&str]) -> String
 
 
 create_errors!{
-    E001: "Test",
-    E002: "Second Error",
+    E001: "Expected '[0]', recieved '[1]'",
+    E002: "End of file was reached unexpectedly",
     E003: "Can't declare label '[0]' after label '[1]'",
     E004: "Can't invoke command '[0]' after command'[1]'",
 }

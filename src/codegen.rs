@@ -80,6 +80,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             {
             Command::PUT => Box::new(compiler.generate_hello_world_print()),
             Command::EXPR(expr) => expr.codegen(compiler),
+            Command::IF(if_statement) => Box::new(compiler.generate_if_statement_code(if_statement)),
             Command::END => panic!("found END"),
             Command::RETURN(_expr) => panic!("found RETURN!"),
             Command::Empty => panic!("found EMPTY"),
@@ -105,6 +106,63 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
             Compiler { context: c, builder: b, module: m, named_values, arg_stores }
         }
+
+        unsafe fn generate_if_statement_code(&self, if_statement: parser::If) -> FloatValue<'ctx>
+        {
+            let conditional_code = if_statement.conditional.codegen(self);
+            let conditional_as_float: FloatValue;
+            if let AnyValueEnum::FloatValue(val) = conditional_code.as_any_value_enum()
+            {
+                conditional_as_float = val;
+            }
+            else
+            {
+                panic!("Not a float value!"); 
+            }
+
+            let comparison = self
+                .builder
+                .build_float_compare(inkwell::FloatPredicate::ONE, conditional_as_float, self.generate_float_code(0.0), "ifcond")
+                .unwrap();
+
+            //now we build the THEN block
+            let current_func = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+            let mut then_block = self.context.append_basic_block(current_func, "then");
+            let mut else_block = self.context.append_basic_block(current_func, "else");
+            let if_cont_block = self.context.append_basic_block(current_func, "ifcont");
+
+            self.builder.build_conditional_branch(comparison, then_block, else_block);
+
+            self.builder.position_at_end(then_block);
+            for statement in if_statement.then_statements
+            {
+                statement.codegen(self);
+            }
+            //now we add a statement to jump to the if_cont block
+            self.builder.build_unconditional_branch(if_cont_block);
+            then_block = self.builder.get_insert_block().unwrap(); 
+            //handle else here
+            
+             self.builder.position_at_end(else_block);
+            if let Some(else_statements) = if_statement.else_statements
+            {
+                for statement in else_statements
+                {
+                    statement.codegen(self);
+                }
+            }
+            //now we add a statement to jump to the if_cont block
+            self.builder.build_unconditional_branch(if_cont_block);
+            else_block = self.builder.get_insert_block().unwrap(); 
+
+            //handle merge block
+            self.builder.position_at_end(if_cont_block);
+
+            //let phi_node = self.builder.build_phi(builder, name)
+
+            self.generate_float_code(-999.0)
+        }
+
         unsafe fn generate_function_call_code(&self,fn_name: &String,args: &mut Vec<parser::Expr>) 
             -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
