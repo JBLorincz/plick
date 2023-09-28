@@ -267,7 +267,6 @@ mod tests {
         let mut conf = Config::default();
         conf.filename = "testif_false.o".to_string();
         compile_input(input,conf);
-        panic!("What?");
         Ok(())
     }
 
@@ -281,7 +280,6 @@ mod tests {
         let mut conf = Config::default();
         conf.filename = "testif_else_false.o".to_string();
         compile_input(input,conf);
-        panic!("What?");
         Ok(())
     }
 
