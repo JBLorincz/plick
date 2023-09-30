@@ -84,6 +84,9 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             Command::END => panic!("found END"),
             Command::RETURN(_expr) => panic!("found RETURN!"),
             Command::Empty => panic!("found EMPTY"),
+            Command::Assignment(assn) => {
+                Box::new(compiler.generate_assignment_code(assn).as_any_value_enum())
+            },
             Command::FunctionDec(func) =>{
 
                 let current_function = compiler.builder.get_insert_block().unwrap();
@@ -105,6 +108,38 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             let named_values: RefCell<HashMap<String,PointerValue<'ctx>>> = RefCell::new(HashMap::new());
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
             Compiler { context: c, builder: b, module: m, named_values, arg_stores }
+        }
+
+        unsafe fn generate_assignment_code(&self, assignment: parser::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
+        {
+            let mut named_values_borrow = self.named_values.borrow_mut();
+            let variable_in_map = named_values_borrow.get(&assignment.var_name);
+            
+            match variable_in_map {
+                Some(_pointer_value) => {
+                    let value_to_store = assignment.value.codegen(self);
+
+                    let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
+                    self.builder.build_store(*_pointer_value, initial_value);
+                    return Box::new(initial_value);
+                }
+                None => { 
+                    //panic!("could not find variable {}", &assignment.var_name)
+                    //time to create the variable here
+                    let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+                    let new_variable = self.create_entry_block_alloca(&assignment.var_name, &current_function);
+                   // self.builder.build_store(new_variable,
+                    let value_to_store = assignment.value.codegen(self);
+
+                    let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
+                    let l = self.builder.build_store(new_variable, initial_value);
+
+                    named_values_borrow.insert(assignment.var_name,new_variable);
+
+                    return Box::new(initial_value);
+                }
+            }
+            //todo!("finish assn code");
         }
 
         unsafe fn generate_if_statement_code(&self, if_statement: parser::If) -> FloatValue<'ctx>
@@ -163,6 +198,22 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             self.generate_float_code(-999.0)
         }
 
+        
+        unsafe fn convert_anyvalue_to_basicvalue(&self, value: Box<dyn AnyValue<'ctx> +'ctx>) -> BasicValueEnum<'ctx>
+        {
+              let bve: BasicValueEnum =  match value.as_any_value_enum()
+                                {
+                                    AnyValueEnum::ArrayValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::IntValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::FloatValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::PointerValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::StructValue(v) => v.as_basic_value_enum(),
+                                    AnyValueEnum::VectorValue(v) => v.as_basic_value_enum(),
+                                    other => panic!("Could not build store of type {}",other)
+                                };
+              bve
+        }
+
         unsafe fn generate_function_call_code(&self,fn_name: &String,args: &mut Vec<parser::Expr>) 
             -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
@@ -217,7 +268,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 Err(build_err) => Err(format!("Error trying to build a call to function {}: {}", fn_name, build_err))
             }
         }
-
 
         pub unsafe fn generate_hello_world_print(&'a self) -> CallSiteValue<'ctx>
         {

@@ -317,7 +317,15 @@ mod tests {
         conf.filename = "failfile.o".to_string();
         compile_input(input,conf);
     }
+    #[test]
+    fn mutation_test(){
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        FLAG = 1; FLAG = 0; IF FLAG THEN PUT; END;";
 
+        let mut conf = Config::default();
+        conf.filename = "mutation_test.o".to_string();
+        compile_input(input,conf);
+    }
     #[test]
     fn drive_hello_world(){
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);

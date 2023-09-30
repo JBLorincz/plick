@@ -4,6 +4,10 @@ use crate::error;
 #[derive(Debug, Clone)]
 pub enum Expr
 {
+    Assignment {
+        variable_name: String,
+        value: Box<Expr>
+    },
     Binary {
         operator: lexer::Token,
         left: Box<Expr>,
@@ -58,6 +62,7 @@ pub enum Command {
     END,
     PUT,
     IF(If),
+    Assignment(Assignment),
     FunctionDec(Function), 
     EXPR(Expr),   //"EXPR" is not a command in pl/1 this just represents a expression statement.
     RETURN(Expr), // specifies the return value of a function
@@ -80,6 +85,13 @@ pub struct If
     pub else_statements: Option<Vec<Statement>>
 }
 
+
+#[derive(Debug,Clone)]
+pub struct Assignment
+{
+    pub var_name: String,
+    pub value: Expr
+}
 
 pub fn parse_token(token_manager: &mut lexer::TokenManager, token_to_check_for: Token) -> Result<(),String>
 {
@@ -283,6 +295,17 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     let left_handed_side = parse_primary_expression(token_manager);
+    if let Expr::Variable { name } = left_handed_side.clone()
+    {
+        if let Some(Token::EQ) = token_manager.current_token
+        {
+            token_manager.next_token();// eat the equal token
+            let expression_value = parse_expression(token_manager);
+            //return Expr::Assignment(name, expression_value);
+            return Expr::Assignment { variable_name: name, value: Box::new(expression_value) };
+        }
+
+    }
     return match token_manager.current_token {
               Some(Token::PLUS)
             | Some(Token::MINUS) 
@@ -489,12 +512,10 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 if let Some(other_label) = label
                 {
                     return Err(get_error(&["3", &label_string, &other_label]));
-                    //return Err(format!("Can't declare label {} after label {}", label_string, other_label));
                 }
                 match command
                 {
                     Command::Empty => (),
-                    //other_command => { return Err(format!("Can't declare a label after a {:?} command!",other_command)); }
                     other_command => { return Err(get_error(&["4","LABEL", &other_command.to_string()])); }
                 }
 
@@ -554,9 +575,55 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 token_manager.next_token();
                 break; 
             },
+            //Token::Identifier(identifier_string) =>{
+            //    //there's three cases here.
+            //    // 1. an assignment ( a = 2;)
+            //    // 2. a binary expression ( a + 4 / 2; )
+            //    // 3. a variable all by itself ( a; ) 
+            //    let identifier_st = identifier_string.clone();
+            //    token_manager.next_token();
+            //    let token_after_variable = token_manager.current_token.clone().unwrap();
+            //    match token_after_variable
+            //    {
+            //        Token::EQ =>{
+            //            token_manager.next_token();
+            //            let rhs_of_assignment = parse_expression(token_manager);
+            //            let assn = Assignment{var_name: identifier_st, value: rhs_of_assignment};
+            //            match command {
+            //                Command::Empty => command = Command::Assignment(assn),             
+            //                other_command => { return Err(get_error(&["4","Assignment", &other_command.to_string()])); }
+            //            }
+            //        }
+            //        Token::SEMICOLON => {
+            //            break;
+            //        },
+            //        current_tok => { //assume its a binary expression
+            //               let prec = get_binary_operator_precedence(&current_tok);
+            //               let lhs = Expr::Variable { name: identifier_st };
+            //               let bin_exp = build_recursive_binary_tree(token_manager, lhs, prec);
+
+            //         match command {
+            //            Command::Empty => command = Command::EXPR(bin_exp),
+            //            other_command => { return Err(get_error(&["4","expression", &other_command.to_string()])); }
+            //        }
+
+            //        },
+            //    }
+            //},
             _ => {
+                let expr = parse_expression(token_manager);
+                let new_command;
+                if let Expr::Assignment { variable_name, value } = expr
+                {
+                    let assn = Assignment { var_name: variable_name, value: *value };
+                    new_command = Command::Assignment(assn);
+                }
+                else
+                {
+                    new_command = Command::EXPR(expr)
+                }
                 match command {
-                    Command::Empty => command = Command::EXPR(parse_expression(token_manager)),
+                    Command::Empty => command = new_command,
                     other_command => { return Err(get_error(&["4","expression", &other_command.to_string()])); }
                 }
             },
