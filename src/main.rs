@@ -3,7 +3,7 @@ use std::{env, fs::{self}, process};
 use codegen::codegen::{Compiler, CodeGenable};
 use lexer::{Token, TokenManager};
 use parser::{parse_expression, parse_function, parse_opening };
-use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType, FunctionType}, AddressSpace, module};
+use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType, FunctionType}, AddressSpace, module::{self, Module}, passes::PassManager};
 use inkwell::context;
 use std::path::Path;
 
@@ -125,7 +125,7 @@ fn compile_input(input: &str, config: Config)
         let my_target = inkwell::targets::Target::from_triple(&default_triple).unwrap();
 
     let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
-    inkwell::OptimizationLevel::None, inkwell::targets::RelocMode::Default, inkwell::targets::CodeModel::Default).unwrap();
+    inkwell::OptimizationLevel::Default, inkwell::targets::RelocMode::Default, inkwell::targets::CodeModel::Default).unwrap();
 
 
         let c = context::Context::create(); 
