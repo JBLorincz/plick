@@ -7,7 +7,7 @@ use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType
 use inkwell::context;
 use std::path::Path;
 
-use crate::debugger::setup_module_for_debugging;
+use crate::debugger::{setup_module_for_debugging, DebugController};
 
 mod lexer;
 mod parser;
@@ -137,19 +137,30 @@ fn compile_input(input: &str, config: Config)
     let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
     optimization_level, inkwell::targets::RelocMode::PIC, inkwell::targets::CodeModel::Default).unwrap();
 
-
+        //create compiler dependencies
         let c = context::Context::create(); 
         let b = c.create_builder();
         let m = c.create_module("globalMod");
-          //handle debug stuff
-        let dbg_controller = setup_module_for_debugging(&m, &config);
-        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, Some(&dbg_controller)); 
+
+        let mut optional_debugger: Option<&DebugController<'_>> = None;
+        let debugger: DebugController; 
+        
+        if config.debug_mode
+        {
+            debugger = setup_module_for_debugging(&m, &config);
+            optional_debugger = Some(&debugger);
+        }
+
+        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, optional_debugger); 
         //let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, None); 
 
         let mut token_manager = lexer::TokenManager::new(input);
+       
+        if let Some(dbg) = optional_debugger
+        {
+            token_manager.attach_debugger(dbg);
+        }
         
-        token_manager.attach_debugger(&dbg_controller);
-
         let compilation_result = drive_compilation(&mut token_manager,&mut compiler);
 
         if let Err(err_msg) = compilation_result
@@ -157,7 +168,12 @@ fn compile_input(input: &str, config: Config)
             panic!("{}",err_msg);
         }
         
-        dbg_controller.builder.finalize();
+
+         if let Some(dbg) = optional_debugger
+        {
+            dbg.builder.finalize();
+        }
+
         //comment for finalize says call before verification
 
         let module_verification_result = m.verify();
@@ -198,6 +214,7 @@ fn compile_input(input: &str, config: Config)
 pub struct Config {
     filename: String,
     optimize: bool,
+    debug_mode: bool,
 }
 
 impl Default for Config {
@@ -205,6 +222,7 @@ impl Default for Config {
         Config {
             filename: String::from("a.o"),
             optimize: true,
+            debug_mode: true,
         } 
    }
 }
