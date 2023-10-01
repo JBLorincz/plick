@@ -3,6 +3,7 @@ pub mod codegen {
 use std::collections::HashMap;
 use std::vec;
 
+use crate::debugger::DebugController;
 use crate::lexer;
 use crate::parser;
 use crate::parser::Command;
@@ -27,7 +28,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         pub context: &'ctx context::Context,
         pub builder: &'a builder::Builder<'ctx>,       
         pub module: &'a module::Module<'ctx>,
-
+        pub debug_controller: Option<&'a DebugController<'ctx>>,
 
         pub named_values: RefCell<HashMap<String,PointerValue<'ctx>>>,
         pub arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum<'ctx>>>>,
@@ -102,12 +103,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
     impl<'a, 'ctx> Compiler<'a, 'ctx>
     {
-         pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>) -> Compiler<'a, 'ctx>
+         pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>, d: Option<&'a DebugController<'ctx>>) -> Compiler<'a, 'ctx>
         {
 
             let named_values: RefCell<HashMap<String,PointerValue<'ctx>>> = RefCell::new(HashMap::new());
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
-            Compiler { context: c, builder: b, module: m, named_values, arg_stores }
+            Compiler { context: c, builder: b, module: m, named_values, arg_stores, debug_controller: d }
         }
 
         unsafe fn generate_assignment_code(&self, assignment: parser::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
@@ -518,12 +519,14 @@ mod tests {
         let builder = b;
         let named_values: RefCell<HashMap<String,PointerValue>> = RefCell::new(HashMap::new());
         let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]);
+        let debug_controller = None;
         let compiler = Compiler {
            context,
            module,
            builder,
            named_values,
-           arg_stores
+           arg_stores,
+           debug_controller
         };
         compiler
     }

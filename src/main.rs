@@ -7,10 +7,13 @@ use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType
 use inkwell::context;
 use std::path::Path;
 
+use crate::debugger::setup_module_for_debugging;
+
 mod lexer;
 mod parser;
 mod codegen;
 mod error;
+mod debugger;
 
 fn main() {
     
@@ -131,8 +134,10 @@ fn compile_input(input: &str, config: Config)
         let c = context::Context::create(); 
         let b = c.create_builder();
         let m = c.create_module("globalMod");
-        
-        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
+          //handle debug stuff
+        let dbg_controller = setup_module_for_debugging(&m, &filename);
+
+        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, Some(&dbg_controller)); 
 
         let mut token_manager = lexer::TokenManager::new(input);
 
@@ -142,6 +147,8 @@ fn compile_input(input: &str, config: Config)
         {
             panic!("{}",err_msg);
         }
+              dbg_controller.builder.finalize();
+        //comment for finalize says call before verification
 
         let module_verification_result = m.verify();
         println!("{}",m.print_to_string());
@@ -156,8 +163,7 @@ fn compile_input(input: &str, config: Config)
 
             }
         }
-
-        let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
+         let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
         match write_to_file_result
         {
             Ok(()) => println!("Written to file successfully!"),
@@ -172,6 +178,9 @@ fn compile_input(input: &str, config: Config)
 
         let r = m.print_to_string();
         println!("{}",r);
+
+
+       
 
 }
 
