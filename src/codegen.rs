@@ -14,6 +14,7 @@ use inkwell::context::Context;
 use inkwell::debug_info::AsDIScope;
 use inkwell::debug_info::DILexicalBlock;
 use inkwell::debug_info::DILocation;
+use inkwell::debug_info::DISubprogram;
 use inkwell::module::Module;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
@@ -428,23 +429,19 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
-            let mut line_no = 0;
-            let mut column_no = 0;
-            if let Some(dbg) = self.debug_controller
-            {
-                 line_no = *dbg.line_number.borrow();
-                 column_no = *dbg.column_number.borrow();
-            }
+            let mut line_no = func.prototype.source_loc.line_number;
+            let mut column_no = func.prototype.source_loc.column_number;
+            let mut current_subprogram: Option<DISubprogram> = None;
 
             if let Some(dbg) = self.debug_controller
             {
                 let name = func_name.as_str();
                 let linkage_name = None;
-                let scope_line = 200;
+                let scope_line = line_no;
                 let is_definition = true;
                 let is_local_to_unit = true;
                 let flags = 0; 
-                let is_optimized = false;
+                let is_optimized = dbg.optimized;
 
                 let scope = dbg.builder.create_file(&dbg.filename, &dbg.directory);
                 
@@ -466,8 +463,13 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 dbg.lexical_blocks.borrow_mut().push(myfunc.as_debug_info_scope());
 
                 let current_loc = dbg.builder.create_debug_location(self.context, line_no, column_no, myfunc.as_debug_info_scope(), None);
-                self.builder.set_current_debug_location(current_loc);
+                dbg!(current_loc);
 
+ 
+
+                self.builder.set_current_debug_location(current_loc);
+               
+                current_subprogram = Some(myfunc);
                 dbg.builder.finalize();
             }
 
@@ -475,6 +477,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 
             let function = self.generate_function_prototype_code(func_name.clone(),proto_args, func.return_value.is_none());
+            
 
             //TODO: Check if function body is empty
             //if so, return function here. 
@@ -499,6 +502,16 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 statement.clone().codegen(self);
             }
 
+            if let Some(dbg) = self.debug_controller
+            {
+                function.set_subprogram(current_subprogram.unwrap());
+               
+                let myblock = dbg.lexical_blocks.borrow_mut().pop();
+            }
+            else
+            {
+           
+            }
             match func.return_value
             {
                 None => 
@@ -523,14 +536,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
 
 
-            if let Some(dbg) = self.debug_controller
-            {
-                let myblock = dbg.lexical_blocks.borrow_mut().pop();
-            }
-            else
-            {
-           
-            }
+
              let failed_verification = !function.verify(true);
                 if failed_verification
                 {
@@ -564,7 +570,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 mod tests {
     use std::collections::HashMap;
-
+    use crate::parser::SourceLocation;
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
     use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
@@ -638,7 +644,8 @@ mod tests {
     let compiler = get_test_compiler(&c, &m, &b);
         
         let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
-        let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")]};
+        let source_loc: SourceLocation = SourceLocation::default(); 
+        let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")], source_loc};
         let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop)};
 
         unsafe {

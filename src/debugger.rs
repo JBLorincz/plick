@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 
+use super::Config;
+
 use crate::codegen::codegen::Compiler;
 use inkwell::{debug_info::{self, DICompileUnit, DebugInfoBuilder, DILexicalBlock, DIScope}, module::Module};
 
@@ -18,17 +20,18 @@ pub struct DebugController<'ctx>
 
     pub filename: String,
     pub directory: String,
+    pub optimized: bool,
 }
 
-pub fn setup_module_for_debugging<'a ,'ctx>(m: &'a Module<'ctx>, filename: &str) -> DebugController<'ctx>
+pub fn setup_module_for_debugging<'a ,'ctx>(m: &'a Module<'ctx>, config: &Config) -> DebugController<'ctx>
 {
     let (dibuilder, compile_unit) = m.create_debug_info_builder(
         true,
         inkwell::debug_info::DWARFSourceLanguage::C,
-        filename,
+        &config.filename,
         ".",
         "PL/1 Frontend",
-        false,
+        config.optimize,
         "",
         0,
         "split_name",
@@ -47,8 +50,9 @@ pub fn setup_module_for_debugging<'a ,'ctx>(m: &'a Module<'ctx>, filename: &str)
         compile_unit, 
         line_number: RefCell::new(1),
         column_number: RefCell::new(0),
-        filename: filename.to_string(),
+        filename: config.filename.clone(),
         directory: ".".to_string(),
+        optimized: config.optimize,
     }
 
 }

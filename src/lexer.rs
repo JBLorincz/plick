@@ -1,4 +1,4 @@
-use crate::debugger::DebugController;
+use crate::{debugger::DebugController, parser::SourceLocation};
 
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
@@ -54,6 +54,11 @@ use crate::debugger::DebugController;
         pub fn get_line_and_column_numbers(&self) -> (u32, u32)
         {
             (self.token_iter.line_number, self.token_iter.column_number)
+        }
+
+        pub fn get_source_location(&self) -> SourceLocation
+        {
+            SourceLocation { line_number: self.token_iter.line_number, column_number: self.token_iter.column_number }
         }
     }
 

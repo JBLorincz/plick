@@ -1,0 +1,15 @@
+   HELLO:   PROCEDURE OPTIONS (MAIN);
+
+
+
+                LOL: PROCEDURE ();  999-444; END;
+                BOL: PROCEDURE(); PUT; 4-7; END;
+                LOL();
+                PUT;
+                LOL();
+                BOL();
+                BOL();
+                LOL();
+                PUT;
+                PUT;
+                END;

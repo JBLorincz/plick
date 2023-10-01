@@ -109,7 +109,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
 
 fn compile_input(input: &str, config: Config)
 {
-         let filename = config.filename;
+         let filename = config.filename.clone();
         let default_triple = TargetMachine::get_default_triple();
         println!("Building for {}", &default_triple.as_str().to_string_lossy());
         let init_config = inkwell::targets::InitializationConfig
@@ -127,15 +127,22 @@ fn compile_input(input: &str, config: Config)
 
         let my_target = inkwell::targets::Target::from_triple(&default_triple).unwrap();
 
+        
+        let optimization_level = match config.optimize
+        {
+            true => inkwell::OptimizationLevel::Default,
+            false => inkwell::OptimizationLevel::None,
+        };
+
     let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
-    inkwell::OptimizationLevel::Default, inkwell::targets::RelocMode::PIC, inkwell::targets::CodeModel::Default).unwrap();
+    optimization_level, inkwell::targets::RelocMode::PIC, inkwell::targets::CodeModel::Default).unwrap();
 
 
         let c = context::Context::create(); 
         let b = c.create_builder();
         let m = c.create_module("globalMod");
           //handle debug stuff
-        let dbg_controller = setup_module_for_debugging(&m, &filename);
+        let dbg_controller = setup_module_for_debugging(&m, &config);
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, Some(&dbg_controller)); 
         //let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, None); 
 
@@ -188,14 +195,16 @@ fn compile_input(input: &str, config: Config)
 }
 
 
-struct Config {
-    filename: String
+pub struct Config {
+    filename: String,
+    optimize: bool,
 }
 
 impl Default for Config {
    fn default() -> Config {
         Config {
-            filename: String::from("a.o")
+            filename: String::from("a.o"),
+            optimize: true,
         } 
    }
 }
@@ -209,12 +218,22 @@ mod tests {
     fn file_test() -> Result<(), Box<dyn Error>> 
     {
 
-        let input = "
-        HELLO:   PROCEDURE OPTIONS (MAIN);
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+
+
+
+
 
 
 
                 LOL: PROCEDURE ();  999-444; END;
+
+
+
+
+
+
+
                 BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
                 PUT;
@@ -226,7 +245,8 @@ mod tests {
                 PUT;
                 END;";
         
-    let conf = Config::default();
+    let mut conf = Config::default();
+    conf.filename = "file_test.o".to_string();
         compile_input(input,conf);
         Ok(())
     }
