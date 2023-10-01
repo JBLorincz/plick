@@ -43,11 +43,18 @@
 
             &self.current_token
         }
+
+        pub fn get_line_and_column_numbers(&self) -> (u64, u64)
+        {
+            (self.token_iter.line_number, self.token_iter.column_number)
+        }
     }
 
     struct TokenIterator<'a> {
         char_iter: std::str::Chars<'a>,
         next_char: Option<char>,
+        pub line_number: u64,
+        pub column_number: u64,
 
     }
     impl<'a> TokenIterator<'a> {
@@ -56,11 +63,22 @@
             TokenIterator { 
                 char_iter,
                 next_char: Some(' '),//this is a space character. Don't touch.
+                line_number: 1,
+                column_number: 0,
             }
         }
         fn get_next_char(&mut self) -> Option<char>
         {
             self.next_char = self.char_iter.next();
+            if let Some('\n') = self.next_char
+            {
+                self.line_number += 1;
+                self.column_number = 0;
+            }
+            else
+            {
+                self.column_number += 1;
+            }
             self.next_char
         }
         fn is_character_special(ch: char) -> bool
