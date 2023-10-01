@@ -107,7 +107,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
          Ok(())
 }
 
-fn compile_input<'a>(input: &str, config: Config)
+fn compile_input(input: &str, config: Config)
 {
          let filename = config.filename;
         let default_triple = TargetMachine::get_default_triple();
@@ -139,7 +139,12 @@ fn compile_input<'a>(input: &str, config: Config)
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, Some(&dbg_controller)); 
 
         let mut token_manager = lexer::TokenManager::new(input);
+        
+        
+        let mything = &dbg_controller;
+
         token_manager.attach_debugger(&dbg_controller);
+        println!("{:#?}",mything);
         let compilation_result = drive_compilation(&mut token_manager,&mut compiler);
 
         if let Err(err_msg) = compilation_result
@@ -181,6 +186,7 @@ fn compile_input<'a>(input: &str, config: Config)
 
        
 
+        println!("{:#?}",mything);
 }
 
 

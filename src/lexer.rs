@@ -19,13 +19,13 @@ use crate::debugger::DebugController;
         token_iter.next()
     }
     
-    pub struct TokenManager<'a>
+    pub struct TokenManager<'a,'b>
     {
         pub current_token: Option<Token>,
-        token_iter: TokenIterator<'a>,
+        token_iter: TokenIterator<'a,'b>,
     }
 
-    impl<'a> TokenManager<'a>
+    impl<'a,'b> TokenManager<'a,'b>
     {
         pub fn new(token_string: &str) -> TokenManager
         {
@@ -38,7 +38,7 @@ use crate::debugger::DebugController;
             result
         }
 
-        pub fn attach_debugger(&mut self, dbg: &'a DebugController<'a>)
+        pub fn attach_debugger(&mut self, dbg: &'a DebugController<'b>)
         {
             self.token_iter.dbg_info = Some(dbg);
         }
@@ -57,15 +57,15 @@ use crate::debugger::DebugController;
         }
     }
 
-    struct TokenIterator<'a> {
+    struct TokenIterator<'a, 'b> {
         char_iter: std::str::Chars<'a>,
         next_char: Option<char>, 
-        pub dbg_info: Option<&'a DebugController<'a>>,
+        pub dbg_info: Option<&'a DebugController<'b>>,
         pub line_number: u32,
         pub column_number: u32,
 
     }
-    impl<'a> TokenIterator<'a> {
+    impl<'a, 'b> TokenIterator<'a, 'b> {
         fn new(char_iter: std::str::Chars<'_>) -> TokenIterator
         {
             TokenIterator { 
@@ -150,7 +150,7 @@ use crate::debugger::DebugController;
             }
 
     }
-    impl Iterator for TokenIterator<'_> {
+    impl Iterator for TokenIterator<'_,'_> {
         type Item = Token;
 
         fn next(&mut self) -> Option<Self::Item>
