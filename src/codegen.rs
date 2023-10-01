@@ -12,6 +12,8 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::debug_info::AsDIScope;
+use inkwell::debug_info::DILexicalBlock;
+use inkwell::debug_info::DILocation;
 use inkwell::module::Module;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
@@ -426,38 +428,51 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
+            let mut line_no = 0;
+            let mut column_no = 0;
+            if let Some(dbg) = self.debug_controller
+            {
+                 line_no = *dbg.line_number.borrow();
+                 column_no = *dbg.column_number.borrow();
+            }
             let function = self.generate_function_prototype_code(func_name.clone(),proto_args, func.return_value.is_none());
 
             //TODO: Check if function body is empty
             //if so, return function here. 
-            let dbg = self.debug_controller.unwrap(); 
+            if let Some(dbg) = self.debug_controller
+            {
+                let name = func_name.as_str();
+                let linkage_name = None;
+                //panic!("line number is: {}", line_no);
+                let scope_line = 0;
+                let is_definition = true;
+                let is_local_to_unit = true;
+                let flags = 0; 
+                let is_optimized = false;
 
-            let name = func_name.as_str();
-            let linkage_name = None;
-            let line_no = 0;
-            let scope_line = 0;
-            let is_definition = true;
-            let is_local_to_unit = true;
-            let flags = 0; 
-            let is_optimized = false;
+                let scope = dbg.builder.create_file(&dbg.filename, &dbg.directory);
+                
+                let ditype = dbg.builder.create_subroutine_type(scope,None,&[],0);
 
-            let scope = dbg.builder.create_file("", "");
-            
+                let myfunc = dbg.builder.create_function(
+                        scope.as_debug_info_scope(),
+                        &name,
+                        linkage_name,
+                        scope,
+                        line_no,
+                        ditype, 
+                        is_local_to_unit,
+                        is_definition,
+                        scope_line,
+                        flags,
+                        is_optimized);
 
-            let ditype = dbg.builder.create_subroutine_type(scope,None,&[],0);
+                dbg.lexical_blocks.borrow_mut().push(myfunc.as_debug_info_scope());
 
-            let myfunc = dbg.builder.create_function(
-                    scope.as_debug_info_scope(),
-                    &name,
-                    linkage_name,
-                    scope,
-                    line_no,
-                    ditype, 
-                    is_local_to_unit,
-                    is_definition,
-                    scope_line,
-                    flags,
-                    is_optimized);
+                let current_loc = dbg.builder.create_debug_location(self.context, line_no, column_no, myfunc.as_debug_info_scope(), None);
+                self.builder.set_current_debug_location(current_loc);
+            }
+
             //create a new scope block for the function
             let new_func_block: BasicBlock = self.context.append_basic_block(function, "entry");
 
@@ -506,6 +521,10 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 panic!("func failed verify");
             }
 
+            if let Some(dbg) = self.debug_controller
+            {
+                dbg.lexical_blocks.borrow_mut().pop();
+            }
             Ok(function)
         }
 

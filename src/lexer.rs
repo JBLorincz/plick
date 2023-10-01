@@ -1,3 +1,5 @@
+use crate::debugger::DebugController;
+
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
     {
@@ -20,7 +22,7 @@
     pub struct TokenManager<'a>
     {
         pub current_token: Option<Token>,
-        token_iter: TokenIterator<'a>
+        token_iter: TokenIterator<'a>,
     }
 
     impl<'a> TokenManager<'a>
@@ -29,11 +31,16 @@
         {
             let chars_over = TokenIterator::new(token_string.chars());
             
-            let mut result = TokenManager { current_token: None, token_iter: chars_over };
+            let mut result = TokenManager { current_token: None, token_iter: chars_over, };
 
             result.next_token();
 
             result
+        }
+
+        pub fn attach_debugger(&mut self, dbg: &'a DebugController<'a>)
+        {
+            self.token_iter.dbg_info = Some(dbg);
         }
 
         ///Thus function returns the next token from the token iterator.
@@ -44,7 +51,7 @@
             &self.current_token
         }
 
-        pub fn get_line_and_column_numbers(&self) -> (u64, u64)
+        pub fn get_line_and_column_numbers(&self) -> (u32, u32)
         {
             (self.token_iter.line_number, self.token_iter.column_number)
         }
@@ -52,9 +59,10 @@
 
     struct TokenIterator<'a> {
         char_iter: std::str::Chars<'a>,
-        next_char: Option<char>,
-        pub line_number: u64,
-        pub column_number: u64,
+        next_char: Option<char>, 
+        pub dbg_info: Option<&'a DebugController<'a>>,
+        pub line_number: u32,
+        pub column_number: u32,
 
     }
     impl<'a> TokenIterator<'a> {
@@ -65,6 +73,7 @@
                 next_char: Some(' '),//this is a space character. Don't touch.
                 line_number: 1,
                 column_number: 0,
+                dbg_info: None
             }
         }
         fn get_next_char(&mut self) -> Option<char>
@@ -79,6 +88,13 @@
             {
                 self.column_number += 1;
             }
+            
+            if let Some(ref dbg) = self.dbg_info
+            {
+                *dbg.line_number.borrow_mut() = self.line_number;
+                *dbg.column_number.borrow_mut() = self.column_number;
+            }
+
             self.next_char
         }
         fn is_character_special(ch: char) -> bool

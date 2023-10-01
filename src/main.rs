@@ -107,7 +107,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
          Ok(())
 }
 
-fn compile_input(input: &str, config: Config)
+fn compile_input<'a>(input: &str, config: Config)
 {
          let filename = config.filename;
         let default_triple = TargetMachine::get_default_triple();
@@ -136,18 +136,17 @@ fn compile_input(input: &str, config: Config)
         let m = c.create_module("globalMod");
           //handle debug stuff
         let dbg_controller = setup_module_for_debugging(&m, &filename);
-
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, Some(&dbg_controller)); 
 
         let mut token_manager = lexer::TokenManager::new(input);
-
+        token_manager.attach_debugger(&dbg_controller);
         let compilation_result = drive_compilation(&mut token_manager,&mut compiler);
 
         if let Err(err_msg) = compilation_result
         {
             panic!("{}",err_msg);
         }
-              dbg_controller.builder.finalize();
+             dbg_controller.builder.finalize();
         //comment for finalize says call before verification
 
         let module_verification_result = m.verify();
@@ -206,9 +205,12 @@ mod tests {
     fn file_test() -> Result<(), Box<dyn Error>> 
     {
 
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                    LOL: PROCEDURE ();  999-444;
-                END;
+        let input = "
+        HELLO:   PROCEDURE OPTIONS (MAIN);
+
+
+
+                LOL: PROCEDURE ();  999-444; END;
                 BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
                 PUT;

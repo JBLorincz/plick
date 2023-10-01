@@ -44,7 +44,7 @@ pub struct Prototype {
 pub struct Function {
     pub prototype: Prototype,
     pub body_statements: Vec<Statement>,
-    pub return_value: Option<Expr>
+    pub return_value: Option<Expr>,
 }
 
 ///Represents a "full-line" of execution, terminated by a semicolon.
