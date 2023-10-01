@@ -435,16 +435,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                  line_no = *dbg.line_number.borrow();
                  column_no = *dbg.column_number.borrow();
             }
-            let function = self.generate_function_prototype_code(func_name.clone(),proto_args, func.return_value.is_none());
 
-            //TODO: Check if function body is empty
-            //if so, return function here. 
             if let Some(dbg) = self.debug_controller
             {
                 let name = func_name.as_str();
                 let linkage_name = None;
-                //panic!("line number is: {}", line_no);
-                let scope_line = 0;
+                let scope_line = 200;
                 let is_definition = true;
                 let is_local_to_unit = true;
                 let flags = 0; 
@@ -471,7 +467,18 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
                 let current_loc = dbg.builder.create_debug_location(self.context, line_no, column_no, myfunc.as_debug_info_scope(), None);
                 self.builder.set_current_debug_location(current_loc);
+
+                dbg.builder.finalize();
             }
+
+
+
+
+            let function = self.generate_function_prototype_code(func_name.clone(),proto_args, func.return_value.is_none());
+
+            //TODO: Check if function body is empty
+            //if so, return function here. 
+
 
             //create a new scope block for the function
             let new_func_block: BasicBlock = self.context.append_basic_block(function, "entry");
@@ -515,16 +522,22 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 return Err("Function return type was not float value!".to_string());
             }
 
-            let failed_verification = !function.verify(true);
-            if failed_verification
-            {
-                panic!("func failed verify");
-            }
 
             if let Some(dbg) = self.debug_controller
             {
-                dbg.lexical_blocks.borrow_mut().pop();
+                let myblock = dbg.lexical_blocks.borrow_mut().pop();
             }
+            else
+            {
+           
+            }
+             let failed_verification = !function.verify(true);
+                if failed_verification
+                {
+                   println!("HEYAA!");
+                   self.module.print_to_stderr();
+                   panic!("func failed verify");
+                }
             Ok(function)
         }
 

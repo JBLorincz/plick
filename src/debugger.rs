@@ -39,6 +39,8 @@ pub fn setup_module_for_debugging<'a ,'ctx>(m: &'a Module<'ctx>, filename: &str)
         "sysroot",
         "sdk");
 
+    dibuilder.create_basic_type("double", 64, 0 , 0);
+
     DebugController { 
         builder: dibuilder,
         lexical_blocks: RefCell::new(vec![]),

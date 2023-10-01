@@ -128,7 +128,7 @@ fn compile_input(input: &str, config: Config)
         let my_target = inkwell::targets::Target::from_triple(&default_triple).unwrap();
 
     let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
-    inkwell::OptimizationLevel::Default, inkwell::targets::RelocMode::Default, inkwell::targets::CodeModel::Default).unwrap();
+    inkwell::OptimizationLevel::Default, inkwell::targets::RelocMode::PIC, inkwell::targets::CodeModel::Default).unwrap();
 
 
         let c = context::Context::create(); 
@@ -137,21 +137,20 @@ fn compile_input(input: &str, config: Config)
           //handle debug stuff
         let dbg_controller = setup_module_for_debugging(&m, &filename);
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, Some(&dbg_controller)); 
+        //let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, None); 
 
         let mut token_manager = lexer::TokenManager::new(input);
         
-        
-        let mything = &dbg_controller;
-
         token_manager.attach_debugger(&dbg_controller);
-        println!("{:#?}",mything);
+
         let compilation_result = drive_compilation(&mut token_manager,&mut compiler);
 
         if let Err(err_msg) = compilation_result
         {
             panic!("{}",err_msg);
         }
-             dbg_controller.builder.finalize();
+        
+        dbg_controller.builder.finalize();
         //comment for finalize says call before verification
 
         let module_verification_result = m.verify();
@@ -167,7 +166,7 @@ fn compile_input(input: &str, config: Config)
 
             }
         }
-         let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
+        let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
         match write_to_file_result
         {
             Ok(()) => println!("Written to file successfully!"),
@@ -186,7 +185,6 @@ fn compile_input(input: &str, config: Config)
 
        
 
-        println!("{:#?}",mything);
 }
 
 
