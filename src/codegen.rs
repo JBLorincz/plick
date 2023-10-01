@@ -11,6 +11,7 @@ use crate::parser::Statement;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
+use inkwell::debug_info::AsDIScope;
 use inkwell::module::Module;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
@@ -121,11 +122,10 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
-                    self.builder.build_store(*_pointer_value, initial_value);
+                    let _store_result = self.builder.build_store(*_pointer_value, initial_value);
                     return Box::new(initial_value);
                 }
                 None => { 
-                    //panic!("could not find variable {}", &assignment.var_name)
                     //time to create the variable here
                     let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
                     let new_variable = self.create_entry_block_alloca(&assignment.var_name, &current_function);
@@ -133,7 +133,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
-                    let l = self.builder.build_store(new_variable, initial_value);
+                    let _store_result = self.builder.build_store(new_variable, initial_value);
 
                     named_values_borrow.insert(assignment.var_name,new_variable);
 
@@ -426,13 +426,38 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
-            let function = self.generate_function_prototype_code(func_name,proto_args, func.return_value.is_none());
+            let function = self.generate_function_prototype_code(func_name.clone(),proto_args, func.return_value.is_none());
 
             //TODO: Check if function body is empty
             //if so, return function here. 
+            let dbg = self.debug_controller.unwrap(); 
+
+            let name = func_name.as_str();
+            let linkage_name = None;
+            let line_no = 0;
+            let scope_line = 0;
+            let is_definition = true;
+            let is_local_to_unit = true;
+            let flags = 0; 
+            let is_optimized = false;
+
+            let scope = dbg.builder.create_file("", "");
             
 
+            let ditype = dbg.builder.create_subroutine_type(scope,None,&[],0);
 
+            let myfunc = dbg.builder.create_function(
+                    scope.as_debug_info_scope(),
+                    &name,
+                    linkage_name,
+                    scope,
+                    line_no,
+                    ditype, 
+                    is_local_to_unit,
+                    is_definition,
+                    scope_line,
+                    flags,
+                    is_optimized);
             //create a new scope block for the function
             let new_func_block: BasicBlock = self.context.append_basic_block(function, "entry");
 
