@@ -296,41 +296,39 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
 //CALC: PROCEDURE(A,B,C); // we are just parsing this part.
 //      RETURN(A+B+C);
 //      END;
-pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Prototype
+pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Prototype, String>
 {
          token_manager.next_token();
          let source_loc = token_manager.get_source_location();
-         println!("Begging to parse function proto!");
+
          //token should now be open paren
          if Some(Token::OPEN_PAREN) != token_manager.current_token
          {
-             panic!("Was expecting an open parenthesis!");
+             return Err("Was expecting an open parenthesis!".to_string());
          }
             token_manager.next_token();//go inside the parenthesis
             let mut expecting_comma = false;
             let mut args_list: Vec<String> = vec![];
            loop {
-                println!("Looping!");
+
                 if let Some(Token::CLOSED_PAREN) = token_manager.current_token
                 {
-                    println!("found a closed parenthesis!");
-                    token_manager.next_token();// eat the closed parenthesis token, ready for next use
+                    parse_token(token_manager, Token::CLOSED_PAREN)?;
 
-                    parse_semicolon(token_manager);
+                    parse_token(token_manager, Token::SEMICOLON)?;
                     break;
                 }
                 else if let Some(Token::COMMA) = token_manager.current_token 
                 {
                     if expecting_comma
                     {
-                        println!("Found comma at right place, continuing!");
                         expecting_comma = false;
-                        token_manager.next_token();// eat the token
+                        parse_token(token_manager, Token::COMMA)?;
 
                     }
                     else 
                     {
-                        panic!("Expected an expression, found a comma!!");     
+                        return Err(format!("Expected an expression, found a comma at {}:{}",source_loc.line_number,source_loc.column_number).to_string());     
                     }
                 }
                 else if let Some(ref token) = token_manager.current_token
@@ -346,7 +344,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                     }
                     else
                     {
-                        panic!("Expected variable in function prototype, found _!");
+                        return Err(format!("Expected variable in function prototype, found _").to_string());
                     }
 
                     args_list.push(arg_name);
@@ -356,18 +354,18 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                 }
                 else 
                 {
-                    panic!("{:?}",token_manager.current_token);
+                    return Err(format!("{:?}",token_manager.current_token).to_string());
                 }
 
                 
            }
 
-    Prototype { fn_name: label_name, args: args_list, source_loc }
+    Ok(Prototype { fn_name: label_name, args: args_list, source_loc })
 }
 
 pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Function, String>
 {
-    let proto = parse_function_prototype(token_manager, label_name); 
+    let proto = parse_function_prototype(token_manager, label_name)?; 
     let mut body_statements: Vec<Statement> = vec![];
     let mut return_value: Option<Expr> = None;
 
@@ -399,7 +397,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
     println!("Exiting the function parsing!");
     
 
-    parse_semicolon(token_manager);
+    parse_token(token_manager, Token::SEMICOLON)?;
 
    Ok(Function { prototype: proto, body_statements, return_value })
 }
@@ -549,7 +547,8 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
 ///parses the beginning of a PL/1 Program.
 ///They look like this:
 /// ANY_LABEL_HERE : PROCDURE OPTIONS (MAIN);
-pub fn parse_opening(token_manager: &mut lexer::TokenManager){
+pub fn parse_opening(token_manager: &mut lexer::TokenManager) -> Result<(),String>
+{
    if let Some(Token::LABEL(_)) = token_manager.current_token
    {
        token_manager.next_token();
@@ -605,24 +604,10 @@ pub fn parse_opening(token_manager: &mut lexer::TokenManager){
    {
        panic!("Program missing CLOSED PAREN on main procedure!");
    }
-   parse_semicolon(token_manager);
+   parse_token(token_manager,Token::SEMICOLON)?;
+
+   Ok(())
 }
-
-
-pub fn parse_semicolon(token_manager: &mut lexer::TokenManager)
-{
-    if let Some(Token::SEMICOLON) = token_manager.current_token
-    {
-        token_manager.next_token();
-    }
-    else
-    {
-        panic!("Expected semicolon!");
-    }
-}
-
-
-
 
 
 mod tests {
@@ -858,10 +843,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parsing_prototype()
+    fn test_parsing_prototype() -> Result<(),String>
     {
         let mut token_manager = TokenManager::new("PROCEDURE(A,B,C);");
-        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"));
+        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"))?;
 
         assert_eq!(String::from("CALC"), my_var.fn_name);
         assert_eq!(my_var.args.len(), 3);
@@ -876,13 +861,14 @@ mod tests {
         }
 
 
+        Ok(())
     }
     #[test]
     #[should_panic(expected = "open paren")]
     fn test_parsing_prototype_panic()
     {
         let mut token_manager = TokenManager::new("PROCEDURE A,B,C);");
-        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"));
+        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC")).unwrap();
 
         assert_eq!(String::from("CALC"), my_var.fn_name);
         assert_eq!(my_var.args.len(), 3);
@@ -929,13 +915,14 @@ mod tests {
     }
 
     #[test]
-    fn test_parsing_prototype_noargs()
+    fn test_parsing_prototype_noargs() -> Result<(),String>
     {
         let mut token_manager = TokenManager::new("PROCEDURE();");
-        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"));
+        let my_var: Prototype = parse_function_prototype(&mut token_manager,String::from("CALC"))?;
 
         assert_eq!(String::from("CALC"), my_var.fn_name);
         assert_eq!(my_var.args.len(), 0);
+        Ok(())
     }
     #[test]
     fn test_parsing_function()
