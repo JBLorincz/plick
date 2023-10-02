@@ -1,4 +1,4 @@
-use crate::{debugger::DebugController, parser::SourceLocation};
+use crate::{debugger::DebugController, ast::SourceLocation};
 
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>

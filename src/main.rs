@@ -14,6 +14,8 @@ mod parser;
 mod codegen;
 mod error;
 mod debugger;
+mod ast;
+
 
 fn main() {
     
