@@ -3,11 +3,11 @@ pub mod codegen {
 use std::collections::HashMap;
 use std::vec;
 
+use crate::ast;
 use crate::debugger::DebugController;
 use crate::lexer;
-use crate::parser;
-use crate::parser::Command;
-use crate::parser::Statement;
+use crate::ast::Command;
+use crate::ast::Statement;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -47,25 +47,25 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
     }
 
 
-    impl<'a, 'ctx> CodeGenable<'a, 'ctx> for parser::Expr
+    impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr
     {
        
 
         unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
             match self {
-                parser::Expr::Variable { name } => compiler.generate_variable_code(&name).unwrap(),
-                parser::Expr::Binary{operator, left, right}  => {
+                ast::Expr::Variable { name } => compiler.generate_variable_code(&name).unwrap(),
+               ast::Expr::Binary{operator, left, right}  => {
                 
-                    let bin_res = compiler.generate_binary_expression_code( parser::Expr::Binary {operator, left, right});
+                    let bin_res = compiler.generate_binary_expression_code( ast::Expr::Binary {operator, left, right});
                     let binary_value = bin_res.unwrap();
                     Box::new(binary_value)
                 },
-                parser::Expr::NumVal { value } => 
+                ast::Expr::NumVal { value } => 
                 {
                     Box::new(compiler.generate_float_code(value as f64))
                 },
-                parser::Expr::Call { ref fn_name, ref mut args } => {
+                ast::Expr::Call { ref fn_name, ref mut args } => {
                      let function_call_result = compiler.generate_function_call_code( fn_name, args );
                     function_call_result.unwrap()
                 },
@@ -115,7 +115,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             Compiler { context: c, builder: b, module: m, named_values, arg_stores, debug_controller: d }
         }
 
-        unsafe fn generate_assignment_code(&self, assignment: parser::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
+        unsafe fn generate_assignment_code(&self, assignment: ast::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
         {
             let mut named_values_borrow = self.named_values.borrow_mut();
             let variable_in_map = named_values_borrow.get(&assignment.var_name);
@@ -143,10 +143,9 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     return Box::new(initial_value);
                 }
             }
-            //todo!("finish assn code");
         }
 
-        unsafe fn generate_if_statement_code(&self, if_statement: parser::If) -> FloatValue<'ctx>
+        unsafe fn generate_if_statement_code(&self, if_statement: ast::If) -> FloatValue<'ctx>
         {
             let conditional_code = if_statement.conditional.codegen(self);
             let conditional_as_float: FloatValue;
@@ -197,8 +196,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //handle merge block
             self.builder.position_at_end(if_cont_block);
 
-            //let phi_node = self.builder.build_phi(builder, name)
-
             self.generate_float_code(-999.0)
         }
 
@@ -218,7 +215,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
               bve
         }
 
-        unsafe fn generate_function_call_code(&self,fn_name: &String,args: &mut Vec<parser::Expr>) 
+        unsafe fn generate_function_call_code(&self,fn_name: &String,args: &mut Vec<ast::Expr>) 
             -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
             let get_func_result:Option<FunctionValue<'ctx>> = self.module.get_function(&fn_name);
@@ -301,9 +298,9 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             return Ok(Box::new(result_float));
         }
 
-        unsafe fn generate_binary_expression_code(&self, binary_expr: parser::Expr) -> Result<FloatValue<'ctx>, String>
+        unsafe fn generate_binary_expression_code(&self, binary_expr: ast::Expr) -> Result<FloatValue<'ctx>, String>
         {
-            if let parser::Expr::Binary { operator, left, right } = binary_expr
+            if let ast::Expr::Binary { operator, left, right } = binary_expr
             {
                 let lhs_codegen  = left.codegen(self);
                 let rhs_codegen = right.codegen(self);
@@ -414,7 +411,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         builder.build_alloca(self.context.f64_type(), name).unwrap()
     }
 
-        pub unsafe fn generate_function_code(&self, func: parser::Function) -> Result<FunctionValue<'ctx>, String>
+        pub unsafe fn generate_function_code(&self, func: ast::Function) -> Result<FunctionValue<'ctx>, String>
         {
             
             //see if the function has already been defined
@@ -429,8 +426,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
-            let mut line_no = func.prototype.source_loc.line_number;
-            let mut column_no = func.prototype.source_loc.column_number;
+            let line_no = func.prototype.source_loc.line_number;
+            let column_no = func.prototype.source_loc.column_number;
             let mut current_subprogram: Option<DISubprogram> = None;
 
             if let Some(dbg) = self.debug_controller
@@ -570,10 +567,10 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 mod tests {
     use std::collections::HashMap;
-    use crate::parser::SourceLocation;
+    use crate::ast::SourceLocation;
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
-    use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
+    use crate::{ast::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
     use std::cell::RefCell;
     fn get_test_compiler<'a, 'ctx>(c: &'ctx Context, m: &'a Module<'ctx>, b: &'a Builder<'ctx>) -> Compiler<'a, 'ctx>
     {

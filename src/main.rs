@@ -14,6 +14,8 @@ mod parser;
 mod codegen;
 mod error;
 mod debugger;
+mod ast;
+
 
 fn main() {
     
@@ -58,7 +60,7 @@ fn main() {
 
 fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mut  Compiler<'a, 'ctx>) -> Result<(),String>
 {
-    parse_opening(token_manager);
+    parse_opening(token_manager)?;
 
     let mut found_top_level_end = false;
     compiler.initalize_main_function();
