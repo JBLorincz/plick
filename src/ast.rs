@@ -23,9 +23,6 @@ pub enum Expr
     NumVal {
         value: i32
     },
-    Conditional {
-        
-    },
     Variable {
         name: String 
     }

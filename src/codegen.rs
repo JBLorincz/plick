@@ -143,7 +143,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     return Box::new(initial_value);
                 }
             }
-            //todo!("finish assn code");
         }
 
         unsafe fn generate_if_statement_code(&self, if_statement: ast::If) -> FloatValue<'ctx>
@@ -196,8 +195,6 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
             //handle merge block
             self.builder.position_at_end(if_cont_block);
-
-            //let phi_node = self.builder.build_phi(builder, name)
 
             self.generate_float_code(-999.0)
         }
@@ -429,8 +426,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
-            let mut line_no = func.prototype.source_loc.line_number;
-            let mut column_no = func.prototype.source_loc.column_number;
+            let line_no = func.prototype.source_loc.line_number;
+            let column_no = func.prototype.source_loc.column_number;
             let mut current_subprogram: Option<DISubprogram> = None;
 
             if let Some(dbg) = self.debug_controller
