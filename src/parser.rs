@@ -36,7 +36,23 @@ pub enum Expr
 pub struct Prototype {
 
         pub fn_name: String,
-        pub args: Vec<String> // the names of the arguments - used inside of the function itself.
+        pub args: Vec<String>, // the names of the arguments - used inside of the function itself.
+        pub source_loc: SourceLocation
+}
+
+
+#[derive(Debug,Clone)]
+pub struct SourceLocation
+{
+    pub line_number: u32,
+    pub column_number: u32,
+}
+
+impl Default for SourceLocation
+{
+    fn default() -> Self {
+        SourceLocation { line_number: 0, column_number: 0 }
+    }
 }
 
 ///Represents a user-deined function.
@@ -44,7 +60,7 @@ pub struct Prototype {
 pub struct Function {
     pub prototype: Prototype,
     pub body_statements: Vec<Statement>,
-    pub return_value: Option<Expr>
+    pub return_value: Option<Expr>,
 }
 
 ///Represents a "full-line" of execution, terminated by a semicolon.
@@ -389,6 +405,7 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
 pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Prototype
 {
          token_manager.next_token();
+         let source_loc = token_manager.get_source_location();
          println!("Begging to parse function proto!");
          //token should now be open paren
          if Some(Token::OPEN_PAREN) != token_manager.current_token
@@ -451,7 +468,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                 
            }
 
-    Prototype { fn_name: label_name, args: args_list }
+    Prototype { fn_name: label_name, args: args_list, source_loc }
 }
 
 pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Function, String>

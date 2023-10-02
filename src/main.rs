@@ -7,10 +7,13 @@ use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType
 use inkwell::context;
 use std::path::Path;
 
+use crate::debugger::{setup_module_for_debugging, DebugController};
+
 mod lexer;
 mod parser;
 mod codegen;
 mod error;
+mod debugger;
 
 fn main() {
     
@@ -106,7 +109,7 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
 
 fn compile_input(input: &str, config: Config)
 {
-         let filename = config.filename;
+         let filename = config.filename.clone();
         let default_triple = TargetMachine::get_default_triple();
         println!("Building for {}", &default_triple.as_str().to_string_lossy());
         let init_config = inkwell::targets::InitializationConfig
@@ -124,24 +127,54 @@ fn compile_input(input: &str, config: Config)
 
         let my_target = inkwell::targets::Target::from_triple(&default_triple).unwrap();
 
+        
+        let optimization_level = match config.optimize
+        {
+            true => inkwell::OptimizationLevel::Default,
+            false => inkwell::OptimizationLevel::None,
+        };
+
     let target_machine = my_target.create_target_machine(&default_triple, "generic", "",
-    inkwell::OptimizationLevel::Default, inkwell::targets::RelocMode::Default, inkwell::targets::CodeModel::Default).unwrap();
+    optimization_level, inkwell::targets::RelocMode::PIC, inkwell::targets::CodeModel::Default).unwrap();
 
-
+        //create compiler dependencies
         let c = context::Context::create(); 
         let b = c.create_builder();
         let m = c.create_module("globalMod");
+
+        let mut optional_debugger: Option<&DebugController<'_>> = None;
+        let debugger: DebugController; 
         
-        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m); 
+        if config.debug_mode
+        {
+            debugger = setup_module_for_debugging(&m, &config);
+            optional_debugger = Some(&debugger);
+        }
+
+        let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, optional_debugger); 
+        //let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, None); 
 
         let mut token_manager = lexer::TokenManager::new(input);
-
+       
+        if let Some(dbg) = optional_debugger
+        {
+            token_manager.attach_debugger(dbg);
+        }
+        
         let compilation_result = drive_compilation(&mut token_manager,&mut compiler);
 
         if let Err(err_msg) = compilation_result
         {
             panic!("{}",err_msg);
         }
+        
+
+         if let Some(dbg) = optional_debugger
+        {
+            dbg.builder.finalize();
+        }
+
+        //comment for finalize says call before verification
 
         let module_verification_result = m.verify();
         println!("{}",m.print_to_string());
@@ -156,7 +189,6 @@ fn compile_input(input: &str, config: Config)
 
             }
         }
-
         let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
         match write_to_file_result
         {
@@ -173,17 +205,24 @@ fn compile_input(input: &str, config: Config)
         let r = m.print_to_string();
         println!("{}",r);
 
+
+       
+
 }
 
 
-struct Config {
-    filename: String
+pub struct Config {
+    filename: String,
+    optimize: bool,
+    debug_mode: bool,
 }
 
 impl Default for Config {
    fn default() -> Config {
         Config {
-            filename: String::from("a.o")
+            filename: String::from("a.o"),
+            optimize: true,
+            debug_mode: true,
         } 
    }
 }
@@ -198,8 +237,21 @@ mod tests {
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                    LOL: PROCEDURE ();  999-444;
-                END;
+
+
+
+
+
+
+
+                LOL: PROCEDURE ();  999-444; END;
+
+
+
+
+
+
+
                 BOL: PROCEDURE(); PUT; 4-7; END;
                 LOL();
                 PUT;
@@ -211,7 +263,8 @@ mod tests {
                 PUT;
                 END;";
         
-    let conf = Config::default();
+    let mut conf = Config::default();
+    conf.filename = "file_test.o".to_string();
         compile_input(input,conf);
         Ok(())
     }

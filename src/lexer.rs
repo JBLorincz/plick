@@ -1,3 +1,5 @@
+use crate::{debugger::DebugController, parser::SourceLocation};
+
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
     {
@@ -17,23 +19,28 @@
         token_iter.next()
     }
     
-    pub struct TokenManager<'a>
+    pub struct TokenManager<'a,'b>
     {
         pub current_token: Option<Token>,
-        token_iter: TokenIterator<'a>
+        token_iter: TokenIterator<'a,'b>,
     }
 
-    impl<'a> TokenManager<'a>
+    impl<'a,'b> TokenManager<'a,'b>
     {
         pub fn new(token_string: &str) -> TokenManager
         {
             let chars_over = TokenIterator::new(token_string.chars());
             
-            let mut result = TokenManager { current_token: None, token_iter: chars_over };
+            let mut result = TokenManager { current_token: None, token_iter: chars_over, };
 
             result.next_token();
 
             result
+        }
+
+        pub fn attach_debugger(&mut self, dbg: &'a DebugController<'b>)
+        {
+            self.token_iter.dbg_info = Some(dbg);
         }
 
         ///Thus function returns the next token from the token iterator.
@@ -43,24 +50,56 @@
 
             &self.current_token
         }
+
+        pub fn get_line_and_column_numbers(&self) -> (u32, u32)
+        {
+            (self.token_iter.line_number, self.token_iter.column_number)
+        }
+
+        pub fn get_source_location(&self) -> SourceLocation
+        {
+            SourceLocation { line_number: self.token_iter.line_number, column_number: self.token_iter.column_number }
+        }
     }
 
-    struct TokenIterator<'a> {
+    struct TokenIterator<'a, 'b> {
         char_iter: std::str::Chars<'a>,
-        next_char: Option<char>,
+        next_char: Option<char>, 
+        pub dbg_info: Option<&'a DebugController<'b>>,
+        pub line_number: u32,
+        pub column_number: u32,
 
     }
-    impl<'a> TokenIterator<'a> {
+    impl<'a, 'b> TokenIterator<'a, 'b> {
         fn new(char_iter: std::str::Chars<'_>) -> TokenIterator
         {
             TokenIterator { 
                 char_iter,
                 next_char: Some(' '),//this is a space character. Don't touch.
+                line_number: 1,
+                column_number: 0,
+                dbg_info: None
             }
         }
         fn get_next_char(&mut self) -> Option<char>
         {
             self.next_char = self.char_iter.next();
+            if let Some('\n') = self.next_char
+            {
+                self.line_number += 1;
+                self.column_number = 0;
+            }
+            else
+            {
+                self.column_number += 1;
+            }
+            
+            if let Some(ref dbg) = self.dbg_info
+            {
+                *dbg.line_number.borrow_mut() = self.line_number;
+                *dbg.column_number.borrow_mut() = self.column_number;
+            }
+
             self.next_char
         }
         fn is_character_special(ch: char) -> bool
@@ -116,7 +155,7 @@
             }
 
     }
-    impl Iterator for TokenIterator<'_> {
+    impl Iterator for TokenIterator<'_,'_> {
         type Item = Token;
 
         fn next(&mut self) -> Option<Self::Item>

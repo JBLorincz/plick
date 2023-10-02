@@ -3,6 +3,7 @@ pub mod codegen {
 use std::collections::HashMap;
 use std::vec;
 
+use crate::debugger::DebugController;
 use crate::lexer;
 use crate::parser;
 use crate::parser::Command;
@@ -10,6 +11,10 @@ use crate::parser::Statement;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
+use inkwell::debug_info::AsDIScope;
+use inkwell::debug_info::DILexicalBlock;
+use inkwell::debug_info::DILocation;
+use inkwell::debug_info::DISubprogram;
 use inkwell::module::Module;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
@@ -27,7 +32,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         pub context: &'ctx context::Context,
         pub builder: &'a builder::Builder<'ctx>,       
         pub module: &'a module::Module<'ctx>,
-
+        pub debug_controller: Option<&'a DebugController<'ctx>>,
 
         pub named_values: RefCell<HashMap<String,PointerValue<'ctx>>>,
         pub arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum<'ctx>>>>,
@@ -102,12 +107,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
     impl<'a, 'ctx> Compiler<'a, 'ctx>
     {
-         pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>) -> Compiler<'a, 'ctx>
+         pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>, d: Option<&'a DebugController<'ctx>>) -> Compiler<'a, 'ctx>
         {
 
             let named_values: RefCell<HashMap<String,PointerValue<'ctx>>> = RefCell::new(HashMap::new());
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
-            Compiler { context: c, builder: b, module: m, named_values, arg_stores }
+            Compiler { context: c, builder: b, module: m, named_values, arg_stores, debug_controller: d }
         }
 
         unsafe fn generate_assignment_code(&self, assignment: parser::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
@@ -120,11 +125,10 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
-                    self.builder.build_store(*_pointer_value, initial_value);
+                    let _store_result = self.builder.build_store(*_pointer_value, initial_value);
                     return Box::new(initial_value);
                 }
                 None => { 
-                    //panic!("could not find variable {}", &assignment.var_name)
                     //time to create the variable here
                     let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
                     let new_variable = self.create_entry_block_alloca(&assignment.var_name, &current_function);
@@ -132,7 +136,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
-                    let l = self.builder.build_store(new_variable, initial_value);
+                    let _store_result = self.builder.build_store(new_variable, initial_value);
 
                     named_values_borrow.insert(assignment.var_name,new_variable);
 
@@ -425,11 +429,58 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //generate the IR for the function prototype
             let func_name = func.prototype.fn_name.clone();
             let proto_args = func.prototype.args.clone();
-            let function = self.generate_function_prototype_code(func_name,proto_args, func.return_value.is_none());
+            let mut line_no = func.prototype.source_loc.line_number;
+            let mut column_no = func.prototype.source_loc.column_number;
+            let mut current_subprogram: Option<DISubprogram> = None;
+
+            if let Some(dbg) = self.debug_controller
+            {
+                let name = func_name.as_str();
+                let linkage_name = None;
+                let scope_line = line_no;
+                let is_definition = true;
+                let is_local_to_unit = true;
+                let flags = 0; 
+                let is_optimized = dbg.optimized;
+
+                let scope = dbg.builder.create_file(&dbg.filename, &dbg.directory);
+                
+                let ditype = dbg.builder.create_subroutine_type(scope,None,&[],0);
+
+                let myfunc = dbg.builder.create_function(
+                        scope.as_debug_info_scope(),
+                        &name,
+                        linkage_name,
+                        scope,
+                        line_no,
+                        ditype, 
+                        is_local_to_unit,
+                        is_definition,
+                        scope_line,
+                        flags,
+                        is_optimized);
+
+                dbg.lexical_blocks.borrow_mut().push(myfunc.as_debug_info_scope());
+
+                let current_loc = dbg.builder.create_debug_location(self.context, line_no, column_no, myfunc.as_debug_info_scope(), None);
+                dbg!(current_loc);
+
+ 
+
+                self.builder.set_current_debug_location(current_loc);
+               
+                current_subprogram = Some(myfunc);
+                dbg.builder.finalize();
+            }
+
+
+
+
+            let function = self.generate_function_prototype_code(func_name.clone(),proto_args, func.return_value.is_none());
+            
 
             //TODO: Check if function body is empty
             //if so, return function here. 
-            
 
 
             //create a new scope block for the function
@@ -451,6 +502,16 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 statement.clone().codegen(self);
             }
 
+            if let Some(dbg) = self.debug_controller
+            {
+                function.set_subprogram(current_subprogram.unwrap());
+               
+                let myblock = dbg.lexical_blocks.borrow_mut().pop();
+            }
+            else
+            {
+           
+            }
             match func.return_value
             {
                 None => 
@@ -474,12 +535,15 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 return Err("Function return type was not float value!".to_string());
             }
 
-            let failed_verification = !function.verify(true);
-            if failed_verification
-            {
-                panic!("func failed verify");
-            }
 
+
+             let failed_verification = !function.verify(true);
+                if failed_verification
+                {
+                   println!("HEYAA!");
+                   self.module.print_to_stderr();
+                   panic!("func failed verify");
+                }
             Ok(function)
         }
 
@@ -506,7 +570,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 mod tests {
     use std::collections::HashMap;
-
+    use crate::parser::SourceLocation;
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
     use crate::{parser::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
@@ -518,12 +582,14 @@ mod tests {
         let builder = b;
         let named_values: RefCell<HashMap<String,PointerValue>> = RefCell::new(HashMap::new());
         let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]);
+        let debug_controller = None;
         let compiler = Compiler {
            context,
            module,
            builder,
            named_values,
-           arg_stores
+           arg_stores,
+           debug_controller
         };
         compiler
     }
@@ -578,7 +644,8 @@ mod tests {
     let compiler = get_test_compiler(&c, &m, &b);
         
         let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
-        let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")]};
+        let source_loc: SourceLocation = SourceLocation::default(); 
+        let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")], source_loc};
         let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop)};
 
         unsafe {
