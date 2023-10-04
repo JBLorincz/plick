@@ -1,6 +1,7 @@
 use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error,};
 use crate::error;
 use crate::ast::*;
+use crate::types::Type;
 
 
 pub fn parse_token(token_manager: &mut lexer::TokenManager, token_to_check_for: Token) -> Result<(),String>
@@ -184,7 +185,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
        }
        else 
        {
-            return Expr::Variable { name: identifier_string}; 
+            return Expr::Variable { name: identifier_string, _type: Type::FixedDecimal}; 
        }
    
    
@@ -205,7 +206,7 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     let left_handed_side = parse_primary_expression(token_manager);
-    if let Expr::Variable { name } = left_handed_side.clone()
+    if let Expr::Variable { name, _type } = left_handed_side.clone()
     {
         if let Some(Token::EQ) = token_manager.current_token
         {
@@ -338,7 +339,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     let arg_name: String;
-                    if let Expr::Variable { name } = parsed_arg
+                    if let Expr::Variable { name, _type } = parsed_arg
                     {
                         arg_name = name.clone();
                     }
@@ -627,9 +628,9 @@ mod tests {
            right: Box::new(rhs),
        };
 
-       let lhsvar = Expr::Variable { name: String::from("x") };
+       let lhsvar = Expr::Variable { name: String::from("x"), _type: Type::FixedDecimal};
        
-       let rhsvar = Expr::Variable { name: String::from("y") };
+       let rhsvar = Expr::Variable { name: String::from("y") , _type: Type::FixedDecimal};
         
        let _test = Expr::Binary {
            operator: Token::PLUS,
@@ -637,8 +638,8 @@ mod tests {
            right: Box::new(rhsvar),
        };   
 
-       let lhsvar = Expr::Variable { name: String::from("x") };
-       if let Expr::Variable { name } = lhsvar
+       let lhsvar = Expr::Variable { name: String::from("x") , _type: Type::FixedDecimal};
+       if let Expr::Variable { name , _type: Type::FixedDecimal} = lhsvar
        {
             assert_eq!(name, "x");
        }
@@ -744,7 +745,7 @@ mod tests {
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
             
-            if let Expr::Variable {name} = result
+            if let Expr::Variable {name , _type: Type::FixedDecimal} = result
             {
                 assert_eq!("FLAG", name);
             }

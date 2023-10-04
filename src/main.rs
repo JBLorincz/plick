@@ -15,7 +15,7 @@ mod codegen;
 mod error;
 mod debugger;
 mod ast;
-
+mod types;
 
 fn main() {
     

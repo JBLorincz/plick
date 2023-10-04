@@ -54,7 +54,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         unsafe fn codegen(mut self, compiler: &'a Compiler<'a, 'ctx>) -> Box<dyn AnyValue <'ctx> +'ctx>
         {
             match self {
-                ast::Expr::Variable { name } => compiler.generate_variable_code(&name).unwrap(),
+                ast::Expr::Variable { name, _type } => compiler.generate_variable_code(&name).unwrap(),
                ast::Expr::Binary{operator, left, right}  => {
                 
                     let bin_res = compiler.generate_binary_expression_code( ast::Expr::Binary {operator, left, right});
@@ -568,6 +568,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 mod tests {
     use std::collections::HashMap;
     use crate::ast::SourceLocation;
+    use crate::types::Type;
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
     use crate::{ast::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
@@ -640,7 +641,7 @@ mod tests {
     let b = c.create_builder();
     let compiler = get_test_compiler(&c, &m, &b);
         
-        let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE") }) , right: Box::new(Expr::NumVal { value: 5 }) };
+        let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE"), _type: Type::FixedDecimal }) , right: Box::new(Expr::NumVal { value: 5 }) };
         let source_loc: SourceLocation = SourceLocation::default(); 
         let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")], source_loc};
         let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop)};

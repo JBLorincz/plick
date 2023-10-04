@@ -1,5 +1,5 @@
 use crate::lexer;
-
+use crate::types;
 ///Holds all definition for AST nodes
 
 
@@ -24,6 +24,7 @@ pub enum Expr
         value: i32
     },
     Variable {
+        _type: types::Type,
         name: String 
     }
 
