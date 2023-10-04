@@ -1,5 +1,5 @@
 /// Holds all type data
-
+mod fixed_decimal;
 //DCL (A,B,C,D,E) FIXED(3);
 
 
@@ -18,7 +18,6 @@ pub enum BaseAttributes {
     DECIMAL, //if you specify only decimal, then float is assumed too
     FLOAT,
     FIXED, //if you speecify only fixed, then decimal is assumed too
-
 }
 
 
@@ -162,6 +161,6 @@ mod tests {
 
         
         assert_eq!(initial_val,converted_val);
-
+        let lol = Test::Yes;
     }
 }
