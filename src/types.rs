@@ -1,3 +1,5 @@
+use self::fixed_decimal::Test;
+
 /// Holds all type data
 mod fixed_decimal;
 //DCL (A,B,C,D,E) FIXED(3);
@@ -13,7 +15,6 @@ mod fixed_decimal;
 //FIXED DECIMAL -> use LLVM's APInt data type: arbitrary precision integers
 //BINARY FLOAT -> use double like we are currently using
 //DECIMAL FLOAT -> use double like we are currently using
-
 pub enum BaseAttributes {
     DECIMAL, //if you specify only decimal, then float is assumed too
     FLOAT,
@@ -35,6 +36,45 @@ pub enum FixedRadix
     Decimal,
     Binary,
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #[derive(Clone,Debug)]
@@ -71,6 +111,7 @@ impl From<i64> for Fixed
 {
     fn from(value: i64) -> Self
     {
+        let lol = Test::Yes;
         let mut value = value; 
         let mut before_decimal: Vec<u8> = vec![];
         let mut is_neg = false;
@@ -135,6 +176,8 @@ impl Into<i64> for Fixed
 
 
 mod tests {
+    use crate::types::fixed_decimal::Test;
+
     use super::Fixed;
 
 
