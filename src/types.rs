@@ -1,3 +1,7 @@
+use inkwell::{types::StructType, context::Context};
+
+use crate::codegen::codegen::Compiler;
+
 use self::fixed_decimal::Test;
 
 /// Holds all type data
@@ -40,6 +44,21 @@ pub enum FixedRadix
 
 
 
+#[derive(Debug,Clone)]
+pub struct TypeModule<'ctx>
+{
+    fixed_type: StructType<'ctx>,
+}
+
+
+
+impl<'ctx> TypeModule<'ctx>
+{
+    pub fn new(ctx: &'ctx Context) -> Self
+    {
+        TypeModule { fixed_type: fixed_decimal::get_fixed_type(ctx) }
+    }
+}
 
 
 
@@ -47,12 +66,12 @@ pub enum FixedRadix
 
 
 
-
-
-
-
-
-
+impl<'a,'ctx> Compiler<'a,'ctx>
+{
+    fn load_types(&'a self)
+    {
+    }
+}
 
 
 

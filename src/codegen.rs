@@ -8,6 +8,7 @@ use crate::debugger::DebugController;
 use crate::lexer;
 use crate::ast::Command;
 use crate::ast::Statement;
+use crate::types::TypeModule;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -32,6 +33,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         pub context: &'ctx context::Context,
         pub builder: &'a builder::Builder<'ctx>,       
         pub module: &'a module::Module<'ctx>,
+        pub type_module: TypeModule<'ctx>,
         pub debug_controller: Option<&'a DebugController<'ctx>>,
 
         pub named_values: RefCell<HashMap<String,PointerValue<'ctx>>>,
@@ -112,7 +114,14 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
             let named_values: RefCell<HashMap<String,PointerValue<'ctx>>> = RefCell::new(HashMap::new());
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
-            Compiler { context: c, builder: b, module: m, named_values, arg_stores, debug_controller: d }
+            Compiler { 
+                context: c, 
+                builder: b, 
+                module: m, 
+                named_values, 
+                arg_stores, 
+                debug_controller: d, 
+                type_module: TypeModule::new(&c) }
         }
 
         unsafe fn generate_assignment_code(&self, assignment: ast::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
@@ -567,7 +576,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
 mod tests {
     use std::collections::HashMap;
-    use crate::ast::SourceLocation;
+    use crate::{ast::SourceLocation, types::TypeModule};
     use crate::types::Type;
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
@@ -587,7 +596,8 @@ mod tests {
            builder,
            named_values,
            arg_stores,
-           debug_controller
+           debug_controller,
+           type_module: TypeModule::new(&context)
         };
         compiler
     }

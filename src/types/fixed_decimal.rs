@@ -47,7 +47,9 @@ mod tests
 {
     use inkwell::types::{BasicType, BasicTypeEnum};
 
-    use super::{get_fixed_type, build_fixed_type};
+    use crate::types::fixed_decimal::build_fixed_value;
+
+    use super::{get_fixed_type};
 
 
    #[test]
@@ -57,7 +59,7 @@ mod tests
 
         let fixed_decimal_type = get_fixed_type(&ctx);
 
-        let fixed_decimal = build_fixed_type(&ctx, &fixed_decimal_type);
+        let fixed_decimal = build_fixed_value(&ctx, &fixed_decimal_type);
 
         dbg!(fixed_decimal);
 
