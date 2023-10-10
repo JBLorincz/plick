@@ -1,5 +1,6 @@
 use crate::lexer;
 use crate::types;
+use crate::types::Type;
 ///Holds all definition for AST nodes
 
 
@@ -21,7 +22,8 @@ pub enum Expr
         args: Vec<Expr>
     },
     NumVal {
-        value: i32
+        value: i32,
+        _type: types::Type,
     },
     Variable {
         _type: types::Type,
@@ -29,6 +31,14 @@ pub enum Expr
     }
 
         
+}
+
+impl Expr
+{
+    pub fn new_numval(value: i32) -> Expr
+    {
+        Expr::NumVal { value, _type: Type::FixedDecimal }
+    }
 }
 
 ///Represents a function prototype

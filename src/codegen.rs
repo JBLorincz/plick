@@ -63,7 +63,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     let binary_value = bin_res.unwrap();
                     Box::new(binary_value)
                 },
-                ast::Expr::NumVal { value } => 
+                ast::Expr::NumVal { value, _type } => 
                 {
                     Box::new(compiler.generate_float_code(value as f64))
                 },
@@ -609,7 +609,7 @@ mod tests {
         let b = c.create_builder();
         let compiler = get_test_compiler(&c, &m, &b);
         
-        let consta = Expr::NumVal { value: 3 };
+        let consta = Expr::new_numval(3);
 
         unsafe {
         let result = consta.codegen(&compiler);
@@ -630,9 +630,9 @@ mod tests {
         compiler.initalize_main_function();
         //finish creating a main function
 
-        let left = Box::new(Expr::NumVal { value: 3 });
+        let left = Box::new(Expr::new_numval(3));
         
-        let right = Box::new(Expr::NumVal { value: 5});
+        let right = Box::new(Expr::new_numval(5));
 
         let my_binary = Expr::Binary { operator: Token::LESS_THAN, left, right };
         unsafe {
@@ -651,7 +651,7 @@ mod tests {
     let b = c.create_builder();
     let compiler = get_test_compiler(&c, &m, &b);
         
-        let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE"), _type: Type::FixedDecimal }) , right: Box::new(Expr::NumVal { value: 5 }) };
+        let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE"), _type: Type::FixedDecimal }) , right: Box::new(Expr::new_numval(5)) };
         let source_loc: SourceLocation = SourceLocation::default(); 
         let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")], source_loc};
         let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop)};

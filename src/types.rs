@@ -2,8 +2,6 @@ use inkwell::{types::StructType, context::Context};
 
 use crate::codegen::codegen::Compiler;
 
-use self::fixed_decimal::Test;
-
 /// Holds all type data
 mod fixed_decimal;
 //DCL (A,B,C,D,E) FIXED(3);
@@ -26,10 +24,12 @@ pub enum BaseAttributes {
 }
 
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,Copy)]
 pub enum Type
 {
+    ///Our custom FixedValue struct
     FixedDecimal,
+    ///Just a Inkwell FloatValue
     Float,
 }
 
@@ -130,7 +130,6 @@ impl From<i64> for Fixed
 {
     fn from(value: i64) -> Self
     {
-        let lol = Test::Yes;
         let mut value = value; 
         let mut before_decimal: Vec<u8> = vec![];
         let mut is_neg = false;
@@ -195,8 +194,6 @@ impl Into<i64> for Fixed
 
 
 mod tests {
-    use crate::types::fixed_decimal::Test;
-
     use super::Fixed;
 
 
@@ -223,6 +220,5 @@ mod tests {
 
         
         assert_eq!(initial_val,converted_val);
-        let lol = Test::Yes;
     }
 }

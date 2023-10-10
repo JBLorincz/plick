@@ -4,6 +4,9 @@ use crate::ast::*;
 use crate::types::Type;
 
 
+///Helper function used to advance the token manager,
+///ensuring the token that was 'eaten' was the expected
+///token. Otherwise, returns an error.
 pub fn parse_token(token_manager: &mut lexer::TokenManager, token_to_check_for: Token) -> Result<(),String>
 {
     let current_tok_copy = token_manager.current_token.clone();
@@ -33,7 +36,7 @@ pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
     if let Some(Token::NumVal(value)) = token_manager.current_token
     {
         token_manager.next_token();//loads the next token into the token manager.
-        return Expr::NumVal { value  };
+        return Expr::NumVal { value, _type: Type::FixedDecimal  };
     }
     else {
         panic!("Failed to parse numeric!");
@@ -121,7 +124,7 @@ pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Sta
 }
 
 //parses identifiers like variable names but also function calls
-pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
+pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
      let identifier_string: String;
    if let Some(Token::Identifier(ref val)) = token_manager.current_token 
    {
@@ -133,7 +136,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    }
         let mut args_list: Vec<Expr> = vec![];
        token_manager.next_token();// prime next token
-       if let Some(Token::OPEN_PAREN) = token_manager.current_token
+       if let Some(Token::OPEN_PAREN) = token_manager.current_token // if this is a function call
        {
            println!("Found an open parenthesis first!");
            //function call here.
@@ -299,15 +302,13 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
 //      END;
 pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Prototype, String>
 {
-         token_manager.next_token();
+         parse_token(token_manager,Token::PROCEDURE)?;
+
          let source_loc = token_manager.get_source_location();
 
          //token should now be open paren
-         if Some(Token::OPEN_PAREN) != token_manager.current_token
-         {
-             return Err("Was expecting an open parenthesis!".to_string());
-         }
-            token_manager.next_token();//go inside the parenthesis
+        
+            parse_token(token_manager,Token::OPEN_PAREN)?;
             let mut expecting_comma = false;
             let mut args_list: Vec<String> = vec![];
            loop {
@@ -472,7 +473,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 if let Token::SEMICOLON = token_after_return
                 {
                     match command {
-                        Command::Empty => command = Command::RETURN(Expr::NumVal { value: -1 }),             
+                        Command::Empty => command = Command::RETURN(Expr::new_numval(-1)),             
                     other_command => { return Err(get_error(&["4","RETURN", &other_command.to_string()])); }
                     }
                     token_manager.next_token();
@@ -619,8 +620,8 @@ mod tests {
 
     #[test]
     fn construct_binary(){
-        let lhs = Expr::NumVal { value: 4 };
-        let rhs = Expr::NumVal { value: 6 };
+        let lhs = Expr::new_numval(4);
+        let rhs = Expr::new_numval(6);
 
        let _test = Expr::Binary {
            operator: Token::PLUS,
@@ -659,9 +660,9 @@ mod tests {
 
         let result: Expr = parse_numeric(&mut tok_man);
         
-       if let Expr::NumVal{value: val} = result
+       if let Expr::NumVal{value, _type} = result
        {
-            assert_eq!(4,val);
+            assert_eq!(4,value);
        }
        else {
            panic!("Result of parse numeric was not a numeric expression!");
@@ -678,7 +679,7 @@ mod tests {
             assert_eq!(fn_name,"MIN");
             assert_eq!(args.len(),2);
 
-            if let Expr::NumVal { value } = args[0]
+            if let Expr::NumVal { value, _type } = args[0]
             {
                 assert_eq!(value,2);
             }
@@ -701,7 +702,7 @@ mod tests {
 
         let result: Expr = parse_parenthesis_expression(&mut tok_man);
 
-        if let Expr::NumVal{value} =  result
+        if let Expr::NumVal{value, _type} =  result
         {
             assert_eq!(25665,value);
         }
@@ -728,7 +729,7 @@ mod tests {
         
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
-            if let Expr::NumVal { value } = result
+            if let Expr::NumVal { value, _type } = result
             {
                 assert_eq!(value,2);
             }
@@ -754,7 +755,7 @@ mod tests {
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
 
-            if let Expr::NumVal { value } = result
+            if let Expr::NumVal { value, _type } = result
             {
                 assert_eq!(4, value);
             }
@@ -774,7 +775,7 @@ mod tests {
 
             let left_expr: Expr = *left;
 
-            if let Expr::NumVal { value } = left_expr{
+            if let Expr::NumVal { value, _type } = left_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -783,7 +784,7 @@ mod tests {
             }
 
             let right_expr: Expr = *right;
-            if let Expr::NumVal { value } = right_expr{
+            if let Expr::NumVal { value, _type } = right_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -807,7 +808,7 @@ mod tests {
 
             let left_expr: Expr = *left;
 
-            if let Expr::NumVal { value } = left_expr{
+            if let Expr::NumVal { value, _type } = left_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -818,7 +819,7 @@ mod tests {
             let right_expr: Expr = *right; // this is the 3 * 5 in 2 + 3 * 5
             if let Expr::Binary { operator, left, right } = right_expr{
                 
-                if let Expr::NumVal { value } = *left{
+                if let Expr::NumVal { value, _type } = *left{
                     assert_eq!(3, value);
                 }   
                 else { panic!("not a numval!")}
@@ -827,7 +828,7 @@ mod tests {
                 }   
                 else { panic!("not a multiply!")}
                 
-                if let Expr::NumVal { value } = *right{
+                if let Expr::NumVal { value, _type } = *right{
                     assert_eq!(5, value);
                 }   
                 else { panic!("not a numval!")}
@@ -865,7 +866,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    #[should_panic(expected = "open paren")]
+    #[should_panic(expected = "OPEN_PAREN")]
     fn test_parsing_prototype_panic()
     {
         let mut token_manager = TokenManager::new("PROCEDURE A,B,C);");
