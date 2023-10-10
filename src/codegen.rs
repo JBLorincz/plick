@@ -67,7 +67,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 {
                     Box::new(compiler.generate_float_code(value as f64))
                 },
-                ast::Expr::Call { ref fn_name, ref mut args } => {
+                ast::Expr::Call { ref fn_name, ref mut args, _type } => {
                      let function_call_result = compiler.generate_function_call_code( fn_name, args );
                     function_call_result.unwrap()
                 },
@@ -85,6 +85,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //IF NEW COMMANDS ARE ADDED.
             match self.command 
             {
+            Command::Declare(_dec) => todo!("Implement codegen for declare statement"),
             Command::PUT => Box::new(compiler.generate_hello_world_print()),
             Command::EXPR(expr) => expr.codegen(compiler),
             Command::IF(if_statement) => Box::new(compiler.generate_if_statement_code(if_statement)),

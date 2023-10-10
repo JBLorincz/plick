@@ -46,4 +46,5 @@ create_errors!{
     E002: "End of file was reached unexpectedly",
     E003: "Can't declare label '[0]' after label '[1]'",
     E004: "Can't invoke command '[0]' after command'[1]'",
+    E005: "Can't create an expression combining type '[0]' with type '[1]'",
 }

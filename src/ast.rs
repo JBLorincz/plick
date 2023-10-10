@@ -1,6 +1,8 @@
 use crate::lexer;
 use crate::types;
+use crate::types::BaseAttributes;
 use crate::types::Type;
+use crate::types::resolve_types;
 ///Holds all definition for AST nodes
 
 
@@ -19,7 +21,8 @@ pub enum Expr
 
     Call {
         fn_name: String,
-        args: Vec<Expr>
+        args: Vec<Expr>,
+        _type: types::Type,
     },
     NumVal {
         value: i32,
@@ -38,6 +41,19 @@ impl Expr
     pub fn new_numval(value: i32) -> Expr
     {
         Expr::NumVal { value, _type: Type::FixedDecimal }
+    }
+    pub fn get_type(&self) -> types::Type
+    {
+        match self
+        {
+            Expr::Variable { _type, name } => {return *_type},
+            Expr::NumVal { _type, value } => {return *_type},
+            Expr::Call { _type, args, fn_name } => {return *_type},
+            Expr::Binary { operator, left, right } => {
+                resolve_types(&left.get_type(), &right.get_type()).unwrap()
+            },
+            Expr::Assignment { variable_name, value } => Type::Void,
+        }
     }
 }
 
@@ -88,6 +104,7 @@ pub enum Command {
     END,
     PUT,
     IF(If),
+    Declare(Declare),
     Assignment(Assignment),
     FunctionDec(Function), 
     EXPR(Expr),   //"EXPR" is not a command in pl/1 this just represents a expression statement.
@@ -117,4 +134,10 @@ pub struct Assignment
 {
     pub var_name: String,
     pub value: Expr
+}
+#[derive(Debug,Clone)]
+pub struct Declare
+{
+    pub var_name: String,
+    pub attribute: Option<Type> 
 }

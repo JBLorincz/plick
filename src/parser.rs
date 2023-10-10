@@ -98,6 +98,39 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
 
 }
 
+pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare, String>
+{
+    parse_token(token_manager, Token::DECLARE)?;
+    let new_variable_name;
+    let mut variable_type = Type::FixedDecimal;
+
+    if let Some(Token::Identifier(ref name)) = token_manager.current_token
+    {
+        new_variable_name = name.clone();
+    }
+    else
+    {
+        panic!("waht?");
+    }
+    token_manager.next_token();
+
+    match token_manager.current_token {
+    Some(Token::FIXED) => {
+        variable_type = Type::FixedDecimal;
+        token_manager.next_token();
+    },
+    Some(Token::FLOAT) => {
+        variable_type = Type::Float;
+        token_manager.next_token();
+    },
+    Some(Token::SEMICOLON) => variable_type = variable_type,
+    _ => { return Err("Could not parse declare statement".to_string())},
+    };
+
+    parse_token(token_manager, Token::SEMICOLON)?;
+
+    Ok(Declare {var_name: new_variable_name, attribute: Some(variable_type)})
+}
 //current token is the semicolon AFTER do
 pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Statement>, String>
 {
@@ -184,7 +217,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
 
                 
            }
-            return Expr::Call { fn_name: identifier_string, args: args_list };
+            return Expr::Call { fn_name: identifier_string, args: args_list, _type: Type::TBD };
        }
        else 
        {
@@ -458,6 +491,15 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 token_manager.next_token();
                 break; 
             },
+            Token::DECLARE => {
+                 let declare_statement = parse_declare(token_manager)?;
+                 match command {
+                    Command::Empty => command = Command::Declare(declare_statement),             
+                    other_command => { return Err(get_error(&["4","DECLARE", &other_command.to_string()])); }
+                }
+                token_manager.next_token();
+                break; 
+            },
             Token::IF => {
                 let if_statement = parse_if(token_manager).unwrap();
                  match command {
@@ -674,7 +716,7 @@ mod tests {
     {
         let mut tok_man = TokenManager::new("MIN(2,3);");
         let result = parse_identifier(&mut tok_man);
-        if let Expr::Call{fn_name, args} = result
+        if let Expr::Call{fn_name, args, _type} = result
         {
             assert_eq!(fn_name,"MIN");
             assert_eq!(args.len(),2);
@@ -932,9 +974,23 @@ mod tests {
         let mut token_manager = TokenManager::new("PROCEDURE (A,B,C); A + B + C; END;");
 
         let _my_function = parse_function(&mut token_manager, "TESTFUNC".to_string());
+    }
+    #[test]
+    fn test_parsing_declare() -> Result<(),String>
+    {
+        let mut token_manager = TokenManager::new("DECLARE x FIXED; PUT; PUT; PUT;");
+
+        let decl = parse_declare(&mut token_manager)?;
+        
+        assert_eq!(decl.var_name, "x");
+        assert_eq!(decl.attribute, Some(Type::FixedDecimal));
 
 
-
+        //make sure declare sets up parsing for next line
+        parse_statement(&mut token_manager)?;
+        parse_statement(&mut token_manager)?;
+        parse_statement(&mut token_manager)?;
+        Ok(())
     }
 }
 

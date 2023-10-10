@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use inkwell::{types::StructType, context::Context};
 
-use crate::codegen::codegen::Compiler;
+use crate::{codegen::codegen::Compiler, error::get_error};
 
 /// Holds all type data
 mod fixed_decimal;
@@ -17,6 +19,7 @@ mod fixed_decimal;
 //FIXED DECIMAL -> use LLVM's APInt data type: arbitrary precision integers
 //BINARY FLOAT -> use double like we are currently using
 //DECIMAL FLOAT -> use double like we are currently using
+#[derive(Debug,Clone)]
 pub enum BaseAttributes {
     DECIMAL, //if you specify only decimal, then float is assumed too
     FLOAT,
@@ -24,13 +27,25 @@ pub enum BaseAttributes {
 }
 
 
-#[derive(Clone,Debug,Copy)]
+#[derive(Clone,Debug,Copy,PartialEq, PartialOrd)]
 pub enum Type
 {
     ///Our custom FixedValue struct
     FixedDecimal,
     ///Just a Inkwell FloatValue
     Float,
+    /// Not a type: just represents something
+    /// whose type has to be determined later.
+    TBD,
+    ///The return type of some functions
+    Void,
+}
+
+impl Display for Type
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 
@@ -50,6 +65,23 @@ pub struct TypeModule<'ctx>
     fixed_type: StructType<'ctx>,
 }
 
+///Takes two input types, and determines what the output type should be.
+///Useful for binary expressions.
+pub fn resolve_types(type_one: &Type, type_two: &Type) -> Result<Type, String>
+{
+    if *type_one == Type::TBD || *type_two == Type::TBD || *type_one == Type::Void || *type_two == Type::Void
+    {
+        return Err(get_error(&["5",&type_one.to_string(),&type_two.to_string()]));
+    }
+
+   if *type_one == *type_two
+    {
+        return Ok(type_one.clone());
+    }
+
+    //by this point we have one fixed decimal and one float.
+    Ok(Type::FixedDecimal)
+}
 
 
 impl<'ctx> TypeModule<'ctx>
