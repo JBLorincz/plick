@@ -1,40 +1,31 @@
-use crate::{ast::Statement, lexer::{Token, TokenManager}, parser::{parse_opening, self}, codegen::codegen::{Compiler, CodeGenable}};
+use std::{collections::HashMap, hash::Hash};
+
+use crate::{ast::{Statement, Command}, lexer::{Token, TokenManager}, parser::{parse_opening, self}, codegen::codegen::{Compiler, CodeGenable}, types::Type};
 
 pub struct PassResult
 {
-    statements: Vec<Statement>
+    statements: Vec<Statement>,
+    function_return_types: HashMap<String, Type>
 }
 
 
-
+///Utilizes the Lexer's TokenManager to create the AST in the form of PassResult
 pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult, String>
 {
     parse_opening(token_manager)?;
 
     let mut found_top_level_end = false;
     let mut statements: Vec<Statement> = vec![];
-    //compiler.initalize_main_function();
-
-        //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
-
-     //   let printf_arg_type: PointerType<'ctx> = compiler.context.i8_type().ptr_type(AddressSpace::default());
-     //       let printf_type: FunctionType<'ctx> = compiler.context.i32_type().fn_type(&[BasicMetadataTypeEnum::from(printf_arg_type)], true);
-    
-
-        //    let _printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
+    let mut function_return_types: HashMap<String,Type> = HashMap::new();
 
       while let Some(ref token) = token_manager.current_token
       {
           if let Token::END = token
           {
               found_top_level_end = true;
-          //    let build_return_result = compiler.builder.build_return(None);
-          //    if let Err(err_msg) = build_return_result
-          //    {
-          //        return Err(err_msg.to_string());
-          //    }
               break;
           }
+
           let parser_result = parser::parse_statement(token_manager);
           
           if let Err(err_msg) = parser_result
@@ -43,6 +34,15 @@ pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult
               return Err(msg);
           }
           let parser_result = parser_result.unwrap();
+
+          // if the statement is a function declaration,
+          // then we store its return type.
+          if let Command::FunctionDec(ref func) = parser_result.command
+          {
+              function_return_types.insert(func.prototype.fn_name.clone(), func.return_type);
+              //todo!("Handle function dec storing! {:?}", func);
+          }
+
           statements.push(parser_result);
         //  unsafe {
         //      dbg!(&parser_result);
@@ -56,17 +56,30 @@ pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult
          {
              return Err("Did not find an end to the program!".to_string());
          }
-         
-         let output = PassResult {statements};
+         let output = PassResult {statements, function_return_types};
          Ok(output)
 }
 
 impl PassResult
 {
-    pub fn perform_type_pass(self) -> Result<PassResult, String>
+    ///Does all the type checking and type handling
+    pub fn perform_type_pass(mut self) -> Result<PassResult, String>
     {
+        let mut annotated_statements: Vec<Statement> = vec![];
+        for i in &self.statements
+        {
+            let mut statement_clone = i.clone();
+
+            //statement_clone.
+
+            annotated_statements.push(statement_clone);
+        }
+        
+        self.statements = annotated_statements;
         Ok(self)
     }
+
+    ///Actually does the AST to LLVM IR conversion
     pub unsafe fn code_generation_pass(self, compiler: &mut Compiler) -> Result<(), String>
     {
         for i in self.statements

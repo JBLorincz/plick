@@ -81,62 +81,12 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
             
             unsafe
             {
-                perform_parse_pass(token_manager)?.perform_type_pass()?.code_generation_pass(compiler);
+                perform_parse_pass(token_manager)?.perform_type_pass()?.code_generation_pass(compiler)?;
             }
 
 
             Ok(())
 }
-//fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mut  Compiler<'a, 'ctx>) -> Result<(),String>
-//{
-//    parse_opening(token_manager)?;
-//
-//    let mut found_top_level_end = false;
-//    compiler.initalize_main_function();
-//
-//        //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
-//
-//        let printf_arg_type: PointerType<'ctx> = compiler.context.i8_type().ptr_type(AddressSpace::default());
-//            let printf_type: FunctionType<'ctx> = compiler.context.i32_type().fn_type(&[BasicMetadataTypeEnum::from(printf_arg_type)], true);
-//    
-//
-//            let _printf_func = compiler.module.add_function("printf", printf_type, Some(module::Linkage::DLLImport));
-//
-//      while let Some(ref token) = token_manager.current_token
-//      {
-//          if let Token::END = token
-//          {
-//              found_top_level_end = true;
-//              let build_return_result = compiler.builder.build_return(None);
-//              if let Err(err_msg) = build_return_result
-//              {
-//                  return Err(err_msg.to_string());
-//              }
-//              break;
-//          }
-//          let parser_result = parser::parse_statement(token_manager);
-//          
-//          if let Err(err_msg) = parser_result
-//          {
-//              let msg = format!("Finished parsing: {}", err_msg);
-//              return Err(msg);
-//          }
-//          let parser_result = parser_result.unwrap();
-//
-//          unsafe {
-//              dbg!(&parser_result);
-//            parser_result.codegen(compiler);
-//            println!("Genned above stuff.");
-//            println!("New token is: {:?}", token_manager.current_token);
-//        }
-//      }
-//
-//         if !found_top_level_end
-//         {
-//             return Err("Did not find an end to the program!".to_string());
-//         }
-//         Ok(())
-//}
 
 fn compile_input(input: &str, config: Config)
 {

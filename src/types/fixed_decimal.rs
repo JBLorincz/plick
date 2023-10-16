@@ -1,7 +1,9 @@
-use inkwell::{types::{StructType, BasicType, BasicTypeEnum, ArrayType}, values::{StructValue, BasicValueEnum, ArrayValue, IntValue}};
+use inkwell::{types::{StructType, BasicType, BasicTypeEnum, ArrayType}, values::{StructValue, BasicValueEnum, ArrayValue, IntValue, FloatValue}};
 
 use crate::codegen::codegen::Compiler;
 
+const BEFORE_DIGIT_COUNT: u32 = 16;
+const AFTER_DIGIT_COUNT: u32 = 15;
 
 ///Represents a Fixed PL/1 value.
 ///Currently can only represent a fixed decimal with
@@ -44,8 +46,8 @@ impl<'ctx> From<StructValue<'ctx>> for FixedValue<'ctx>
 pub fn get_fixed_type<'ctx>(ctx: &'ctx inkwell::context::Context) -> StructType<'ctx>
 {
         let mut field_types: Vec<BasicTypeEnum> = vec![];
-        let before_decimal_array = ctx.i8_type().array_type(16);
-        let after_decimal_array = ctx.i8_type().array_type(15);
+        let before_decimal_array = ctx.i8_type().array_type(BEFORE_DIGIT_COUNT);
+        let after_decimal_array = ctx.i8_type().array_type(AFTER_DIGIT_COUNT);
         let is_negative_type = ctx.bool_type();
         field_types.push(is_negative_type.as_basic_type_enum());
         field_types.push(before_decimal_array.as_basic_type_enum());
@@ -64,8 +66,8 @@ pub fn create_empty_fixed<'ctx>(ctx: &'ctx inkwell::context::Context, _type: &'c
     let mut values: Vec<BasicValueEnum> = vec![];
 
     let is_negative_value = ctx.bool_type().const_int(0,false);
-    let before_decimal_value = ctx.i8_type().array_type(16).const_zero();
-    let after_decimal_value = ctx.i8_type().array_type(15).const_zero();
+    let before_decimal_value = ctx.i8_type().array_type(BEFORE_DIGIT_COUNT).const_zero();
+    let after_decimal_value = ctx.i8_type().array_type(AFTER_DIGIT_COUNT).const_zero();
     values.push(is_negative_value.into());
     values.push(before_decimal_value.into());
     values.push(after_decimal_value.into());
@@ -75,7 +77,7 @@ pub fn create_empty_fixed<'ctx>(ctx: &'ctx inkwell::context::Context, _type: &'c
 }
 
 ///Coverts a f64 into a FixedValue
-fn generate_fixed_decimal_code<'ctx>(ctx: &'ctx inkwell::context::Context, _type: StructType<'ctx>, value: f64) -> FixedValue<'ctx>
+pub fn generate_fixed_decimal_code<'ctx>(ctx: &'ctx inkwell::context::Context, _type: StructType<'ctx>, value: f64) -> FixedValue<'ctx>
     {
 
 
@@ -98,7 +100,7 @@ fn generate_fixed_decimal_code<'ctx>(ctx: &'ctx inkwell::context::Context, _type
                 ctx.i8_type().const_int(*w as u64, false)
             })
             .collect();
-        before_decimal_digits.resize(16, ctx.i8_type().const_int(0, false));
+        before_decimal_digits.resize(BEFORE_DIGIT_COUNT as usize, ctx.i8_type().const_int(0, false));
     //now we gotta extract the number after the decimal as a positive integer
     let after_decimal_side = (value - before_decimal_side as f64) * 10_f64.powf(before_decimal_digits.len() as f64);
     let mut after_decimal_digits: Vec<IntValue> = convert_num_to_arr(after_decimal_side as i64)
@@ -109,7 +111,7 @@ fn generate_fixed_decimal_code<'ctx>(ctx: &'ctx inkwell::context::Context, _type
             })
             .collect();
     
-        after_decimal_digits.resize(15, ctx.i8_type().const_int(0, false));
+        after_decimal_digits.resize(AFTER_DIGIT_COUNT as usize, ctx.i8_type().const_int(0, false));
 
     
     let before_decimal_value = 
@@ -131,6 +133,51 @@ fn generate_fixed_decimal_code<'ctx>(ctx: &'ctx inkwell::context::Context, _type
 
 impl<'a, 'ctx> Compiler<'a, 'ctx>
 {
+    pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx>
+    {
+
+        return self.context.f64_type().const_zero();
+
+        let fd = fixed_value.value; 
+
+        let res = self.builder.build_alloca(fd.get_type(), "tmpalloca").unwrap();
+        let sign_bit = self.builder.build_struct_gep(res,0,"get_sign_bit").unwrap();
+        let sign_bit_val = sign_bit.const_to_int(self.context.bool_type());
+
+
+        let before_ptr = self.builder.build_struct_gep(res,1,"get_before").unwrap();
+        
+        let before_arr = self.builder.build_load(before_ptr, "load_before_arr").unwrap().into_array_value();
+        let zero_intval = self.context.i8_type().const_zero();
+        let mut before_int_values: Vec<IntValue<'ctx>> = vec![zero_intval;BEFORE_DIGIT_COUNT as usize];
+
+        for i in 0..BEFORE_DIGIT_COUNT as usize
+        {
+            let index_as_intval = self.context.i8_type().const_int(i as u64, false);
+            before_int_values[i] = self
+                .builder
+                .build_gep(before_ptr, &[index_as_intval], "load_digit").unwrap()
+                .const_to_int(self.context.i8_type());
+        }
+        
+        let lhs = before_int_values[0];
+
+        let mut result_floatval: FloatValue<'ctx> = lhs.const_unsigned_to_float(self.context.f64_type());
+
+        for i in 1..BEFORE_DIGIT_COUNT as usize
+        {
+            let rhs = before_int_values[i].const_unsigned_to_float(self.context.f64_type());
+            result_floatval = self.builder.build_float_add(result_floatval, rhs, "summer").unwrap();
+        }
+
+        //self.builder.build_gep(ptr, ordered_indexes, name)
+
+        //let after_ptr = self.builder.build_struct_gep(res,2,"get_after").unwrap();
+        //self.builder.build_struct_gep(res,2,"get_after");
+
+         result_floatval
+        //return self.context.f64_type().const_float(float_const as f64);
+    }
 }
 
 ///Helper function

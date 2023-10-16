@@ -1,11 +1,13 @@
 use std::fmt::Display;
 
-use inkwell::{types::StructType, context::Context};
+use inkwell::{types::{StructType, BasicTypeEnum, BasicType, AnyTypeEnum, AnyType}, context::Context, values::{StructValue, FloatValue}};
 
 use crate::{codegen::codegen::Compiler, error::get_error};
 
+use self::fixed_decimal::generate_fixed_decimal_code;
+
 /// Holds all type data
-mod fixed_decimal;
+pub mod fixed_decimal;
 //DCL (A,B,C,D,E) FIXED(3);
 
 
@@ -84,11 +86,15 @@ pub fn resolve_types(type_one: &Type, type_two: &Type) -> Result<Type, String>
 }
 
 
+
+
 impl<'ctx> TypeModule<'ctx>
 {
     pub fn new(ctx: &'ctx Context) -> Self
     {
-        TypeModule { fixed_type: fixed_decimal::get_fixed_type(ctx) }
+        TypeModule {
+            fixed_type: fixed_decimal::get_fixed_type(ctx) 
+        }
     }
 }
 
@@ -103,6 +109,66 @@ impl<'a,'ctx> Compiler<'a,'ctx>
     fn load_types(&'a self)
     {
     }
+
+    pub fn gen_fixed_decimal(&self, value: f64) -> StructValue<'ctx>
+    {
+        generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into()
+    }
+    
+    fn gen_float_decimal(&self, value: f64) -> FloatValue<'ctx>
+    {
+        todo!("fill this out!")
+    }
+    pub fn convert_plick_type_to_llvm_basic_type(&'a self, _type: Type) -> BasicTypeEnum<'ctx>
+    {
+        match _type
+        {
+            Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),
+            Type::Float => todo!("implement float type"),
+            Type::Void => panic!("Can't convert void type to basic type enum!"),
+            Type::TBD => panic!("Can't convert TBD type to basic type enum!"),
+        }
+    }
+    pub fn convert_plick_type_to_llvm_any_type(&'a self, _type: Type) -> AnyTypeEnum<'ctx>
+    {
+        match _type
+        {
+            Type::FixedDecimal => self.type_module.fixed_type.as_any_type_enum(),
+            Type::Float => todo!("implement float type"),
+            Type::Void => self.context.void_type().as_any_type_enum(),
+            Type::TBD => panic!("Can't convert TBD type to any type enum!"),
+        }
+    }
+
+}
+
+
+
+///The attributes of returned values may be delcared in two ways:
+///1. They may be declared by default according to the first letter of the function name. For
+///   example, if the function begings with the letters A through H or O through Z, then the result
+///   will be DECIMAL FLOAT(6), because that is the default attribute of identifiers beginning with
+///   those letters. Function names beginning with the letters I through N return a result with the
+///   attributes FIXED BINARY(15).
+///
+///   2. Because the default attributes for function names do not allow us to return a result that
+///      is FIXED DECIMAL or FLOAT DECIMAL(16), for example, we have another method of specifying
+///      the attributes of a returned value. This is accomplished through the RETURNS keyword.
+pub fn calculate_pli_function_return_type(name_of_function: &str) -> Type
+{
+    let first_letter_of_func = name_of_function.chars().next().unwrap().to_ascii_lowercase();
+
+    if 105 < first_letter_of_func as u32
+    {
+        return Type::FixedDecimal;
+    }
+    else
+    {
+        return Type::FixedDecimal;
+    }
+
+    todo!("Make it so all functions don't return just a fixed decimal by default!")
+    
 }
 
 
@@ -122,12 +188,8 @@ impl<'a,'ctx> Compiler<'a,'ctx>
 
 
 
-
-
-
-
-
-
+///A rust representation of a Fixed data type. Used for reference, not actually in the code (at
+///least yet
 #[derive(Clone,Debug)]
 pub struct Fixed
 {

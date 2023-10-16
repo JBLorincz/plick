@@ -1,4 +1,4 @@
-use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error,};
+use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error, types::calculate_pli_function_return_type,};
 use crate::error;
 use crate::ast::*;
 use crate::types::Type;
@@ -401,6 +401,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
 pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Function, String>
 {
     let proto = parse_function_prototype(token_manager, label_name)?; 
+    let fn_name_copy = proto.fn_name.clone();
     let mut body_statements: Vec<Statement> = vec![];
     let mut return_value: Option<Expr> = None;
 
@@ -434,7 +435,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
 
     parse_token(token_manager, Token::SEMICOLON)?;
 
-   Ok(Function { prototype: proto, body_statements, return_value })
+   Ok(Function { prototype: proto, body_statements, return_value, return_type: calculate_pli_function_return_type(&fn_name_copy) })
 }
 
 

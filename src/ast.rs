@@ -46,13 +46,13 @@ impl Expr
     {
         match self
         {
-            Expr::Variable { _type, name } => {return *_type},
-            Expr::NumVal { _type, value } => {return *_type},
-            Expr::Call { _type, args, fn_name } => {return *_type},
-            Expr::Binary { operator, left, right } => {
+            Expr::Variable { ref _type, ref name } => {return *_type},
+            Expr::NumVal { ref _type, ref value } => {return *_type},
+            Expr::Call { ref _type, ref args, ref fn_name } => {return *_type},
+            Expr::Binary { ref operator, ref left, ref right } => {
                 resolve_types(&left.get_type(), &right.get_type()).unwrap()
             },
-            Expr::Assignment { variable_name, value } => Type::Void,
+            Expr::Assignment { ref variable_name, ref value } => Type::Void,
         }
     }
 }
@@ -87,6 +87,7 @@ pub struct Function {
     pub prototype: Prototype,
     pub body_statements: Vec<Statement>,
     pub return_value: Option<Expr>,
+    pub return_type: Type,
 }
 
 ///Represents a "full-line" of execution, terminated by a semicolon.
