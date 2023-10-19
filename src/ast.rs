@@ -124,6 +124,7 @@ impl Command
 #[derive(Debug,Clone)]
 pub struct If
 {
+    ///The actual expression we are evaluating to be TRUE or FALSE
     pub conditional: Expr,
     pub then_statements: Vec<Statement>,
     pub else_statements: Option<Vec<Statement>>

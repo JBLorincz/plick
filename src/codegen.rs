@@ -5,12 +5,15 @@ use std::vec;
 
 use crate::ast;
 use crate::debugger::DebugController;
+use crate::error::get_error;
 use crate::lexer;
 use crate::ast::Command;
 use crate::ast::Statement;
 use crate::types::Type;
 use crate::types::TypeModule;
 use crate::types::fixed_decimal;
+use crate::types::fixed_decimal::FixedValue;
+use crate::types::infer_pli_type_via_name;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -73,12 +76,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 
                     let bin_res = compiler.generate_binary_expression_code( ast::Expr::Binary {operator, left, right});
                     let binary_value = bin_res.unwrap();
-                    Box::new(binary_value)
+                    binary_value
                 },
                 ast::Expr::NumVal { value, _type } => 
                 {
                     //Box::new(compiler.generate_float_code(value as f64))
-                     Box::new(compiler.gen_fixed_decimal(value as f64))
+                     Box::new(compiler.gen_const_fixed_decimal(value as f64))
                 },
                 ast::Expr::Call { ref fn_name, ref mut args, _type } => {
                      let function_call_result = compiler.generate_function_call_code( fn_name, args );
@@ -111,9 +114,9 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             Command::FunctionDec(func) =>{
 
                 let current_function = compiler.builder.get_insert_block().unwrap();
-                let return_val = Box::new(compiler.generate_function_code(func).unwrap());
+                let llvm_created_function = Box::new(compiler.generate_function_code(func).unwrap());
                 compiler.builder.position_at_end(current_function);
-                return_val
+                llvm_created_function
             }
             
             }
@@ -153,7 +156,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 }
                 None => { //VARIABLE CREATION HERE
                     let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
-                    let new_variable = self.create_entry_block_alloca(&assignment.var_name, &current_function);
+                    let inferred_type = infer_pli_type_via_name(&assignment.var_name);
+                    let new_variable = self.create_entry_block_alloca(&assignment.var_name, &current_function, &inferred_type);
                    // self.builder.build_store(new_variable,
                     let value_to_store = assignment.value.codegen(self);
 
@@ -169,16 +173,32 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
         unsafe fn generate_if_statement_code(&self, if_statement: ast::If) -> FloatValue<'ctx>
         {
+            let conditional_type = if_statement.conditional.get_type();
+            dbg!(&if_statement.conditional);
             let conditional_code = if_statement.conditional.codegen(self);
+
             let conditional_as_float: FloatValue;
-            if let AnyValueEnum::FloatValue(val) = conditional_code.as_any_value_enum()
+
+            match conditional_type
             {
-                conditional_as_float = val;
-            }
-            else
-            {
-                panic!("Not a float value!"); 
-            }
+                Type::FixedDecimal =>
+                {
+                    let fv: FixedValue = FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
+                    conditional_as_float = self.fixed_decimal_to_float(fv);
+                },
+                Type::TBD => {todo!("Can't support type TBD in if conditional!");},
+                Type::Float => {todo!("Can't support type Float in if conditional!");},
+                Type::Void => {todo!("Can't support type Void in if conditional!");},
+            };
+
+//            if let AnyValueEnum::FloatValue(val) = conditional_code.as_any_value_enum()
+//            {
+//                conditional_as_float = val;
+//            }
+//            else
+//            {
+//                panic!("Not a float value!"); 
+//            }
 
             let comparison = self
                 .builder
@@ -317,14 +337,31 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
         unsafe fn generate_variable_code(&self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
             let named_values_borrow = self.named_values.borrow();
-            let result: Option<&NamedValue> = named_values_borrow.get(variable_name);
-            let result_float: FloatValue = self
-                .builder
-                .build_load(result.unwrap().value,variable_name)
-                .map_err(|err| format!("error building a variable code: {}", err))?
-                .into_float_value();
+            let result: &NamedValue = named_values_borrow.get(variable_name).unwrap();
 
-            return Ok(Box::new(result_float));
+            let variable_type = result._type; 
+            dbg!(format!("Type is: {}",variable_type));
+            let result_value: BasicValueEnum<'ctx> = self
+                .builder
+                .build_load(result.value,variable_name)
+                .map_err(|err| format!("error building a variable code: {}", err))?
+                //.into_float_value()
+                ;
+
+            match variable_type
+            {
+                Type::FixedDecimal =>
+                {
+                    let struct_value = result_value.into_struct_value();
+                    return Ok(Box::new(struct_value));
+                },
+                Type::TBD => {panic!("Tried to retrieve a variable of type TBD!")},
+                Type::Float => {panic!("Implement type Float")},
+                Type::Void => {panic!("Tried to retrieve a variable of type Void!")},
+            }
+
+
+            //return Ok(Box::new(result_value));
         }
 
         unsafe fn generate_binary_expression_code(&self, binary_expr: ast::Expr) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
@@ -361,7 +398,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
                         rhs_float = self.fixed_decimal_to_float(fixed_dec);
                     },
-                    other_type => todo!("Implement type conversion to float for {:?}",other_type)
+                    other_type => todo!("Implement type conversion to llvm floatvalue for {:?}",other_type)
                 };
                 //panic!("{:?}, {:?}", lhstype, rhstype);
 
@@ -371,14 +408,29 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 if true
                 {
                 
-                    //TODO: Make this function return anyvalue
-                    
-                    harehrea
-                let compile_result = match operator {
-                    lexer::Token::PLUS => self.builder.build_float_add(lhs_float, rhs_float, "tmpadd"),
-                    lexer::Token::MINUS => self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub"),
-                    lexer::Token::MULTIPLY => self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul"),
-                    lexer::Token::DIVIDE => self.builder.build_float_div(lhs_float,rhs_float,"tmpdiv"),
+                    //TODO: Make this function return anyvalue and a fixed decimal
+                let compile_result: Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> = match operator {
+                    lexer::Token::PLUS => {
+                        let var = self.builder.build_float_add(lhs_float, rhs_float, "tmpadd").unwrap();
+                        let fix = self.gen_const_fixed_decimal(0.0);
+                        Ok(Box::new(fix))
+                    },
+                    lexer::Token::MINUS => {
+                        let floatval = self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub");
+                        let fix = self.gen_const_fixed_decimal(0.0);
+                        Ok(Box::new(fix))
+                    },
+                    lexer::Token::MULTIPLY => {
+                        let var = self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul");
+                        let fix = self.gen_const_fixed_decimal(0.0);
+                        Ok(Box::new(fix))
+                    },
+                    lexer::Token::DIVIDE =>
+                    {
+                        let var = self.builder.build_float_div(lhs_float,rhs_float,"tmpdiv");
+                        let fix = self.gen_const_fixed_decimal(0.0);
+                        Ok(Box::new(fix))
+                    },
                     lexer::Token::LESS_THAN => {
                             let val = self.builder
                             .build_float_compare(inkwell::FloatPredicate::OLT, lhs_float,rhs_float, "tmplt")
@@ -386,14 +438,14 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                                 |builder_error| 
                                 format!("Unable to create less than situation: {}",
                                         builder_error)
-                                )?
-                            ;
+                                )?;
                             
                             let cmp_as_float = self
                                 .builder
                                 .build_unsigned_int_to_float(val, self.context.f64_type(), "tmpbool")
                                 .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
-                           Ok(cmp_as_float) 
+
+                           Ok(Box::new(cmp_as_float)) 
                     },
                      lexer::Token::GREATER_THAN => {
                             let val = self.builder
@@ -406,7 +458,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                                 .builder
                                 .build_unsigned_int_to_float(val, self.context.f64_type(), "tmpbool")
                                 .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
-                           Ok(cmp_as_float) 
+                           Ok(Box::new(cmp_as_float)) 
                     },
                     _ => return Err(format!("Binary operator had unexpected operator! {:?}", operator)),
                 };
@@ -426,18 +478,12 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
         }
 
-        unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, proto_args: Vec<(String, Type)>, return_type: Type) -> FunctionValue<'ctx>
+        unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, fn_arguments: Vec<(String, Type)>, return_type: Type) -> FunctionValue<'ctx>
         {
             let llvm_return_type: AnyTypeEnum<'ctx> = self.convert_plick_type_to_llvm_any_type(return_type);
-            let is_var_args = false; 
+            let is_variable_num_of_args = false; 
 
-           // let args_types = std::iter::repeat(llvm_return_type) //make iterator that repeats f64_type
-           // .take(proto_args.len()) //limit it to the length of args iterations
-           // .map(|f| f.into()) 
-           // .collect::<Vec<BasicMetadataTypeEnum>>(); //convert the FloatType to BasicMetadataType
-           let args_types: Vec<Type> =
-               proto_args.clone().into_iter().map(|arg| arg.1)
-               .collect();
+           let args_types: Vec<Type> = fn_arguments.clone().into_iter().map(|arg| arg.1).collect();
 
            let args_types: Vec<BasicMetadataTypeEnum> = args_types
                .into_iter()
@@ -445,18 +491,19 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                .collect();
             
             
-            let args_types = args_types.as_slice(); //convert the vec to slice
+            let args_types = args_types.as_slice();
 
             //create the function prototype type info
+
             let fn_type: FunctionType<'ctx> = match llvm_return_type 
             {
-                AnyTypeEnum::VoidType(ty) => {ty.fn_type(args_types, is_var_args)},
+                AnyTypeEnum::VoidType(ty) => {ty.fn_type(args_types, is_variable_num_of_args)},
                 AnyTypeEnum::ArrayType(_ty) => {todo!("Not implemeneted returning arraytype!")},
                 AnyTypeEnum::FloatType(_ty) => {todo!("Implement functions returning FloatType")},
                 AnyTypeEnum::FunctionType(_ty) => {todo!("Implement functions returning FunctionType")},
                 AnyTypeEnum::IntType(_ty) => {todo!("Implement functions returning IntType")},
                 AnyTypeEnum::PointerType(_ty) => {todo!("Implement functions returning PointerType")},
-                AnyTypeEnum::StructType(ty) => {ty.fn_type(args_types, is_var_args)},
+                AnyTypeEnum::StructType(ty) => {ty.fn_type(args_types, is_variable_num_of_args)},
                 AnyTypeEnum::VectorType(_ty) => {todo!("Implement functions returning VectorType")},
             };
 
@@ -467,23 +514,23 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //name the arguments in the IR
             for (i,param) in llvm_function_value.get_param_iter().enumerate()
             {
-               param.into_float_value().set_name(proto_args[i].0.as_str());
+               param.set_name(fn_arguments[i].0.as_str());
             }
 
             llvm_function_value
         }
 
-        fn create_entry_block_alloca(&self, name: &str, funct: &FunctionValue) -> PointerValue<'ctx> {
+        fn create_entry_block_alloca(&self, argument_name: &str, function: &FunctionValue, argument_type: &Type ) -> PointerValue<'ctx> {
         let builder = self.context.create_builder();
-
-        let entry = funct.get_first_basic_block().unwrap();
+        let llvm_type_of_alloca = self.convert_plick_type_to_llvm_basic_type(argument_type.clone());
+        let entry = function.get_first_basic_block().unwrap();
 
         match entry.get_first_instruction() {
             Some(first_instr) => builder.position_before(&first_instr),
             None => builder.position_at_end(entry),
         }
 
-        builder.build_alloca(self.context.f64_type(), name).unwrap()
+        builder.build_alloca(llvm_type_of_alloca, argument_name).unwrap()
     }
 
         ///Generates a function DEFINITION, including the body
@@ -492,7 +539,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             
             //see if the function has already been defined
             if let Some(_) = self.module.get_function(&func.prototype.fn_name)
-            {                               //if a func already exists
+            {                               
                return Err(format!("function named {} already exists!",func.prototype.fn_name));
             }
             
@@ -547,12 +594,13 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             }
             //END OF DEBUG STUFF
 
-            let args = proto_args
+            let args: Vec<(String, Type)> = proto_args
+                .clone()
                 .into_iter()
                 .map(|name| (name, Type::FixedDecimal))
                 .collect();
 
-            let function = self.generate_function_prototype_code(func_name.clone(),args, func.return_type);
+            let function = self.generate_function_prototype_code(func_name.clone(),args.clone(), func.return_type);
             //TODO: Check if function body is empty
             //if so, return function here. 
 
@@ -565,7 +613,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             //fill up the NamedValues array 
             for (i,arg) in function.get_param_iter().enumerate()
             {
-                let alloca = self.create_entry_block_alloca(&func.prototype.args[i], &function);
+                let alloca = self.create_entry_block_alloca(&args[i].0, &function,&args[i].1);
                 self
                     .builder
                     .build_store(alloca, arg)
@@ -596,33 +644,53 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             {
                 None => 
                 {
+                    return Err(get_error(&["7"]));
                     self.builder.build_return(None)
                         .map_err(|builder_func| format!("error building function return with no value: {}",builder_func))?;
                     return Ok(function);
                 }
                 Some(_) => {},
             }
-
+            let function_return_type = func.return_type;
             let function_return_value = func.return_value.unwrap().codegen(self);
             
-            let func_code_enum = function_return_value.as_any_value_enum();
-
-            if let AnyValueEnum::FloatValue(a)  = func_code_enum {
-                let _output = self.builder.build_return(Some(&a as &dyn BasicValue));
-            }
-            else 
+            let return_value_as_enum = function_return_value.as_any_value_enum();
+            
+            match function_return_type
             {
-                return Err("Function return type was not float value!".to_string());
-            }
+                Type::FixedDecimal =>
+                {
+                    let struct_value = return_value_as_enum.into_struct_value();
+                    self.builder.build_return(Some(&struct_value as &dyn BasicValue))
+                    .map_err(|err| err.to_string())?;
+                },
+                Type::Float => {
+                    todo!("Implement functions that return Float!");
+                },
+                Type::TBD => {
+                    todo!("Implement functions that return TBD!");
+                },
+                Type::Void => {
+                    todo!("Implement functions that return Void!");
+                }
+            };
+        
+
+//            if let AnyValueEnum::FloatValue(a)  = return_value_as_enum {
+//                let _output = self.builder.build_return(Some(&a as &dyn BasicValue));
+//            }
+//            else 
+//            {
+//                return Err("Function return type was not float value!".to_string());
+//            }
 
 
 
              let failed_verification = !function.verify(true);
                 if failed_verification
                 {
-                   println!("HEYAA!");
                    self.module.print_to_stderr();
-                   panic!("func failed verify");
+                   panic!("Function {} failed to verify:", func.prototype.fn_name.clone());
                 }
             Ok(function)
         }
@@ -651,7 +719,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 mod tests {
     use std::collections::HashMap;
     use crate::{ast::SourceLocation, types::TypeModule};
-    use crate::types::{Type, calculate_pli_function_return_type};
+    use crate::types::{Type, infer_pli_type_via_name};
     use inkwell::{values::{PointerValue, BasicMetadataValueEnum}, context::Context, builder::Builder, module::Module, types::BasicMetadataTypeEnum};
 
     use crate::{ast::{Expr, Function, Prototype}, codegen::codegen::{CodeGenable, Compiler}, lexer::Token};
@@ -727,10 +795,15 @@ mod tests {
     let b = c.create_builder();
     let compiler = get_test_compiler(&c, &m, &b);
         
-        let binop = Expr::Binary { operator: Token::MINUS, left: Box::new(Expr::Variable { name: String::from("APPLE"), _type: Type::FixedDecimal }) , right: Box::new(Expr::new_numval(5)) };
+        let binop = Expr::Binary { 
+            operator: Token::MINUS,
+            left: Box::new(Expr::Variable { name: String::from("APPLE"),
+            _type: Type::FixedDecimal }) , 
+            right: Box::new(Expr::new_numval(5))
+        };
         let source_loc: SourceLocation = SourceLocation::default(); 
         let my_proto = Prototype {fn_name: String::from("myFuncName"),args: vec![String::from("APPLE")], source_loc};
-        let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop), return_type: calculate_pli_function_return_type("myFuncName")};
+        let my_func = Function {prototype: my_proto, body_statements: vec![], return_value: Some(binop), return_type: infer_pli_type_via_name("myFuncName")};
 
         unsafe {
             

@@ -47,4 +47,6 @@ create_errors!{
     E003: "Can't declare label '[0]' after label '[1]'",
     E004: "Can't invoke command '[0]' after command'[1]'",
     E005: "Can't create an expression combining type '[0]' with type '[1]'",
+    E006: "Duplicate return statements",
+    E007: "Functions in PL/1 cannot return void! Use a subroutine instead!",
 }

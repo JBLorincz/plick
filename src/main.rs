@@ -166,6 +166,7 @@ fn compile_input(input: &str, config: Config)
 
                 println!("Module verification failed:");
                 println!("{}",err_message);
+                panic!("LOL");
                 process::exit(1);
 
             }
@@ -178,6 +179,7 @@ fn compile_input(input: &str, config: Config)
 
                 println!("file write failed:");
                 println!("{}",err_message);
+                panic!("LOL");
                 process::exit(1);
 
             }
@@ -225,7 +227,7 @@ mod tests {
 
 
 
-                LOL: PROCEDURE ();  999-444; END;
+                LOL: PROCEDURE ();  RETURN 999-444; END;
 
 
 
@@ -233,7 +235,7 @@ mod tests {
 
 
 
-                BOL: PROCEDURE(); PUT; 4-7; END;
+                BOL: PROCEDURE(); PUT; RETURN 0; END;
                 LOL();
                 PUT;
                 LOL();
@@ -256,7 +258,7 @@ mod tests {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  RETURN 999-444;
                 END;
-                BOL: PROCEDURE(); PUT; 4-7; END;
+                BOL: PROCEDURE(); PUT; RETURN 0; END;
                 LOL();
                 PUT;
                 LOL();
@@ -276,9 +278,9 @@ mod tests {
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                    LOL: PROCEDURE (A);  A-4;
+                    LOL: PROCEDURE (A);  RETURN A-4;
                 END;
-                BOL: PROCEDURE(); 4-7; PUT; END;
+                BOL: PROCEDURE(); 4-7; PUT; RETURN 0; END;
                 LOL(6);
                 LOL(8);
                 BOL();

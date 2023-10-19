@@ -1,4 +1,4 @@
-use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error, types::calculate_pli_function_return_type,};
+use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error, types::infer_pli_type_via_name,};
 use crate::error;
 use crate::ast::*;
 use crate::types::Type;
@@ -415,7 +415,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
             //handle double return statements error in a function
             if let Some(_expr) = return_value
             {
-                return Err("Duplicate return statements!".to_string());
+                return Err(get_error(&["6"]));
             }
 
             return_value = Some(expr.clone());
@@ -435,7 +435,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
 
     parse_token(token_manager, Token::SEMICOLON)?;
 
-   Ok(Function { prototype: proto, body_statements, return_value, return_type: calculate_pli_function_return_type(&fn_name_copy) })
+   Ok(Function { prototype: proto, body_statements, return_value, return_type: infer_pli_type_via_name(&fn_name_copy) })
 }
 
 

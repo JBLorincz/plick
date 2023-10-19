@@ -110,7 +110,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
     {
     }
 
-    pub fn gen_fixed_decimal(&self, value: f64) -> StructValue<'ctx>
+    pub fn gen_const_fixed_decimal(&self, value: f64) -> StructValue<'ctx>
     {
         generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into()
     }
@@ -154,9 +154,9 @@ impl<'a,'ctx> Compiler<'a,'ctx>
 ///   2. Because the default attributes for function names do not allow us to return a result that
 ///      is FIXED DECIMAL or FLOAT DECIMAL(16), for example, we have another method of specifying
 ///      the attributes of a returned value. This is accomplished through the RETURNS keyword.
-pub fn calculate_pli_function_return_type(name_of_function: &str) -> Type
+pub fn infer_pli_type_via_name(name_of_pli_object: &str) -> Type
 {
-    let first_letter_of_func = name_of_function.chars().next().unwrap().to_ascii_lowercase();
+    let first_letter_of_func = name_of_pli_object.chars().next().unwrap().to_ascii_lowercase();
 
     if 105 < first_letter_of_func as u32
     {
