@@ -1,3 +1,5 @@
+
+mod named_value_store;
 pub mod codegen {
 
 use std::collections::HashMap;
@@ -31,9 +33,9 @@ use inkwell::values::StructValue;
 use inkwell::{builder, context, module};
 use inkwell::types::BasicMetadataTypeEnum;
 use std::cell::RefCell;
-
-
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionValue, PointerValue };
+
+use super::named_value_store::NamedValueStore;
 
     ///The object that drives compilation.
     #[derive(Debug)]
@@ -52,6 +54,7 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
     #[derive(Debug)]
     pub struct NamedValue<'ctx>
     {
+        pub name: String,
         pub _type: Type,
         pub value: PointerValue<'ctx>
     }
@@ -140,12 +143,15 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                 debug_controller: d, 
                 type_module: TypeModule::new(&c) }
         }
+        fn get_named_values(&self)
+        {
+            let var : NamedValueStore = NamedValueStore {};
+        }
 
         unsafe fn generate_assignment_code(&self, assignment: ast::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
         {
             let mut named_values_borrow = self.named_values.borrow_mut();
             let variable_in_map = named_values_borrow.get(&assignment.var_name);
-            
             let _type = assignment.value.get_type();
 
             match variable_in_map {
@@ -157,20 +163,35 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
                     return Box::new(initial_value);
                 }
                 None => { //VARIABLE CREATION HERE
+                            let variable_ptr = self.create_variable(&assignment);
+                            let return_o = Box::new(self.assign_variable(assignment,variable_ptr))
+                            named_values_borrow.insert(assignment.var_name,NamedValue{ _type, value: new_variable });
+                        }
+            }
+        }
+        
+        unsafe fn create_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx>
+        {
                     let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
-                    let inferred_type = infer_pli_type_via_name(&assignment.var_name);
-                    let new_variable = self.create_entry_block_alloca(&assignment.var_name, &current_function, &inferred_type);
-                   // self.builder.build_store(new_variable,
+                    //let inferred_type = infer_pli_type_via_name(&assignment.var_name);
+                    let _type = assignment.value.get_type();
+                    self.create_entry_block_alloca(&assignment.var_name, &current_function, &_type)
+
+                   
+        }
+        unsafe fn assign_variable(&self, assignment: ast::Assignment, new_variable: PointerValue<'ctx>)
+            -> BasicValueEnum<'ctx>
+        {
+
+                    let _type = assignment.value.get_type();
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
                     let _store_result = self.builder.build_store(new_variable, initial_value);
                     
-                    named_values_borrow.insert(assignment.var_name,NamedValue{ _type, value: new_variable });
 
-                    return Box::new(initial_value);
-                }
-            }
+                    initial_value
+
         }
 
         unsafe fn generate_if_statement_code(&self, if_statement: ast::If) -> FloatValue<'ctx>
