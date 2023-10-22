@@ -146,6 +146,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
             let mut named_values_borrow = self.named_values.borrow_mut();
             let variable_in_map = named_values_borrow.get(&assignment.var_name);
             
+            let _type = assignment.value.get_type();
+
             match variable_in_map {
                 Some(_pointer_value) => {
                     let value_to_store = assignment.value.codegen(self);
@@ -163,8 +165,8 @@ use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionVa
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
                     let _store_result = self.builder.build_store(new_variable, initial_value);
-
-                    named_values_borrow.insert(assignment.var_name,NamedValue{ _type: Type::TBD, value: new_variable });
+                    
+                    named_values_borrow.insert(assignment.var_name,NamedValue{ _type, value: new_variable });
 
                     return Box::new(initial_value);
                 }
