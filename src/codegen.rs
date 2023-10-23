@@ -49,8 +49,6 @@ use super::named_value_store::NamedValueStore;
         pub debug_controller: Option<&'a DebugController<'ctx>>,
 
         pub named_values: NamedValueHashmapStore<'ctx>,
-        //pub named_values: T,
-        pub arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum<'ctx>>>>,
     }
 
     #[derive(Debug,Clone)]
@@ -144,13 +142,11 @@ use super::named_value_store::NamedValueStore;
 
             //let named_values: RefCell<HashMap<String,NamedValue<'ctx>>> = RefCell::new(HashMap::new());
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
-            let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
             Compiler { 
                 context: c, 
                 builder: b, 
                 module: m, 
                 named_values, 
-                arg_stores, 
                 debug_controller: d, 
                 type_module: TypeModule::new(&c) }
         }
@@ -339,7 +335,7 @@ use super::named_value_store::NamedValueStore;
 
                 let call_return_value = self.builder.build_call(
                     function_to_call,
-                    self.arg_stores.borrow().last().unwrap_or(&codegen_args),
+                    &codegen_args,
                     function_to_call.get_name().to_str().unwrap()
                     )
                     .map_err(|err| format!("Error trying to build a call to function {}: {}", fn_name, err))
@@ -771,14 +767,12 @@ mod tests {
         let module = m;
         let builder = b;
         let named_values  = NamedValueHashmapStore::new();
-        let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]);
         let debug_controller = None;
         let compiler = Compiler {
            context,
            module,
            builder,
            named_values,
-           arg_stores,
            debug_controller,
            type_module: TypeModule::new(&context)
         };
