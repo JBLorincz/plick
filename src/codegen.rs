@@ -35,6 +35,7 @@ use inkwell::types::BasicMetadataTypeEnum;
 use std::cell::RefCell;
 use inkwell::values::{AnyValue, AnyValueEnum, BasicValue, FloatValue, FunctionValue, PointerValue };
 
+use super::named_value_store::NamedValueHashmapStore;
 use super::named_value_store::NamedValueStore;
 
     ///The object that drives compilation.
@@ -47,16 +48,25 @@ use super::named_value_store::NamedValueStore;
         pub type_module: TypeModule<'ctx>,
         pub debug_controller: Option<&'a DebugController<'ctx>>,
 
-        pub named_values: RefCell<HashMap<String,NamedValue<'ctx>>>,
+        pub named_values: NamedValueHashmapStore<'ctx>,
+        //pub named_values: T,
         pub arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum<'ctx>>>>,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug,Clone)]
     pub struct NamedValue<'ctx>
     {
         pub name: String,
         pub _type: Type,
         pub value: PointerValue<'ctx>
+    }
+    
+    impl<'ctx> NamedValue<'ctx>
+    {
+        pub fn new(name: String, _type: Type, value: PointerValue<'ctx>) -> NamedValue<'ctx>
+        {
+            NamedValue { name, _type, value }
+        }
     }
 
     ///A trait which all provides an interface to compile a syntax element
@@ -132,7 +142,8 @@ use super::named_value_store::NamedValueStore;
          pub fn new(c: &'ctx Context, b: &'a Builder<'ctx>, m: &'a Module<'ctx>, d: Option<&'a DebugController<'ctx>>) -> Compiler<'a, 'ctx>
         {
 
-            let named_values: RefCell<HashMap<String,NamedValue<'ctx>>> = RefCell::new(HashMap::new());
+            //let named_values: RefCell<HashMap<String,NamedValue<'ctx>>> = RefCell::new(HashMap::new());
+            let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
             let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]); 
             Compiler { 
                 context: c, 
@@ -143,15 +154,10 @@ use super::named_value_store::NamedValueStore;
                 debug_controller: d, 
                 type_module: TypeModule::new(&c) }
         }
-        fn get_named_values(&self)
-        {
-            let var : NamedValueStore = NamedValueStore {};
-        }
 
         unsafe fn generate_assignment_code(&self, assignment: ast::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx> 
         {
-            let mut named_values_borrow = self.named_values.borrow_mut();
-            let variable_in_map = named_values_borrow.get(&assignment.var_name);
+            let variable_in_map = self.named_values.try_get(&assignment.var_name);
             let _type = assignment.value.get_type();
 
             match variable_in_map {
@@ -163,14 +169,23 @@ use super::named_value_store::NamedValueStore;
                     return Box::new(initial_value);
                 }
                 None => { //VARIABLE CREATION HERE
-                            let variable_ptr = self.create_variable(&assignment);
-                            let return_o = Box::new(self.assign_variable(assignment,variable_ptr))
-                            named_values_borrow.insert(assignment.var_name,NamedValue{ _type, value: new_variable });
+                            self.create_variable(assignment) 
                         }
             }
         }
-        
-        unsafe fn create_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx>
+        unsafe fn create_variable(&self, assignment: ast::Assignment) -> Box<dyn BasicValue<'ctx> +'ctx>
+        {
+
+                            let _type = assignment.value.get_type();
+                            let name = assignment.var_name.clone();
+                            let variable_ptr = self.allocate_variable(&assignment);
+                            let value_of_variable =self.assign_variable(assignment,variable_ptr);
+                            self.named_values.insert(NamedValue::new(name, _type, variable_ptr ));
+
+                            Box::new(value_of_variable)
+
+        }
+        unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx>
         {
                     let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
                     //let inferred_type = infer_pli_type_via_name(&assignment.var_name);
@@ -357,16 +372,16 @@ use super::named_value_store::NamedValueStore;
         {
             self.context.f64_type().const_float(value)
         }
-        unsafe fn generate_variable_code(&self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
+        unsafe fn generate_variable_code(&'a self,variable_name: &str) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String>
         {
-            let named_values_borrow = self.named_values.borrow();
-            let result: &NamedValue = named_values_borrow.get(variable_name).unwrap();
+            let named_value: NamedValue<'ctx> = self.named_values.try_get(variable_name).unwrap();
 
-            let variable_type = result._type; 
+            let variable_type = named_value._type; 
             dbg!(format!("Type is: {}",variable_type));
+            let var_ptr: PointerValue<'ctx> = named_value.value;
             let result_value: BasicValueEnum<'ctx> = self
                 .builder
-                .build_load(result.value,variable_name)
+                .build_load(var_ptr,variable_name)
                 .map_err(|err| format!("error building a variable code: {}", err))?
                 //.into_float_value()
                 ;
@@ -567,7 +582,7 @@ use super::named_value_store::NamedValueStore;
             }
             
             //clear the named values, which stores all the recognized identifiers
-            self.named_values.borrow_mut().clear();
+            self.named_values.clear();
     
             //START OF DEBUG STUFF
             //generate the IR for the function prototype
@@ -636,16 +651,16 @@ use super::named_value_store::NamedValueStore;
             //fill up the NamedValues array 
             for (i,arg) in function.get_param_iter().enumerate()
             {
-                let alloca = self.create_entry_block_alloca(&args[i].0, &function,&args[i].1);
+                let alloca: PointerValue<'ctx> = self.create_entry_block_alloca(&args[i].0, &function,&args[i].1);
                 self
                     .builder
                     .build_store(alloca, arg)
                     .map_err(|builder_err| format!("Was unable to build_store for {:?}: {}",arg,builder_err).to_string())?;
                 
+                let name = func.prototype.args[i].clone();
                 self
                     .named_values
-                    .borrow_mut()
-                    .insert(func.prototype.args[i].clone(),NamedValue { _type: Type::FixedDecimal, value: alloca });
+                    .insert(NamedValue { name, _type: Type::FixedDecimal, value: alloca });
             }
 
             for statement in func.body_statements.iter()
@@ -749,12 +764,13 @@ mod tests {
     use std::cell::RefCell;
 
     use super::codegen::NamedValue;
+    use super::named_value_store::{NamedValueHashmapStore, NamedValueStore};
     fn get_test_compiler<'a, 'ctx>(c: &'ctx Context, m: &'a Module<'ctx>, b: &'a Builder<'ctx>) -> Compiler<'a, 'ctx>
     {
         let context = c;
         let module = m;
         let builder = b;
-        let named_values: RefCell<HashMap<String,NamedValue>> = RefCell::new(HashMap::new());
+        let named_values  = NamedValueHashmapStore::new();
         let arg_stores: RefCell<Vec<Vec<BasicMetadataValueEnum>>> = RefCell::new(vec![]);
         let debug_controller = None;
         let compiler = Compiler {
