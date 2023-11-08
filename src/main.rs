@@ -133,7 +133,6 @@ fn compile_input(input: &str, config: Config)
         }
 
         let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, optional_debugger); 
-        //let mut compiler = codegen::codegen::Compiler::new(&c,&b,&m, None); 
 
         let mut token_manager = lexer::TokenManager::new(input);
        
@@ -158,7 +157,12 @@ fn compile_input(input: &str, config: Config)
         //comment for finalize says call before verification
 
         let module_verification_result = m.verify();
-        println!("{}",m.print_to_string());
+
+        if config.print_ir
+        {
+            println!("{}",m.print_to_string());
+        }
+
         match module_verification_result
         {
             Ok(()) => println!("Module verified successfully!"),
@@ -166,7 +170,6 @@ fn compile_input(input: &str, config: Config)
 
                 println!("Module verification failed:");
                 println!("{}",err_message);
-                panic!("LOL");
                 process::exit(1);
 
             }
@@ -179,14 +182,13 @@ fn compile_input(input: &str, config: Config)
 
                 println!("file write failed:");
                 println!("{}",err_message);
-                panic!("LOL");
                 process::exit(1);
 
             }
         }
 
-        let r = m.print_to_string();
-        println!("{}",r);
+        //let r = m.print_to_string();
+        //println!("{}",r);
 
 
        
@@ -198,6 +200,7 @@ pub struct Config {
     filename: String,
     optimize: bool,
     debug_mode: bool,
+    print_ir: bool
 }
 
 impl Default for Config {
@@ -206,6 +209,7 @@ impl Default for Config {
             filename: String::from("a.o"),
             optimize: true,
             debug_mode: true,
+            print_ir: true,
         } 
    }
 }

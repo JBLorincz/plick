@@ -115,7 +115,7 @@ use super::named_value_store::NamedValueStore;
             Command::Declare(_dec) => todo!("Implement codegen for declare statement"),
             Command::PUT => Box::new(compiler.generate_hello_world_print()),
             Command::EXPR(expr) => expr.codegen(compiler),
-            Command::IF(if_statement) => Box::new(compiler.generate_if_statement_code(if_statement)),
+            Command::IF(if_statement) => Box::new(compiler.generate_if_statement_code(if_statement).unwrap()),
             Command::END => panic!("found END"),
             Command::RETURN(_expr) => panic!("found RETURN!"),
             Command::Empty => panic!("found EMPTY"),
@@ -205,7 +205,7 @@ use super::named_value_store::NamedValueStore;
 
         }
 
-        unsafe fn generate_if_statement_code(&self, if_statement: ast::If) -> FloatValue<'ctx>
+        unsafe fn generate_if_statement_code(&self, if_statement: ast::If) -> Result<FloatValue<'ctx>, String>
         {
             let conditional_type = if_statement.conditional.get_type();
             dbg!(&if_statement.conditional);
@@ -217,8 +217,8 @@ use super::named_value_store::NamedValueStore;
             {
                 Type::FixedDecimal =>
                 {
-                    let fv: FixedValue = FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
-                    conditional_as_float = self.fixed_decimal_to_float(fv);
+                    let fixed_value = FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
+                    conditional_as_float = self.fixed_decimal_to_float(fixed_value);
                 },
                 Type::TBD => {todo!("Can't support type TBD in if conditional!");},
                 Type::Float => {todo!("Can't support type Float in if conditional!");},
@@ -245,7 +245,11 @@ use super::named_value_store::NamedValueStore;
             let mut else_block = self.context.append_basic_block(current_func, "else");
             let if_cont_block = self.context.append_basic_block(current_func, "ifcont");
 
-            self.builder.build_conditional_branch(comparison, then_block, else_block);
+            self
+                .builder
+                .build_conditional_branch(comparison, then_block, else_block)
+                .map_err(|err| get_error(&["8", &err.to_string()]))?;
+                    
 
             self.builder.position_at_end(then_block);
             for statement in if_statement.then_statements
@@ -271,8 +275,8 @@ use super::named_value_store::NamedValueStore;
 
             //handle merge block
             self.builder.position_at_end(if_cont_block);
-
-            self.generate_float_code(-999.0)
+            let return_value = self.generate_float_code(-999.0);
+            Ok(return_value)
         }
 
         
@@ -686,8 +690,11 @@ use super::named_value_store::NamedValueStore;
                 Some(_) => {},
             }
             let function_return_type = func.return_type;
-            let function_return_value = func.return_value.unwrap().codegen(self);
-            
+
+            let return_expr = func.return_value.unwrap();
+            dbg!(&return_expr);
+            let function_return_value = return_expr.codegen(self);
+            dbg!("RETURN VALUE: {}",&function_return_value); 
             let return_value_as_enum = function_return_value.as_any_value_enum();
             
             match function_return_type
@@ -723,8 +730,8 @@ use super::named_value_store::NamedValueStore;
              let failed_verification = !function.verify(true);
                 if failed_verification
                 {
-                   self.module.print_to_stderr();
-                   panic!("Function {} failed to verify:", func.prototype.fn_name.clone());
+                   let module_text = self.module.print_to_string();
+                   panic!("Function {} failed to verify: {}", func.prototype.fn_name.clone(), module_text);
                 }
             Ok(function)
         }

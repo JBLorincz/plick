@@ -136,8 +136,8 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx>
     {
 
-        return self.context.f64_type().const_zero();
-
+        //return self.context.f64_type().const_zero();
+        dbg!("CONVERTING TO FLOATIE!");
         let fd = fixed_value.value; 
 
         let res = self.builder.build_alloca(fd.get_type(), "tmpalloca").unwrap();
@@ -174,6 +174,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
 
         //let after_ptr = self.builder.build_struct_gep(res,2,"get_after").unwrap();
         //self.builder.build_struct_gep(res,2,"get_after");
+        dbg!("FLOATVAL: {}",result_floatval);
 
          result_floatval
         //return self.context.f64_type().const_float(float_const as f64);
