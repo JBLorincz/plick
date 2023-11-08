@@ -694,7 +694,7 @@ use super::named_value_store::NamedValueStore;
             let return_expr = func.return_value.unwrap();
             dbg!(&return_expr);
             let function_return_value = return_expr.codegen(self);
-            dbg!("RETURN VALUE: {}",&function_return_value); 
+            dbg!(&function_return_value); 
             let return_value_as_enum = function_return_value.as_any_value_enum();
             
             match function_return_type
