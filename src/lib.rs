@@ -144,7 +144,7 @@ pub fn compile_input(input: &str, config: Config)
                 target_machine.write_to_memory_buffer(&m, inkwell::targets::FileType::Object);
             match write_to_memory_result
             {
-            Ok(_memoryBuffer) => println!("Written to file successfully!"),
+            Ok(_memoryBuffer) => println!("Written to memory buffer successfully!"),
             Err(err_message) => {
 
                 println!("memory write failed:");
@@ -172,8 +172,6 @@ pub fn compile_input(input: &str, config: Config)
 
         }
       
-        //let r = m.print_to_string();
-        //println!("{}",r);
 }
 
 pub struct Config {
