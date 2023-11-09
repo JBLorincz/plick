@@ -135,6 +135,28 @@ pub fn compile_input(input: &str, config: Config)
 
             }
         }
+
+
+        if config.dry_run
+        {
+
+            let write_to_memory_result = 
+                target_machine.write_to_memory_buffer(&m, inkwell::targets::FileType::Object);
+            match write_to_memory_result
+            {
+            Ok(_memoryBuffer) => println!("Written to file successfully!"),
+            Err(err_message) => {
+
+                println!("memory write failed:");
+                println!("{}",err_message);
+                process::exit(1);
+
+            }
+        }
+        }
+        else
+        {
+        
         let write_to_file_result = target_machine.write_to_file(&m, inkwell::targets::FileType::Object, Path::new(&filename));
         match write_to_file_result
         {
@@ -148,6 +170,8 @@ pub fn compile_input(input: &str, config: Config)
             }
         }
 
+        }
+      
         //let r = m.print_to_string();
         //println!("{}",r);
 }
@@ -156,7 +180,8 @@ pub struct Config {
     pub filename: String,
     pub optimize: bool,
     pub debug_mode: bool,
-    pub print_ir: bool
+    pub print_ir: bool,
+    pub dry_run: bool //if true, won't save the compiled output to the disk - enable during testing
 }
 
 impl Default for Config {
@@ -166,6 +191,7 @@ impl Default for Config {
             optimize: true,
             debug_mode: true,
             print_ir: true,
+            dry_run: false
         } 
    }
 }

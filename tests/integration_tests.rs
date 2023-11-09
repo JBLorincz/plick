@@ -1,7 +1,8 @@
     use std::error::Error;
-
+    
     use plick::{compile_input, Config};
 
+    mod common;
 
     #[test]
     fn file_test() -> Result<(), Box<dyn Error>> 
@@ -34,7 +35,7 @@
                 PUT;
                 END;";
         
-    let mut conf = Config::default();
+    let mut conf = common::generate_test_config();
     conf.filename = "file_test.o".to_string();
         compile_input(input,conf);
         Ok(())
@@ -57,7 +58,7 @@
                 PUT;
                 END;";
         
-    let conf = Config::default();
+    let conf = common::generate_test_config();
         compile_input(input,conf);
         Ok(())
     }
@@ -76,7 +77,7 @@
                 LOL(2);
                 END;";
         
-        let mut conf = Config::default();
+        let mut conf = common::generate_test_config();
         conf.filename = "testtwo.o".to_string();
         compile_input(input,conf);
         Ok(())
@@ -88,7 +89,7 @@
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN PUT; END;";
         
-        let mut conf = Config::default();
+        let mut conf = common::generate_test_config();
         conf.filename = "testif_false.o".to_string();
         compile_input(input,conf);
         Ok(())
@@ -101,7 +102,7 @@
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN DO; PUT; PUT; PUT; END; ELSE DO; PUT; PUT; PUT; PUT; END; END;";
         
-        let mut conf = Config::default();
+        let mut conf = common::generate_test_config();
         conf.filename = "testif_else_false.o".to_string();
         compile_input(input,conf);
         Ok(())
@@ -123,7 +124,7 @@
                 LOL(2);
                 END;";
         
-        let mut conf = Config::default();
+        let mut conf = common::generate_test_config();
         conf.filename = "failfile.o".to_string();
         compile_input(input,conf);
     }
@@ -136,7 +137,7 @@
                 LOLOLOLOL();
                 END;";
         
-        let mut conf = Config::default();
+        let mut conf = common::generate_test_config();
         conf.filename = "failfile.o".to_string();
         compile_input(input,conf);
     }
@@ -145,7 +146,7 @@
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         FLAG = 1; FLAG = 0; IF FLAG THEN PUT; END;";
 
-        let mut conf = Config::default();
+        let mut conf = common::generate_test_config();
         conf.filename = "mutation_test.o".to_string();
         compile_input(input,conf);
     }
@@ -154,7 +155,7 @@
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         2 + 2 + 4 / 6; 2 + 4; END;";
 
-        let conf = Config::default();
+        let conf = common::generate_test_config();
         compile_input(input,conf);
     }
 
