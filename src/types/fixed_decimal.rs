@@ -136,16 +136,17 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx>
     {
 
-        //return self.context.f64_type().const_zero();
+        return self.context.f64_type().const_zero();
         dbg!("CONVERTING TO FLOATIE!");
-        let fd = fixed_value.value; 
+        let fixed_value_as_struct_value = fixed_value.value; 
 
-        let res = self.builder.build_alloca(fd.get_type(), "tmpalloca").unwrap();
-        let sign_bit = self.builder.build_struct_gep(res,0,"get_sign_bit").unwrap();
+        let pointer_to_structvalue = self.builder.build_alloca(fixed_value_as_struct_value.get_type(), "tmpalloca").unwrap();
+        let sign_bit = self.builder.build_struct_gep(pointer_to_structvalue,0,"get_sign_bit").unwrap();
+
         let sign_bit_val = sign_bit.const_to_int(self.context.bool_type());
 
 
-        let before_ptr = self.builder.build_struct_gep(res,1,"get_before").unwrap();
+        let before_ptr = self.builder.build_struct_gep(pointer_to_structvalue,1,"get_before").unwrap();
         
         let before_arr = self.builder.build_load(before_ptr, "load_before_arr").unwrap().into_array_value();
         let zero_intval = self.context.i8_type().const_zero();
@@ -169,16 +170,27 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
             let rhs = before_int_values[i].const_unsigned_to_float(self.context.f64_type());
             result_floatval = self.builder.build_float_add(result_floatval, rhs, "summer").unwrap();
         }
-
+        
         //self.builder.build_gep(ptr, ordered_indexes, name)
 
         //let after_ptr = self.builder.build_struct_gep(res,2,"get_after").unwrap();
         //self.builder.build_struct_gep(res,2,"get_after");
         dbg!("FLOATVAL: {}",result_floatval);
-
+        panic!("LOLO");
          result_floatval
         //return self.context.f64_type().const_float(float_const as f64);
     }
+
+
+
+
+
+
+
+
+
+
+
 }
 
 ///Helper function
