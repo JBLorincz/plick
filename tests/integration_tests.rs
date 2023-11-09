@@ -164,18 +164,19 @@ mod lexer_and_parser_integration_tests
 {
     use plick::parser;
     use plick::lexer;
+    use plick::ast;
     fn test_binaries()
     {
         let mut token_manager = lexer::TokenManager::new("2 + 2");
         let result = parser::parse_expression(&mut token_manager);
 
-        if let Expr::Binary { operator, left, right } = result
+        if let ast::Expr::Binary { operator, left, right } = result
         {
-            assert_eq!(Token::PLUS, operator);
+            assert_eq!(lexer::Token::PLUS, operator);
 
-            let left_expr: Expr = *left;
+            let left_expr: ast::Expr = *left;
 
-            if let Expr::NumVal { value, _type } = left_expr{
+            if let ast::Expr::NumVal { value, _type } = left_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -183,8 +184,8 @@ mod lexer_and_parser_integration_tests
                 panic!("not numval");
             }
 
-            let right_expr: Expr = *right;
-            if let Expr::NumVal { value, _type } = right_expr{
+            let right_expr: ast::Expr = *right;
+            if let ast::Expr::NumVal { value, _type } = right_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -199,16 +200,16 @@ mod lexer_and_parser_integration_tests
 
         //2. nested binaries
         //
-        let mut token_manager = TokenManager::new("2 + 3 * 5");
-        let result = parse_expression(&mut token_manager);
+        let mut token_manager = lexer::TokenManager::new("2 + 3 * 5");
+        let result = parser::parse_expression(&mut token_manager);
 
-        if let Expr::Binary { operator, left, right } = result
+        if let ast::Expr::Binary { operator, left, right } = result
         { // this is the 2 in 2 + 3 * 5
-            assert_eq!(Token::PLUS, operator);
+            assert_eq!(lexer::Token::PLUS, operator);
 
-            let left_expr: Expr = *left;
+            let left_expr: ast::Expr = *left;
 
-            if let Expr::NumVal { value, _type } = left_expr{
+            if let ast::Expr::NumVal { value, _type } = left_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -216,19 +217,19 @@ mod lexer_and_parser_integration_tests
                 panic!("not numval");
             }
 
-            let right_expr: Expr = *right; // this is the 3 * 5 in 2 + 3 * 5
-            if let Expr::Binary { operator, left, right } = right_expr{
+            let right_expr: ast::Expr = *right; // this is the 3 * 5 in 2 + 3 * 5
+            if let ast::Expr::Binary { operator, left, right } = right_expr{
                 
-                if let Expr::NumVal { value, _type } = *left{
+                if let ast::Expr::NumVal { value, _type } = *left{
                     assert_eq!(3, value);
                 }   
                 else { panic!("not a numval!")}
                 
-                if let Token::MULTIPLY  = operator{
+                if let lexer::Token::MULTIPLY  = operator{
                 }   
                 else { panic!("not a multiply!")}
                 
-                if let Expr::NumVal { value, _type } = *right{
+                if let ast::Expr::NumVal { value, _type } = *right{
                     assert_eq!(5, value);
                 }   
                 else { panic!("not a numval!")}

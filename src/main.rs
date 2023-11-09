@@ -4,26 +4,12 @@ use plick::{Config, compile_input};
 
 fn main() {
     
-    let args = handle_arguments();
+    let cli_arguments = parse_cli_arguments();
 
-    //now we have the path as compilable_file_path
-    let input: String;
-        match fs::read_to_string(args.path_to_file)
-        {
-            Ok(file_text) => input = file_text,
-            Err(err) => 
-            {
-                println!("fatal error: {}", err);
-                process::exit(1);
-            }
-        }
+    let file_to_compile_as_string = read_file_to_string(&cli_arguments.path_to_file);
 
-
-    let conf = Config::default();
-    compile_input(&input,conf);
-    
-
-
+    let config = Config::default();
+    compile_input(&file_to_compile_as_string,config);
 }
 
 
@@ -33,7 +19,7 @@ pub struct Arguments
     path_to_file: String 
 }
 
-fn handle_arguments() -> Arguments
+fn parse_cli_arguments() -> Arguments
 {
     let mut args_iter = env::args();
    
@@ -54,4 +40,18 @@ fn handle_arguments() -> Arguments
     };
 
     Arguments { working_directory, path_to_file }
+}
+
+
+fn read_file_to_string(path_to_file: &str) -> String
+{
+    match fs::read_to_string(path_to_file)
+        {
+            Ok(file_text) => file_text,
+            Err(err) => 
+            {
+                println!("fatal error: {}", err);
+                process::exit(1);
+            }
+        }
 }

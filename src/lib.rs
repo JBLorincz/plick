@@ -15,7 +15,7 @@ pub mod parser;
 mod codegen;
 mod error;
 mod debugger;
-mod ast;
+pub mod ast;
 mod types;
 mod passes;
 
