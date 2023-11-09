@@ -1,10 +1,14 @@
     use std::error::Error;
     
+    use common::test_normal_compile;
     use plick::{compile_input, Config};
 
     mod common;
 
-    #[test]
+mod full_compile_tests
+{
+    use super::*;
+   #[test]
     fn file_test() -> Result<(), Box<dyn Error>> 
     {
 
@@ -58,9 +62,7 @@
                 PUT;
                 END;";
         
-    let conf = common::generate_test_config();
-        compile_input(input,conf);
-        Ok(())
+                test_normal_compile(input)
     }
      #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
@@ -77,10 +79,7 @@
                 LOL(2);
                 END;";
         
-        let mut conf = common::generate_test_config();
-        conf.filename = "testtwo.o".to_string();
-        compile_input(input,conf);
-        Ok(())
+        test_normal_compile(input)
     }
      #[test]
     fn test_if_statement() -> Result<(), Box<dyn Error>> 
@@ -89,10 +88,7 @@
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN PUT; END;";
         
-        let mut conf = common::generate_test_config();
-        conf.filename = "testif_false.o".to_string();
-        compile_input(input,conf);
-        Ok(())
+        test_normal_compile(input)
     }
 
      #[test]
@@ -101,12 +97,32 @@
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN DO; PUT; PUT; PUT; END; ELSE DO; PUT; PUT; PUT; PUT; END; END;";
-        
-        let mut conf = common::generate_test_config();
-        conf.filename = "testif_else_false.o".to_string();
-        compile_input(input,conf);
-        Ok(())
+        test_normal_compile(input) 
     }
+
+    #[test]
+    fn mutation_test() -> Result<(), Box<dyn Error>>
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        FLAG = 1; FLAG = 0; IF FLAG THEN PUT; END;";
+
+        test_normal_compile(input)
+    }
+    #[test]
+    fn drive_hello_world() -> Result<(), Box<dyn Error>>
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        2 + 2 + 4 / 6; 2 + 4; END;";
+
+        test_normal_compile(input)
+    }
+
+
+}
+
+mod should_fails
+{
+    use super::*;
 
      #[test]
      #[should_panic(expected = "after label")]
@@ -124,9 +140,7 @@
                 LOL(2);
                 END;";
         
-        let mut conf = common::generate_test_config();
-        conf.filename = "failfile.o".to_string();
-        compile_input(input,conf);
+        test_normal_compile(input);
     }
      #[test]
      #[should_panic]
@@ -137,29 +151,11 @@
                 LOLOLOLOL();
                 END;";
         
-        let mut conf = common::generate_test_config();
-        conf.filename = "failfile.o".to_string();
-        compile_input(input,conf);
-    }
-    #[test]
-    fn mutation_test(){
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        FLAG = 1; FLAG = 0; IF FLAG THEN PUT; END;";
-
-        let mut conf = common::generate_test_config();
-        conf.filename = "mutation_test.o".to_string();
-        compile_input(input,conf);
-    }
-    #[test]
-    fn drive_hello_world(){
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        2 + 2 + 4 / 6; 2 + 4; END;";
-
-        let conf = common::generate_test_config();
-        compile_input(input,conf);
+        test_normal_compile(input);
     }
 
 
+}
 
 mod lexer_and_parser_integration_tests
 {
@@ -246,3 +242,4 @@ mod lexer_and_parser_integration_tests
         }
     }
 }
+
