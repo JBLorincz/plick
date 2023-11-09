@@ -135,40 +135,57 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
 {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx>
     {
-
-        return self.context.f64_type().const_zero();
         dbg!("CONVERTING TO FLOATIE!");
         let fixed_value_as_struct_value = fixed_value.value; 
 
-        let pointer_to_structvalue = self.builder.build_alloca(fixed_value_as_struct_value.get_type(), "tmpalloca").unwrap();
-        let sign_bit = self.builder.build_struct_gep(pointer_to_structvalue,0,"get_sign_bit").unwrap();
+        let pointer_to_struct_value = self.builder.build_alloca(fixed_value_as_struct_value.get_type(), "tmpalloca").unwrap();
+        let sign_bit_ptr = self.builder.build_struct_gep(pointer_to_struct_value,0,"get_sign_bit").unwrap();
 
-        let sign_bit_val = sign_bit.const_to_int(self.context.bool_type());
+        let sign_bit_val = self.builder.build_load(sign_bit_ptr, "sign_bit").unwrap().into_int_value();
 
 
-        let before_ptr = self.builder.build_struct_gep(pointer_to_structvalue,1,"get_before").unwrap();
+        let before_ptr = self.builder.build_struct_gep(pointer_to_struct_value,1,"get_before").unwrap();
         
+        dbg!(before_ptr);
         let before_arr = self.builder.build_load(before_ptr, "load_before_arr").unwrap().into_array_value();
+        dbg!(before_arr);
         let zero_intval = self.context.i8_type().const_zero();
         let mut before_int_values: Vec<IntValue<'ctx>> = vec![zero_intval;BEFORE_DIGIT_COUNT as usize];
 
         for i in 0..BEFORE_DIGIT_COUNT as usize
         {
             let index_as_intval = self.context.i8_type().const_int(i as u64, false);
-            before_int_values[i] = self
+            
+
+            let pointer_to_digit_array_value = self
                 .builder
-                .build_gep(before_ptr, &[index_as_intval], "load_digit").unwrap()
-                .const_to_int(self.context.i8_type());
+                .build_gep(before_ptr, &[zero_intval,index_as_intval], "load_digit").unwrap();
+
+
+
+            dbg!(pointer_to_digit_array_value);
+            dbg!(self.module.print_to_string());
+                //.const_to_int(self.context.i8_type());
+            let digit_int_val = self.builder.build_load(pointer_to_digit_array_value,"diggit").unwrap().into_int_value();
+            //now we take the array value, build a GEP for the inner array
+            before_int_values[i] = digit_int_val;
         }
         
         let lhs = before_int_values[0];
 
-        let mut result_floatval: FloatValue<'ctx> = lhs.const_unsigned_to_float(self.context.f64_type());
+        //let mut result_floatval: FloatValue<'ctx> = lhs.const_unsigned_to_float(self.context.f64_type());
+        //let mut result_floatval: FloatValue<'ctx> = lhs.const_unsigned_to_float(self.context.f64_type());
+        let mut result_floatval: FloatValue<'ctx> = 
+                self.builder.build_unsigned_int_to_float(before_int_values[0], self.context.f64_type(), "digAsFloat").unwrap();
+            
 
         for i in 1..BEFORE_DIGIT_COUNT as usize
         {
-            let rhs = before_int_values[i].const_unsigned_to_float(self.context.f64_type());
-            result_floatval = self.builder.build_float_add(result_floatval, rhs, "summer").unwrap();
+            let float = 
+                self.builder.build_unsigned_int_to_float(before_int_values[i], self.context.f64_type(), "digAsFloat").unwrap();
+            
+            //let rhs = before_int_values[i].const_unsigned_to_float(self.context.f64_type());
+            result_floatval = self.builder.build_float_add(result_floatval, float, "summer").unwrap();
         }
         
         //self.builder.build_gep(ptr, ordered_indexes, name)
@@ -176,7 +193,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
         //let after_ptr = self.builder.build_struct_gep(res,2,"get_after").unwrap();
         //self.builder.build_struct_gep(res,2,"get_after");
         dbg!("FLOATVAL: {}",result_floatval);
-        panic!("LOLO");
          result_floatval
         //return self.context.f64_type().const_float(float_const as f64);
     }
