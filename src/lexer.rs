@@ -241,8 +241,7 @@ use crate::{debugger::DebugController, ast::SourceLocation};
             
             Some(match current_word_buffer.to_uppercase().as_str()
             {
-                "PROCEDURE" => Token::PROCEDURE,
-                "PROC" => Token::PROCEDURE,
+                "PROCEDURE" | "PROC" => Token::PROCEDURE,
                 ";" => Token::SEMICOLON,
                 "," => Token::COMMA,
                 "*" => Token::MULTIPLY,
@@ -258,6 +257,8 @@ use crate::{debugger::DebugController, ast::SourceLocation};
                 "ELSE" => Token::ELSE,
                 "THEN" => Token::THEN,
                 "DO" => Token::DO,
+                "FIXED" => Token::FIXED,
+                "FLOAT" => Token::FLOAT,
                 "=" => Token::EQ,
                 "PUT" => Token::PUT,
                 "RETURN" | "RET" => Token::RETURN,
@@ -265,6 +266,7 @@ use crate::{debugger::DebugController, ast::SourceLocation};
                 "END" => Token::END,
                 "WHILE" => Token::WHILE,
                 "SKIP" => Token::SKIP,
+                "DECLARE" | "DCL" => Token::DECLARE,
                 "OPTIONS" => Token::OPTIONS,
                 _ => Token::Identifier(current_word_buffer)
             })
@@ -286,6 +288,7 @@ use crate::{debugger::DebugController, ast::SourceLocation};
         OPEN_PAREN,
         CLOSED_PAREN,
         PROCEDURE, // the procedure or proc token
+        DECLARE,
         DO,
         PLUS,
         MINUS,
@@ -301,6 +304,8 @@ use crate::{debugger::DebugController, ast::SourceLocation};
         STRING(String),
         EQ,
         SEMICOLON,
+        FIXED,
+        FLOAT,
         COMMA,
         DATA,
         //GET,

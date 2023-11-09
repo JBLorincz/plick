@@ -1,8 +1,12 @@
-use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error,};
+use crate::{lexer::{self, Token}, codegen::codegen::CodeGenable, error::get_error, types::infer_pli_type_via_name,};
 use crate::error;
 use crate::ast::*;
+use crate::types::Type;
 
 
+///Helper function used to advance the token manager,
+///ensuring the token that was 'eaten' was the expected
+///token. Otherwise, returns an error.
 pub fn parse_token(token_manager: &mut lexer::TokenManager, token_to_check_for: Token) -> Result<(),String>
 {
     let current_tok_copy = token_manager.current_token.clone();
@@ -32,7 +36,7 @@ pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr
     if let Some(Token::NumVal(value)) = token_manager.current_token
     {
         token_manager.next_token();//loads the next token into the token manager.
-        return Expr::NumVal { value  };
+        return Expr::NumVal { value, _type: Type::FixedDecimal  };
     }
     else {
         panic!("Failed to parse numeric!");
@@ -94,6 +98,39 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
 
 }
 
+pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare, String>
+{
+    parse_token(token_manager, Token::DECLARE)?;
+    let new_variable_name;
+    let mut variable_type = Type::FixedDecimal;
+
+    if let Some(Token::Identifier(ref name)) = token_manager.current_token
+    {
+        new_variable_name = name.clone();
+    }
+    else
+    {
+        panic!("waht?");
+    }
+    token_manager.next_token();
+
+    match token_manager.current_token {
+    Some(Token::FIXED) => {
+        variable_type = Type::FixedDecimal;
+        token_manager.next_token();
+    },
+    Some(Token::FLOAT) => {
+        variable_type = Type::Float;
+        token_manager.next_token();
+    },
+    Some(Token::SEMICOLON) => variable_type = variable_type,
+    _ => { return Err("Could not parse declare statement".to_string())},
+    };
+
+    parse_token(token_manager, Token::SEMICOLON)?;
+
+    Ok(Declare {var_name: new_variable_name, attribute: Some(variable_type)})
+}
 //current token is the semicolon AFTER do
 pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Statement>, String>
 {
@@ -120,7 +157,7 @@ pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Sta
 }
 
 //parses identifiers like variable names but also function calls
-pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
+pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
      let identifier_string: String;
    if let Some(Token::Identifier(ref val)) = token_manager.current_token 
    {
@@ -132,7 +169,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
    }
         let mut args_list: Vec<Expr> = vec![];
        token_manager.next_token();// prime next token
-       if let Some(Token::OPEN_PAREN) = token_manager.current_token
+       if let Some(Token::OPEN_PAREN) = token_manager.current_token // if this is a function call
        {
            println!("Found an open parenthesis first!");
            //function call here.
@@ -180,11 +217,11 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr{
 
                 
            }
-            return Expr::Call { fn_name: identifier_string, args: args_list };
+            return Expr::Call { fn_name: identifier_string, args: args_list, _type: Type::TBD };
        }
        else 
        {
-            return Expr::Variable { name: identifier_string}; 
+            return Expr::Variable { name: identifier_string, _type: Type::FixedDecimal}; 
        }
    
    
@@ -205,7 +242,7 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     let left_handed_side = parse_primary_expression(token_manager);
-    if let Expr::Variable { name } = left_handed_side.clone()
+    if let Expr::Variable { name, _type } = left_handed_side.clone()
     {
         if let Some(Token::EQ) = token_manager.current_token
         {
@@ -298,15 +335,13 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32
 //      END;
 pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Prototype, String>
 {
-         token_manager.next_token();
+         parse_token(token_manager,Token::PROCEDURE)?;
+
          let source_loc = token_manager.get_source_location();
 
          //token should now be open paren
-         if Some(Token::OPEN_PAREN) != token_manager.current_token
-         {
-             return Err("Was expecting an open parenthesis!".to_string());
-         }
-            token_manager.next_token();//go inside the parenthesis
+        
+            parse_token(token_manager,Token::OPEN_PAREN)?;
             let mut expecting_comma = false;
             let mut args_list: Vec<String> = vec![];
            loop {
@@ -338,7 +373,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     let arg_name: String;
-                    if let Expr::Variable { name } = parsed_arg
+                    if let Expr::Variable { name, _type } = parsed_arg
                     {
                         arg_name = name.clone();
                     }
@@ -366,6 +401,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
 pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Function, String>
 {
     let proto = parse_function_prototype(token_manager, label_name)?; 
+    let fn_name_copy = proto.fn_name.clone();
     let mut body_statements: Vec<Statement> = vec![];
     let mut return_value: Option<Expr> = None;
 
@@ -379,7 +415,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
             //handle double return statements error in a function
             if let Some(_expr) = return_value
             {
-                return Err("Duplicate return statements!".to_string());
+                return Err(get_error(&["6"]));
             }
 
             return_value = Some(expr.clone());
@@ -399,7 +435,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
 
     parse_token(token_manager, Token::SEMICOLON)?;
 
-   Ok(Function { prototype: proto, body_statements, return_value })
+   Ok(Function { prototype: proto, body_statements, return_value, return_type: infer_pli_type_via_name(&fn_name_copy) })
 }
 
 
@@ -456,6 +492,15 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 token_manager.next_token();
                 break; 
             },
+            Token::DECLARE => {
+                 let declare_statement = parse_declare(token_manager)?;
+                 match command {
+                    Command::Empty => command = Command::Declare(declare_statement),             
+                    other_command => { return Err(get_error(&["4","DECLARE", &other_command.to_string()])); }
+                }
+                token_manager.next_token();
+                break; 
+            },
             Token::IF => {
                 let if_statement = parse_if(token_manager).unwrap();
                  match command {
@@ -471,7 +516,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 if let Token::SEMICOLON = token_after_return
                 {
                     match command {
-                        Command::Empty => command = Command::RETURN(Expr::NumVal { value: -1 }),             
+                        Command::Empty => command = Command::RETURN(Expr::new_numval(-1)),             
                     other_command => { return Err(get_error(&["4","RETURN", &other_command.to_string()])); }
                     }
                     token_manager.next_token();
@@ -618,8 +663,8 @@ mod tests {
 
     #[test]
     fn construct_binary(){
-        let lhs = Expr::NumVal { value: 4 };
-        let rhs = Expr::NumVal { value: 6 };
+        let lhs = Expr::new_numval(4);
+        let rhs = Expr::new_numval(6);
 
        let _test = Expr::Binary {
            operator: Token::PLUS,
@@ -627,9 +672,9 @@ mod tests {
            right: Box::new(rhs),
        };
 
-       let lhsvar = Expr::Variable { name: String::from("x") };
+       let lhsvar = Expr::Variable { name: String::from("x"), _type: Type::FixedDecimal};
        
-       let rhsvar = Expr::Variable { name: String::from("y") };
+       let rhsvar = Expr::Variable { name: String::from("y") , _type: Type::FixedDecimal};
         
        let _test = Expr::Binary {
            operator: Token::PLUS,
@@ -637,8 +682,8 @@ mod tests {
            right: Box::new(rhsvar),
        };   
 
-       let lhsvar = Expr::Variable { name: String::from("x") };
-       if let Expr::Variable { name } = lhsvar
+       let lhsvar = Expr::Variable { name: String::from("x") , _type: Type::FixedDecimal};
+       if let Expr::Variable { name , _type: Type::FixedDecimal} = lhsvar
        {
             assert_eq!(name, "x");
        }
@@ -658,9 +703,9 @@ mod tests {
 
         let result: Expr = parse_numeric(&mut tok_man);
         
-       if let Expr::NumVal{value: val} = result
+       if let Expr::NumVal{value, _type} = result
        {
-            assert_eq!(4,val);
+            assert_eq!(4,value);
        }
        else {
            panic!("Result of parse numeric was not a numeric expression!");
@@ -672,12 +717,12 @@ mod tests {
     {
         let mut tok_man = TokenManager::new("MIN(2,3);");
         let result = parse_identifier(&mut tok_man);
-        if let Expr::Call{fn_name, args} = result
+        if let Expr::Call{fn_name, args, _type} = result
         {
             assert_eq!(fn_name,"MIN");
             assert_eq!(args.len(),2);
 
-            if let Expr::NumVal { value } = args[0]
+            if let Expr::NumVal { value, _type } = args[0]
             {
                 assert_eq!(value,2);
             }
@@ -700,7 +745,7 @@ mod tests {
 
         let result: Expr = parse_parenthesis_expression(&mut tok_man);
 
-        if let Expr::NumVal{value} =  result
+        if let Expr::NumVal{value, _type} =  result
         {
             assert_eq!(25665,value);
         }
@@ -727,7 +772,7 @@ mod tests {
         
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
-            if let Expr::NumVal { value } = result
+            if let Expr::NumVal { value, _type } = result
             {
                 assert_eq!(value,2);
             }
@@ -744,7 +789,7 @@ mod tests {
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
             
-            if let Expr::Variable {name} = result
+            if let Expr::Variable {name , _type: Type::FixedDecimal} = result
             {
                 assert_eq!("FLAG", name);
             }
@@ -753,7 +798,7 @@ mod tests {
             let result = parse_expression(&mut tok_man);
             tok_man.next_token();
 
-            if let Expr::NumVal { value } = result
+            if let Expr::NumVal { value, _type } = result
             {
                 assert_eq!(4, value);
             }
@@ -773,7 +818,7 @@ mod tests {
 
             let left_expr: Expr = *left;
 
-            if let Expr::NumVal { value } = left_expr{
+            if let Expr::NumVal { value, _type } = left_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -782,7 +827,7 @@ mod tests {
             }
 
             let right_expr: Expr = *right;
-            if let Expr::NumVal { value } = right_expr{
+            if let Expr::NumVal { value, _type } = right_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -806,7 +851,7 @@ mod tests {
 
             let left_expr: Expr = *left;
 
-            if let Expr::NumVal { value } = left_expr{
+            if let Expr::NumVal { value, _type } = left_expr{
                 assert_eq!(value, 2);
             }
             else
@@ -817,7 +862,7 @@ mod tests {
             let right_expr: Expr = *right; // this is the 3 * 5 in 2 + 3 * 5
             if let Expr::Binary { operator, left, right } = right_expr{
                 
-                if let Expr::NumVal { value } = *left{
+                if let Expr::NumVal { value, _type } = *left{
                     assert_eq!(3, value);
                 }   
                 else { panic!("not a numval!")}
@@ -826,7 +871,7 @@ mod tests {
                 }   
                 else { panic!("not a multiply!")}
                 
-                if let Expr::NumVal { value } = *right{
+                if let Expr::NumVal { value, _type } = *right{
                     assert_eq!(5, value);
                 }   
                 else { panic!("not a numval!")}
@@ -864,7 +909,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    #[should_panic(expected = "open paren")]
+    #[should_panic(expected = "OPEN_PAREN")]
     fn test_parsing_prototype_panic()
     {
         let mut token_manager = TokenManager::new("PROCEDURE A,B,C);");
@@ -930,9 +975,23 @@ mod tests {
         let mut token_manager = TokenManager::new("PROCEDURE (A,B,C); A + B + C; END;");
 
         let _my_function = parse_function(&mut token_manager, "TESTFUNC".to_string());
+    }
+    #[test]
+    fn test_parsing_declare() -> Result<(),String>
+    {
+        let mut token_manager = TokenManager::new("DECLARE x FIXED; PUT; PUT; PUT;");
+
+        let decl = parse_declare(&mut token_manager)?;
+        
+        assert_eq!(decl.var_name, "x");
+        assert_eq!(decl.attribute, Some(Type::FixedDecimal));
 
 
-
+        //make sure declare sets up parsing for next line
+        parse_statement(&mut token_manager)?;
+        parse_statement(&mut token_manager)?;
+        parse_statement(&mut token_manager)?;
+        Ok(())
     }
 }
 

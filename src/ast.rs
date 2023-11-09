@@ -1,5 +1,8 @@
 use crate::lexer;
-
+use crate::types;
+use crate::types::BaseAttributes;
+use crate::types::Type;
+use crate::types::resolve_types;
 ///Holds all definition for AST nodes
 
 
@@ -18,16 +21,40 @@ pub enum Expr
 
     Call {
         fn_name: String,
-        args: Vec<Expr>
+        args: Vec<Expr>,
+        _type: types::Type,
     },
     NumVal {
-        value: i32
+        value: i32,
+        _type: types::Type,
     },
     Variable {
+        _type: types::Type,
         name: String 
     }
 
         
+}
+
+impl Expr
+{
+    pub fn new_numval(value: i32) -> Expr
+    {
+        Expr::NumVal { value, _type: Type::FixedDecimal }
+    }
+    pub fn get_type(&self) -> types::Type
+    {
+        match self
+        {
+            Expr::Variable { ref _type, ref name } => {return *_type},
+            Expr::NumVal { ref _type, ref value } => {return *_type},
+            Expr::Call { ref _type, ref args, ref fn_name } => {return *_type},
+            Expr::Binary { ref operator, ref left, ref right } => {
+                resolve_types(&left.get_type(), &right.get_type()).unwrap()
+            },
+            Expr::Assignment { ref variable_name, ref value } => Type::Void,
+        }
+    }
 }
 
 ///Represents a function prototype
@@ -60,6 +87,7 @@ pub struct Function {
     pub prototype: Prototype,
     pub body_statements: Vec<Statement>,
     pub return_value: Option<Expr>,
+    pub return_type: Type,
 }
 
 ///Represents a "full-line" of execution, terminated by a semicolon.
@@ -77,6 +105,7 @@ pub enum Command {
     END,
     PUT,
     IF(If),
+    Declare(Declare),
     Assignment(Assignment),
     FunctionDec(Function), 
     EXPR(Expr),   //"EXPR" is not a command in pl/1 this just represents a expression statement.
@@ -95,6 +124,7 @@ impl Command
 #[derive(Debug,Clone)]
 pub struct If
 {
+    ///The actual expression we are evaluating to be TRUE or FALSE
     pub conditional: Expr,
     pub then_statements: Vec<Statement>,
     pub else_statements: Option<Vec<Statement>>
@@ -106,4 +136,10 @@ pub struct Assignment
 {
     pub var_name: String,
     pub value: Expr
+}
+#[derive(Debug,Clone)]
+pub struct Declare
+{
+    pub var_name: String,
+    pub attribute: Option<Type> 
 }
