@@ -10,8 +10,8 @@ use std::path::Path;
 
 use crate::debugger::{setup_module_for_debugging, DebugController};
 
-mod lexer;
-mod parser;
+pub mod lexer;
+pub mod parser;
 mod codegen;
 mod error;
 mod debugger;

@@ -1,4 +1,3 @@
-mod tests {
     use std::error::Error;
 
     use plick::{compile_input, Config};
@@ -157,5 +156,91 @@ mod tests {
 
         let conf = Config::default();
         compile_input(input,conf);
+    }
+
+
+
+mod lexer_and_parser_integration_tests
+{
+    use plick::parser;
+    use plick::lexer;
+    fn test_binaries()
+    {
+        let mut token_manager = lexer::TokenManager::new("2 + 2");
+        let result = parser::parse_expression(&mut token_manager);
+
+        if let Expr::Binary { operator, left, right } = result
+        {
+            assert_eq!(Token::PLUS, operator);
+
+            let left_expr: Expr = *left;
+
+            if let Expr::NumVal { value, _type } = left_expr{
+                assert_eq!(value, 2);
+            }
+            else
+            {
+                panic!("not numval");
+            }
+
+            let right_expr: Expr = *right;
+            if let Expr::NumVal { value, _type } = right_expr{
+                assert_eq!(value, 2);
+            }
+            else
+            {
+                panic!("not numval");
+            }
+        }
+        else
+        {
+            panic!("Expression was not a binary, was a {:?}", result);
+        }
+
+        //2. nested binaries
+        //
+        let mut token_manager = TokenManager::new("2 + 3 * 5");
+        let result = parse_expression(&mut token_manager);
+
+        if let Expr::Binary { operator, left, right } = result
+        { // this is the 2 in 2 + 3 * 5
+            assert_eq!(Token::PLUS, operator);
+
+            let left_expr: Expr = *left;
+
+            if let Expr::NumVal { value, _type } = left_expr{
+                assert_eq!(value, 2);
+            }
+            else
+            {
+                panic!("not numval");
+            }
+
+            let right_expr: Expr = *right; // this is the 3 * 5 in 2 + 3 * 5
+            if let Expr::Binary { operator, left, right } = right_expr{
+                
+                if let Expr::NumVal { value, _type } = *left{
+                    assert_eq!(3, value);
+                }   
+                else { panic!("not a numval!")}
+                
+                if let Token::MULTIPLY  = operator{
+                }   
+                else { panic!("not a multiply!")}
+                
+                if let Expr::NumVal { value, _type } = *right{
+                    assert_eq!(5, value);
+                }   
+                else { panic!("not a numval!")}
+            }
+            else
+            {
+                panic!("not numval");
+            }
+        }
+        else
+        {
+            panic!("Expression was not a binary, was a {:?}", result);
+        }
     }
 }
