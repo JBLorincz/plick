@@ -65,6 +65,14 @@ pub struct Prototype {
         pub args: Vec<String>, // the names of the arguments - used inside of the function itself.
         pub source_loc: SourceLocation
 }
+///Represents a function prototype
+#[derive(Debug,Clone)]
+pub struct PrototypeArgument {
+
+        pub name: String,
+        pub _type: Type,
+}
+
 
 
 #[derive(Debug,Clone)]
