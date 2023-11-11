@@ -14,6 +14,7 @@ use crate::ast::Command;
 use crate::ast::Statement;
 use crate::types::Type;
 use crate::types::TypeModule;
+use crate::types::character;
 use crate::types::fixed_decimal;
 use crate::types::fixed_decimal::FixedValue;
 use crate::types::infer_pli_type_via_name;
@@ -27,6 +28,7 @@ use inkwell::debug_info::DISubprogram;
 use inkwell::module::Module;
 use inkwell::types::AnyTypeEnum;
 use inkwell::types::FunctionType;
+use inkwell::values::ArrayValue;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::CallSiteValue;
@@ -95,6 +97,13 @@ use super::named_value_store::NamedValueStore;
                     //Box::new(compiler.generate_float_code(value as f64))
                      Box::new(compiler.gen_const_fixed_decimal(value as f64))
                 },
+                ast::Expr::Char { value } => 
+                {
+                    //Box::new(compiler.generate_float_code(value as f64))
+                    let character_value = character::generate_character_code(compiler.context, &value);
+                    let arr_value: ArrayValue = character_value.into();
+                     Box::new(arr_value)
+                },
                 ast::Expr::Call { ref fn_name, ref mut args, _type } => {
                      let function_call_result = compiler.generate_function_call_code( fn_name, args );
                     function_call_result.unwrap()
@@ -156,9 +165,9 @@ use super::named_value_store::NamedValueStore;
         {
             let variable_in_map = self.named_values.try_get(&assignment.var_name);
             let _type = assignment.value.get_type();
-
             match variable_in_map {
                 Some(_pointer_value) => {
+
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
@@ -174,8 +183,14 @@ use super::named_value_store::NamedValueStore;
         {
 
                             let _type = assignment.value.get_type();
+                            dbg!(&_type);
                             let name = assignment.var_name.clone();
+
+                            dbg!(&assignment);
+
                             let variable_ptr = self.allocate_variable(&assignment);
+
+                            dbg!(&variable_ptr);
                             let value_of_variable =self.assign_variable(assignment,variable_ptr);
                             self.named_values.insert(NamedValue::new(name, _type, variable_ptr ));
 
@@ -556,6 +571,7 @@ use super::named_value_store::NamedValueStore;
         pub fn create_entry_block_alloca(&self, argument_name: &str, function: &FunctionValue, argument_type: &Type ) -> PointerValue<'ctx> {
         let builder = self.context.create_builder();
         let llvm_type_of_alloca = self.convert_plick_type_to_llvm_basic_type(argument_type.clone());
+        dbg!(&llvm_type_of_alloca);
         let entry = function.get_first_basic_block().unwrap();
 
         match entry.get_first_instruction() {

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use inkwell::{types::{StructType, BasicTypeEnum, BasicType, AnyTypeEnum, AnyType}, context::Context, values::{StructValue, FloatValue}};
+use inkwell::{types::{StructType, BasicTypeEnum, BasicType, AnyTypeEnum, AnyType, ArrayType}, context::Context, values::{StructValue, FloatValue}};
 
 use crate::{codegen::codegen::Compiler, error::get_error};
 
@@ -71,7 +71,7 @@ pub enum FixedRadix
 pub struct TypeModule<'ctx>
 {
     fixed_type: StructType<'ctx>,
-    char_type: StructType<'ctx>,
+    char_type: ArrayType<'ctx>,
 }
 
 ///Takes two input types, and determines what the output type should be.
@@ -101,9 +101,13 @@ impl<'ctx> TypeModule<'ctx>
     {
         TypeModule {
             fixed_type: fixed_decimal::get_fixed_type(ctx),
-            char_type: character::get_character_type(ctx,SIZE_OF_STRINGS) 
+            char_type: character::get_character_type(ctx,5) 
         }
     }
+
+
+
+
 }
 
 
