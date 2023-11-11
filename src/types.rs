@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use inkwell::{types::{StructType, BasicTypeEnum, BasicType, AnyTypeEnum, AnyType}, context::Context, values::{StructValue, FloatValue}};
+use inkwell::{types::{StructType, BasicTypeEnum, BasicType, AnyTypeEnum, AnyType, ArrayType}, context::Context, values::{StructValue, FloatValue}};
 
 use crate::{codegen::codegen::Compiler, error::get_error};
 
@@ -8,6 +8,10 @@ use self::fixed_decimal::generate_fixed_decimal_code;
 
 /// Holds all type data
 pub mod fixed_decimal;
+pub mod character;
+
+const SIZE_OF_STRINGS: u32 = 255;
+
 //DCL (A,B,C,D,E) FIXED(3);
 
 
@@ -41,6 +45,8 @@ pub enum Type
     TBD,
     ///The return type of some functions
     Void,
+    ///The string type
+    Char(u32),
 }
 
 impl Display for Type
@@ -93,9 +99,13 @@ impl<'ctx> TypeModule<'ctx>
     pub fn new(ctx: &'ctx Context) -> Self
     {
         TypeModule {
-            fixed_type: fixed_decimal::get_fixed_type(ctx) 
+            fixed_type: fixed_decimal::get_fixed_type(ctx),
         }
     }
+
+
+
+
 }
 
 
@@ -108,6 +118,11 @@ impl<'a,'ctx> Compiler<'a,'ctx>
 {
     fn load_types(&'a self)
     {
+    }
+
+    pub fn get_character_type(&self, size: u32) -> ArrayType<'ctx>
+    {
+        character::get_character_type(self.context, size)
     }
 
     pub fn gen_const_fixed_decimal(&self, value: f64) -> StructValue<'ctx>
@@ -124,6 +139,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match _type
         {
             Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),
+            Type::Char(size) => self.get_character_type(size).as_basic_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => panic!("Can't convert void type to basic type enum!"),
             Type::TBD => panic!("Can't convert TBD type to basic type enum!"),
@@ -134,6 +150,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match _type
         {
             Type::FixedDecimal => self.type_module.fixed_type.as_any_type_enum(),
+            Type::Char(size) => self.get_character_type(size).as_any_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => self.context.void_type().as_any_type_enum(),
             Type::TBD => panic!("Can't convert TBD type to any type enum!"),

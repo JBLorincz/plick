@@ -1,3 +1,5 @@
+use std::string;
+
 use crate::lexer;
 use crate::types;
 use crate::types::BaseAttributes;
@@ -28,6 +30,9 @@ pub enum Expr
         value: i32,
         _type: types::Type,
     },
+    Char {
+        value: String
+    },
     Variable {
         _type: types::Type,
         name: String 
@@ -53,6 +58,7 @@ impl Expr
                 resolve_types(&left.get_type(), &right.get_type()).unwrap()
             },
             Expr::Assignment { ref variable_name, ref value } => Type::Void,
+            Expr::Char { value } => Type::Char(value.len() as u32),
         }
     }
 }
@@ -111,7 +117,7 @@ pub struct Statement {
 pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
-    PUT,
+    PUT(Put),
     IF(If),
     Declare(Declare),
     Assignment(Assignment),
@@ -150,4 +156,11 @@ pub struct Declare
 {
     pub var_name: String,
     pub attribute: Option<Type> 
+}
+
+
+#[derive(Debug,Clone)]
+pub struct Put
+{
+    pub message_to_print: Expr,
 }

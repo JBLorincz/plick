@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::vec;
 
 use crate::ast;
+use crate::ast::Expr;
 use crate::debugger::DebugController;
 use crate::error::get_error;
 use crate::lexer;
@@ -14,9 +15,11 @@ use crate::ast::Command;
 use crate::ast::Statement;
 use crate::types::Type;
 use crate::types::TypeModule;
+use crate::types::character;
 use crate::types::fixed_decimal;
 use crate::types::fixed_decimal::FixedValue;
 use crate::types::infer_pli_type_via_name;
+use inkwell::AddressSpace;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -27,6 +30,7 @@ use inkwell::debug_info::DISubprogram;
 use inkwell::module::Module;
 use inkwell::types::AnyTypeEnum;
 use inkwell::types::FunctionType;
+use inkwell::values::ArrayValue;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::values::BasicValueEnum;
 use inkwell::values::CallSiteValue;
@@ -95,12 +99,19 @@ use super::named_value_store::NamedValueStore;
                     //Box::new(compiler.generate_float_code(value as f64))
                      Box::new(compiler.gen_const_fixed_decimal(value as f64))
                 },
+                ast::Expr::Char { value } => 
+                {
+                    //Box::new(compiler.generate_float_code(value as f64))
+                    let character_value = character::generate_character_code(compiler.context, &value);
+                    let arr_value: ArrayValue = character_value.into();
+                     Box::new(arr_value)
+                },
                 ast::Expr::Call { ref fn_name, ref mut args, _type } => {
                      let function_call_result = compiler.generate_function_call_code( fn_name, args );
                     function_call_result.unwrap()
                 },
-                _ => {
-                    panic!("Hit exhaustive match on codegen expressions!");
+                other => {
+                    todo!("Implement codegen ability for {:#?}", other);
                 },
             }
         }
@@ -114,7 +125,9 @@ use super::named_value_store::NamedValueStore;
             match self.command 
             {
             Command::Declare(_dec) => todo!("Implement codegen for declare statement"),
-            Command::PUT => Box::new(compiler.generate_hello_world_print()),
+            Command::PUT(msg) => {
+                return Box::new(compiler.print_string(msg.message_to_print));
+            },
             Command::EXPR(expr) => expr.codegen(compiler),
             Command::IF(if_statement) => Box::new(compiler.generate_if_statement_code(if_statement).unwrap()),
             Command::END => panic!("found END"),
@@ -156,9 +169,9 @@ use super::named_value_store::NamedValueStore;
         {
             let variable_in_map = self.named_values.try_get(&assignment.var_name);
             let _type = assignment.value.get_type();
-
             match variable_in_map {
                 Some(_pointer_value) => {
+
                     let value_to_store = assignment.value.codegen(self);
 
                     let initial_value: BasicValueEnum<'ctx> = self.convert_anyvalue_to_basicvalue(value_to_store);
@@ -174,8 +187,14 @@ use super::named_value_store::NamedValueStore;
         {
 
                             let _type = assignment.value.get_type();
+                            dbg!(&_type);
                             let name = assignment.var_name.clone();
+
+                            dbg!(&assignment);
+
                             let variable_ptr = self.allocate_variable(&assignment);
+
+                            dbg!(&variable_ptr);
                             let value_of_variable =self.assign_variable(assignment,variable_ptr);
                             self.named_values.insert(NamedValue::new(name, _type, variable_ptr ));
 
@@ -221,6 +240,7 @@ use super::named_value_store::NamedValueStore;
                     let fixed_value = FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
                     conditional_as_float = self.fixed_decimal_to_float(fixed_value);
                 },
+                Type::Char(size) => {panic!("Can't support type Char in if conditional!");},
                 Type::TBD => {todo!("Can't support type TBD in if conditional!");},
                 Type::Float => {todo!("Can't support type Float in if conditional!");},
                 Type::Void => {todo!("Can't support type Void in if conditional!");},
@@ -349,6 +369,32 @@ use super::named_value_store::NamedValueStore;
                     }
         }
 
+        #[deprecated]
+        pub unsafe fn print_string(&'a self, message: Expr) -> CallSiteValue<'ctx>
+        {
+            if let Expr::Char { value } = message.clone()
+            {
+            let genned_string = message.codegen(self);
+
+            //let glob_string_ptr = self.builder.build_global_string_ptr("Hello World from PL/1!\n", "hello_world_str");
+            
+            let string_array: ArrayValue<'ctx> = genned_string.as_any_value_enum().into_array_value();
+            let test = self.builder.build_alloca(string_array.get_type(), "tmp_array").unwrap();
+            self.builder.build_store(test, string_array).unwrap();
+
+            let bitc = self.builder.build_bitcast(test, self.context.i8_type().ptr_type(AddressSpace::default()), "mybitcast").unwrap();
+
+            let res = 
+                self.builder.build_call(self.module.get_function("printf").unwrap(), &[BasicMetadataValueEnum::from(bitc)], "printf");
+
+            return res.unwrap();
+            }
+            else
+            {
+                todo!("PUT doesn't support non strings yet!");
+            }
+        }
+        #[deprecated]
         pub unsafe fn generate_hello_world_print(&'a self) -> CallSiteValue<'ctx>
         {
             
@@ -382,9 +428,15 @@ use super::named_value_store::NamedValueStore;
             {
                 Type::FixedDecimal =>
                 {
-                    let struct_value = result_value.into_struct_value();
-                    return Ok(Box::new(struct_value));
+                    let fixed_decimal_struct = result_value.into_struct_value();
+                    return Ok(Box::new(fixed_decimal_struct));
                 },
+                Type::Char(size) =>
+                {
+                    let character_array = result_value.into_array_value();
+                    return Ok(Box::new(character_array));
+                },
+
                 Type::TBD => {panic!("Tried to retrieve a variable of type TBD!")},
                 Type::Float => {panic!("Implement type Float")},
                 Type::Void => {panic!("Tried to retrieve a variable of type Void!")},
@@ -549,6 +601,7 @@ use super::named_value_store::NamedValueStore;
         pub fn create_entry_block_alloca(&self, argument_name: &str, function: &FunctionValue, argument_type: &Type ) -> PointerValue<'ctx> {
         let builder = self.context.create_builder();
         let llvm_type_of_alloca = self.convert_plick_type_to_llvm_basic_type(argument_type.clone());
+        dbg!(&llvm_type_of_alloca);
         let entry = function.get_first_basic_block().unwrap();
 
         match entry.get_first_instruction() {

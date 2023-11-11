@@ -131,6 +131,7 @@ pub fn compile_input(input: &str, config: Config)
 
                 println!("Module verification failed:");
                 println!("{}",err_message);
+                panic!("Failed Compilation!");
                 process::exit(1);
 
             }
@@ -149,6 +150,7 @@ pub fn compile_input(input: &str, config: Config)
 
                 println!("memory write failed:");
                 println!("{}",err_message);
+                panic!("test!");
                 process::exit(1);
 
             }
