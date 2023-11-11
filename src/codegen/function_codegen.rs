@@ -140,7 +140,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
                     self.builder.build_return(Some(&struct_value as &dyn BasicValue))
                     .map_err(|err| err.to_string())?;
                 },
-                Type::Char =>
+                Type::Char(size) =>
                 {
                     let struct_value = return_value_as_enum.into_array_value();
                     self.builder.build_return(Some(&struct_value as &dyn BasicValue))

@@ -46,7 +46,7 @@ pub enum Type
     ///The return type of some functions
     Void,
     ///The string type
-    Char,
+    Char(u32),
 }
 
 impl Display for Type
@@ -71,7 +71,6 @@ pub enum FixedRadix
 pub struct TypeModule<'ctx>
 {
     fixed_type: StructType<'ctx>,
-    char_type: ArrayType<'ctx>,
 }
 
 ///Takes two input types, and determines what the output type should be.
@@ -101,7 +100,6 @@ impl<'ctx> TypeModule<'ctx>
     {
         TypeModule {
             fixed_type: fixed_decimal::get_fixed_type(ctx),
-            char_type: character::get_character_type(ctx,5) 
         }
     }
 
@@ -122,6 +120,11 @@ impl<'a,'ctx> Compiler<'a,'ctx>
     {
     }
 
+    pub fn get_character_type(&self, size: u32) -> ArrayType<'ctx>
+    {
+        character::get_character_type(self.context, size)
+    }
+
     pub fn gen_const_fixed_decimal(&self, value: f64) -> StructValue<'ctx>
     {
         generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into()
@@ -136,7 +139,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match _type
         {
             Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),
-            Type::Char => self.type_module.char_type.as_basic_type_enum(),
+            Type::Char(size) => self.get_character_type(size).as_basic_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => panic!("Can't convert void type to basic type enum!"),
             Type::TBD => panic!("Can't convert TBD type to basic type enum!"),
@@ -147,7 +150,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match _type
         {
             Type::FixedDecimal => self.type_module.fixed_type.as_any_type_enum(),
-            Type::Char => self.type_module.char_type.as_any_type_enum(),
+            Type::Char(size) => self.get_character_type(size).as_any_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => self.context.void_type().as_any_type_enum(),
             Type::TBD => panic!("Can't convert TBD type to any type enum!"),

@@ -58,7 +58,7 @@ impl Expr
                 resolve_types(&left.get_type(), &right.get_type()).unwrap()
             },
             Expr::Assignment { ref variable_name, ref value } => Type::Void,
-            Expr::Char { value } => Type::Char,
+            Expr::Char { value } => Type::Char(value.len() as u32),
         }
     }
 }
