@@ -116,6 +116,14 @@ mod full_compile_tests
 
         test_normal_compile(input)
     }
+    #[test]
+    fn string_test() -> Result<(), Box<dyn Error>>
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        X = 'HELLO'; END;";
+
+        test_normal_compile(input)
+    }
 
 
 }

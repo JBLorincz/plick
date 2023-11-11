@@ -255,6 +255,7 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
     }
     else if let Expr::Char { value } = left_handed_side.clone()
     {
+        token_manager.next_token(); //eat the string token
         return left_handed_side;
     }
     return match token_manager.current_token {
@@ -451,6 +452,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
     let mut label: Option<String> = None;
     while let Some(ref token) = token_manager.current_token
     {
+        dbg!(&token);
         match token 
         {
             Token::SEMICOLON  => {
@@ -571,6 +573,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             //},
             _ => {
                 let expr = parse_expression(token_manager);
+                dbg!(&expr);
                 let new_command;
                 if let Expr::Assignment { variable_name, value } = expr
                 {
@@ -581,6 +584,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 {
                     new_command = Command::EXPR(expr)
                 }
+                dbg!(&command);
                 match command {
                     Command::Empty => command = new_command,
                     other_command => { return Err(get_error(&["4","expression", &other_command.to_string()])); }

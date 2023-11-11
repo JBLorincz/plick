@@ -99,8 +99,8 @@ use super::named_value_store::NamedValueStore;
                      let function_call_result = compiler.generate_function_call_code( fn_name, args );
                     function_call_result.unwrap()
                 },
-                _ => {
-                    panic!("Hit exhaustive match on codegen expressions!");
+                other => {
+                    todo!("Implement codegen ability for {:#?}", other);
                 },
             }
         }
