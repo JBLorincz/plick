@@ -1,3 +1,5 @@
+use std::string;
+
 use crate::lexer;
 use crate::types;
 use crate::types::BaseAttributes;
@@ -28,6 +30,9 @@ pub enum Expr
         value: i32,
         _type: types::Type,
     },
+    Char {
+        value: String
+    },
     Variable {
         _type: types::Type,
         name: String 
@@ -53,6 +58,7 @@ impl Expr
                 resolve_types(&left.get_type(), &right.get_type()).unwrap()
             },
             Expr::Assignment { ref variable_name, ref value } => Type::Void,
+            Expr::Char { value } => Type::Char,
         }
     }
 }

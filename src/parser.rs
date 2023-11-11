@@ -253,6 +253,10 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
         }
 
     }
+    else if let Expr::Char { value } = left_handed_side.clone()
+    {
+        return left_handed_side;
+    }
     return match token_manager.current_token {
               Some(Token::PLUS)
             | Some(Token::MINUS) 
@@ -312,6 +316,7 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
     Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
     Token::Identifier(_) => parse_identifier(token_manager),
     Token::NumVal(_) => parse_numeric(token_manager),
+    Token::STRING(value) => Expr::Char { value: value.clone() },
     other => panic!("Can't parse top level token type {:?}", other)
     }
 }
