@@ -45,7 +45,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
            
             self.build_return_value(&func)?;        
 
-            self.verify_function(function, &func); 
+            self.verify_function(function, &func)?; 
 
             Ok(function)
         }
@@ -152,14 +152,15 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
             };
         Ok(())
     }
-    fn verify_function(&self, function: FunctionValue, func: &ast::Function)
+    fn verify_function(&self, function: FunctionValue, func: &ast::Function) -> Result<(), String>
     {
         let failed_verification = !function.verify(true);
                 if failed_verification
                 {
                    let module_text = self.module.print_to_string();
-                   panic!("Function {} failed to verify: {}", func.prototype.fn_name.clone(), module_text);
+                   return Err(format!("Function {} failed to verify: {}", func.prototype.fn_name.clone(), module_text));
                 }
+                Ok(())
     }
     fn try_attach_debug_info(&self, func: &ast::Function) -> Option<DISubprogram>
     {
