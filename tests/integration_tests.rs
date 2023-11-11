@@ -150,6 +150,21 @@ mod should_fails
         
         test_normal_compile(input);
     }
+
+    #[test]
+    #[should_panic(expected="support type Char")]
+    fn string_conditional_panic() -> ()
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                    LOL: PROCEDURE (A);  RETURN A-4;
+                END;
+                LOL(2);
+                IF 'HELLO' THEN LOL;
+                END;";
+        
+        test_normal_compile(input);
+    }
      #[test]
      #[should_panic]
     fn test_unknown_function_panic_test() 
