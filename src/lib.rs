@@ -48,7 +48,10 @@ fn drive_compilation<'a,'ctx>(token_manager: &mut TokenManager, compiler: &'a mu
 
             Ok(())
 }
-
+pub fn initialize_logger()
+{
+    env_logger::init();
+}
 pub fn compile_input(input: &str, config: Config)
 {
          let filename = config.filename.clone();

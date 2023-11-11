@@ -7,11 +7,13 @@
 
 mod full_compile_tests
 {
+    use crate::common::initialize_test_logger;
+
     use super::*;
    #[test]
     fn file_test() -> Result<(), Box<dyn Error>> 
     {
-
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
 
 
@@ -47,7 +49,7 @@ mod full_compile_tests
      #[test]
     fn return_test() -> Result<(), Box<dyn Error>> 
     {
-
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  RETURN 999-444;
                 END;
@@ -67,6 +69,7 @@ mod full_compile_tests
      #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
     {
+        initialize_test_logger();
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE (A);  RETURN A-4;
@@ -84,6 +87,7 @@ mod full_compile_tests
      #[test]
     fn test_if_statement() -> Result<(), Box<dyn Error>> 
     {
+        initialize_test_logger();
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN PUT 'HELLO'; END;";
@@ -94,6 +98,7 @@ mod full_compile_tests
      #[test]
     fn test_if_else_statement() -> Result<(), Box<dyn Error>> 
     {
+        initialize_test_logger();
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; END;";
@@ -103,6 +108,7 @@ mod full_compile_tests
     #[test]
     fn mutation_test() -> Result<(), Box<dyn Error>>
     {
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'HELLO'; END;";
 
@@ -111,6 +117,7 @@ mod full_compile_tests
     #[test]
     fn drive_hello_world() -> Result<(), Box<dyn Error>>
     {
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         2 + 2 + 4 / 6; 2 + 4; END;";
 
@@ -119,6 +126,7 @@ mod full_compile_tests
     #[test]
     fn string_test() -> Result<(), Box<dyn Error>>
     {
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         X = 'HELLO'; END;";
 
@@ -127,6 +135,7 @@ mod full_compile_tests
     #[test]
     fn first_string_print_test() -> Result<(), Box<dyn Error>>
     {
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         PUT 'HELLO'; END;";
 
@@ -139,12 +148,13 @@ mod full_compile_tests
 mod should_fails
 {
     use super::*;
-
+    use super::common::initialize_test_logger;
      #[test]
      #[should_panic(expected = "after label")]
     fn test_double_label_panic() -> ()
     {
 
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: LOL: PROCEDURE (A);  A-4;
                 END;
@@ -164,6 +174,7 @@ mod should_fails
     fn string_conditional_panic() -> ()
     {
 
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE (A);  RETURN A-4;
                 END;
@@ -178,6 +189,7 @@ mod should_fails
     fn test_unknown_function_panic_test() 
     {
 
+        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 LOLOLOLOL();
                 END;";
@@ -193,8 +205,10 @@ mod lexer_and_parser_integration_tests
     use plick::parser;
     use plick::lexer;
     use plick::ast;
+    use super::common::initialize_test_logger;
     fn test_binaries()
     {
+        initialize_test_logger();
         let mut token_manager = lexer::TokenManager::new("2 + 2");
         let result = parser::parse_expression(&mut token_manager);
 

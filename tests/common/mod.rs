@@ -2,7 +2,11 @@ use std::error::Error;
 
 use plick::{Config, compile_input};
 
-
+pub fn initialize_test_logger()
+{
+    let _ = env_logger::builder().is_test(true).try_init();
+    //env_logger::init();
+}
 
 pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>>
 {
