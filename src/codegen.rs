@@ -221,6 +221,7 @@ use super::named_value_store::NamedValueStore;
                     let fixed_value = FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
                     conditional_as_float = self.fixed_decimal_to_float(fixed_value);
                 },
+                Type::Char => {panic!("Can't support type Char in if conditional!");},
                 Type::TBD => {todo!("Can't support type TBD in if conditional!");},
                 Type::Float => {todo!("Can't support type Float in if conditional!");},
                 Type::Void => {todo!("Can't support type Void in if conditional!");},
@@ -382,9 +383,15 @@ use super::named_value_store::NamedValueStore;
             {
                 Type::FixedDecimal =>
                 {
-                    let struct_value = result_value.into_struct_value();
-                    return Ok(Box::new(struct_value));
+                    let fixed_decimal_struct = result_value.into_struct_value();
+                    return Ok(Box::new(fixed_decimal_struct));
                 },
+                Type::Char =>
+                {
+                    let character_array = result_value.into_array_value();
+                    return Ok(Box::new(character_array));
+                },
+
                 Type::TBD => {panic!("Tried to retrieve a variable of type TBD!")},
                 Type::Float => {panic!("Implement type Float")},
                 Type::Void => {panic!("Tried to retrieve a variable of type Void!")},

@@ -8,6 +8,10 @@ use self::fixed_decimal::generate_fixed_decimal_code;
 
 /// Holds all type data
 pub mod fixed_decimal;
+pub mod character;
+
+const SIZE_OF_STRINGS: u32 = 255;
+
 //DCL (A,B,C,D,E) FIXED(3);
 
 
@@ -41,6 +45,8 @@ pub enum Type
     TBD,
     ///The return type of some functions
     Void,
+    ///The string type
+    Char,
 }
 
 impl Display for Type
@@ -65,6 +71,7 @@ pub enum FixedRadix
 pub struct TypeModule<'ctx>
 {
     fixed_type: StructType<'ctx>,
+    char_type: StructType<'ctx>,
 }
 
 ///Takes two input types, and determines what the output type should be.
@@ -93,7 +100,8 @@ impl<'ctx> TypeModule<'ctx>
     pub fn new(ctx: &'ctx Context) -> Self
     {
         TypeModule {
-            fixed_type: fixed_decimal::get_fixed_type(ctx) 
+            fixed_type: fixed_decimal::get_fixed_type(ctx),
+            char_type: character::get_character_type(ctx,SIZE_OF_STRINGS) 
         }
     }
 }
@@ -124,6 +132,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match _type
         {
             Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),
+            Type::Char => self.type_module.char_type.as_basic_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => panic!("Can't convert void type to basic type enum!"),
             Type::TBD => panic!("Can't convert TBD type to basic type enum!"),
@@ -134,6 +143,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match _type
         {
             Type::FixedDecimal => self.type_module.fixed_type.as_any_type_enum(),
+            Type::Char => self.type_module.char_type.as_any_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => self.context.void_type().as_any_type_enum(),
             Type::TBD => panic!("Can't convert TBD type to any type enum!"),
