@@ -10,44 +10,44 @@ use super::codegen::*;
 impl<'a, 'ctx> Compiler<'a, 'ctx>
     {
 
-        pub unsafe fn generate_function_code(&self, func: ast::Function) -> Result<FunctionValue<'ctx>, String>
+        pub unsafe fn generate_function_code(&self, function_ast: ast::Function) -> Result<FunctionValue<'ctx>, String>
         {
             
             //1. see if the function has already been defined
-            self.handle_if_function_has_already_been_defined(&func)?;
+            self.handle_if_function_has_already_been_defined(&function_ast)?;
             //2. clear the named values, which stores all the recognized identifiers
             self.named_values.clear();
     
-            let func_name = func.prototype.fn_name.clone();
-            let proto_args = func.prototype.args.clone();
-            let current_subprogram = self.try_attach_debug_info(&func);
+            let func_name = function_ast.prototype.fn_name.clone();
+            let proto_args = function_ast.prototype.args.clone();
+            let current_subprogram = self.try_attach_debug_info(&function_ast);
             
             //3. get a list of the arguments with their names and types
-            let args: Vec<(String, Type)> = self.get_function_argument_array(proto_args);
+            let args: Vec<ast::PrototypeArgument> = self.get_function_argument_array(proto_args);
 
-            let function = self.generate_function_prototype_code(func_name.clone(),args.clone(), func.return_type);
+            let llvm_function = self.generate_function_prototype_code(func_name.clone(),args.clone(), function_ast.return_type);
 
             self.check_if_function_body_is_empty();
 
             //create a new scope block for the function
-            let new_func_block: BasicBlock = self.context.append_basic_block(function, "entry");
+            let new_func_block: BasicBlock = self.context.append_basic_block(llvm_function, "entry");
 
             //position the builder's cursor inside that block
             self.builder.position_at_end(new_func_block);
 
-            self.fill_named_values_array(&function, &func, &args)?;
+            self.fill_named_values_array(&llvm_function, &function_ast, &args)?;
 
-            self.generate_body_statements_in_function(&func);
+            self.generate_body_statements_in_function(&function_ast);
 
-            self.remove_debug_lexical_block_if_debug(current_subprogram, &function); 
+            self.remove_debug_lexical_block_if_debug(current_subprogram, &llvm_function); 
 
-            self.check_if_function_has_a_return_value(&function,&func)?;
+            self.check_if_function_has_a_return_value(&llvm_function,&function_ast)?;
            
-            self.build_return_value(&func)?;        
+            self.build_return_value(&function_ast)?;        
 
-            self.verify_function(function, &func)?; 
+            self.verify_function(llvm_function, &function_ast)?; 
 
-            Ok(function)
+            Ok(llvm_function)
         }
 
     fn handle_if_function_has_already_been_defined(&self, func: &ast::Function) -> Result<(), String>
@@ -58,12 +58,12 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
             }
            Ok(())
     }
-    fn get_function_argument_array(&self,proto_args: Vec<String>) -> Vec<(String,Type)>
+    fn get_function_argument_array(&self,proto_args: Vec<String>) -> Vec<ast::PrototypeArgument>
     {
             proto_args
                 .clone()
                 .into_iter()
-                .map(|name| (name, Type::FixedDecimal))
+                .map(|name| ast::PrototypeArgument{ name, _type : Type::FixedDecimal })
                 .collect()
     }
     fn check_if_function_body_is_empty(&self)
@@ -71,11 +71,11 @@ impl<'a, 'ctx> Compiler<'a, 'ctx>
         return;
         todo!("Check if function body is empty. If so, have a way to terminate function generation.")
     }
-    fn fill_named_values_array(&self, function: &FunctionValue, func: &ast::Function, args: &Vec<(String,Type)>) -> Result<(), String>
+    fn fill_named_values_array(&self, function: &FunctionValue, func: &ast::Function, args: &Vec<ast::PrototypeArgument>) -> Result<(), String>
     {
             for (i,arg) in function.get_param_iter().enumerate()
             {
-                let alloca: PointerValue<'ctx> = self.create_entry_block_alloca(&args[i].0, &function,&args[i].1);
+                let alloca: PointerValue<'ctx> = self.create_entry_block_alloca(&args[i].name, &function,&args[i]._type);
                 self
                     .builder
                     .build_store(alloca, arg)

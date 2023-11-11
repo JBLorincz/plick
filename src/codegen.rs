@@ -226,15 +226,6 @@ use super::named_value_store::NamedValueStore;
                 Type::Void => {todo!("Can't support type Void in if conditional!");},
             };
 
-//            if let AnyValueEnum::FloatValue(val) = conditional_code.as_any_value_enum()
-//            {
-//                conditional_as_float = val;
-//            }
-//            else
-//            {
-//                panic!("Not a float value!"); 
-//            }
-
             let comparison = self
                 .builder
                 .build_float_compare(inkwell::FloatPredicate::ONE, conditional_as_float, self.generate_float_code(0.0), "ifcond")
@@ -439,11 +430,7 @@ use super::named_value_store::NamedValueStore;
                     },
                     other_type => todo!("Implement type conversion to llvm floatvalue for {:?}",other_type)
                 };
-                //panic!("{:?}, {:?}", lhstype, rhstype);
 
-                //let lhs_float = lhs_codegen.as_any_value_enum().into_float_value();
-                //let rhs_float = rhs_codegen.as_any_value_enum().into_float_value();
-                
                 if true
                 {
                 
@@ -517,12 +504,12 @@ use super::named_value_store::NamedValueStore;
             }
         }
 
-        pub unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, fn_arguments: Vec<(String, Type)>, return_type: Type) -> FunctionValue<'ctx>
+        pub unsafe fn generate_function_prototype_code(self: &'a Self, fn_name: String, fn_arguments: Vec<ast::PrototypeArgument>, return_type: Type) -> FunctionValue<'ctx>
         {
             let llvm_return_type: AnyTypeEnum<'ctx> = self.convert_plick_type_to_llvm_any_type(return_type);
             let is_variable_num_of_args = false; 
 
-           let args_types: Vec<Type> = fn_arguments.clone().into_iter().map(|arg| arg.1).collect();
+           let args_types: Vec<Type> = fn_arguments.clone().into_iter().map(|arg| arg._type).collect();
 
            let args_types: Vec<BasicMetadataTypeEnum> = args_types
                .into_iter()
@@ -553,7 +540,7 @@ use super::named_value_store::NamedValueStore;
             //name the arguments in the IR
             for (i,param) in llvm_function_value.get_param_iter().enumerate()
             {
-               param.set_name(fn_arguments[i].0.as_str());
+               param.set_name(fn_arguments[i].name.as_str());
             }
 
             llvm_function_value
