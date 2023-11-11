@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::vec;
 
 use crate::ast;
+use crate::ast::Expr;
 use crate::debugger::DebugController;
 use crate::error::get_error;
 use crate::lexer;
@@ -18,6 +19,7 @@ use crate::types::character;
 use crate::types::fixed_decimal;
 use crate::types::fixed_decimal::FixedValue;
 use crate::types::infer_pli_type_via_name;
+use inkwell::AddressSpace;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -123,7 +125,9 @@ use super::named_value_store::NamedValueStore;
             match self.command 
             {
             Command::Declare(_dec) => todo!("Implement codegen for declare statement"),
-            Command::PUT => Box::new(compiler.generate_hello_world_print()),
+            Command::PUT(msg) => {
+                return Box::new(compiler.print_string(msg.message_to_print));
+            },
             Command::EXPR(expr) => expr.codegen(compiler),
             Command::IF(if_statement) => Box::new(compiler.generate_if_statement_code(if_statement).unwrap()),
             Command::END => panic!("found END"),
@@ -365,6 +369,32 @@ use super::named_value_store::NamedValueStore;
                     }
         }
 
+        #[deprecated]
+        pub unsafe fn print_string(&'a self, message: Expr) -> CallSiteValue<'ctx>
+        {
+            if let Expr::Char { value } = message.clone()
+            {
+            let genned_string = message.codegen(self);
+
+            //let glob_string_ptr = self.builder.build_global_string_ptr("Hello World from PL/1!\n", "hello_world_str");
+            
+            let string_array: ArrayValue<'ctx> = genned_string.as_any_value_enum().into_array_value();
+            let test = self.builder.build_alloca(string_array.get_type(), "tmp_array").unwrap();
+            self.builder.build_store(test, string_array).unwrap();
+
+            let bitc = self.builder.build_bitcast(test, self.context.i8_type().ptr_type(AddressSpace::default()), "mybitcast").unwrap();
+
+            let res = 
+                self.builder.build_call(self.module.get_function("printf").unwrap(), &[BasicMetadataValueEnum::from(bitc)], "printf");
+
+            return res.unwrap();
+            }
+            else
+            {
+                todo!("PUT doesn't support non strings yet!");
+            }
+        }
+        #[deprecated]
         pub unsafe fn generate_hello_world_print(&'a self) -> CallSiteValue<'ctx>
         {
             

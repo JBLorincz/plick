@@ -28,15 +28,15 @@ mod full_compile_tests
 
 
 
-                BOL: PROCEDURE(); PUT; RETURN 0; END;
+                BOL: PROCEDURE(); PUT 'BOL'; RETURN 0; END;
                 LOL();
-                PUT;
+                PUT 'Second';
                 LOL();
                 BOL();
                 BOL();
                 LOL();
-                PUT;
-                PUT;
+                PUT 'Third';
+                PUT 'Fourth';
                 END;";
         
     let mut conf = common::generate_test_config();
@@ -51,15 +51,15 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  RETURN 999-444;
                 END;
-                BOL: PROCEDURE(); PUT; RETURN 0; END;
+                BOL: PROCEDURE(); PUT 'HELLO'; RETURN 0; END;
                 LOL();
-                PUT;
+                PUT 'HELLO';
                 LOL();
                 BOL();
                 BOL();
                 LOL();
-                PUT;
-                PUT;
+                PUT 'HELLO';
+                PUT 'HELLO';
                 END;";
         
                 test_normal_compile(input)
@@ -71,7 +71,7 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE (A);  RETURN A-4;
                 END;
-                BOL: PROCEDURE(); 4-7; PUT; RETURN 0; END;
+                BOL: PROCEDURE(); 4-7; PUT 'HELLO'; RETURN 0; END;
                 LOL(6);
                 LOL(8);
                 BOL();
@@ -86,7 +86,7 @@ mod full_compile_tests
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 0 THEN PUT; END;";
+                IF 0 THEN PUT 'HELLO'; END;";
         
         test_normal_compile(input)
     }
@@ -96,7 +96,7 @@ mod full_compile_tests
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 0 THEN DO; PUT; PUT; PUT; END; ELSE DO; PUT; PUT; PUT; PUT; END; END;";
+                IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; END;";
         test_normal_compile(input) 
     }
 
@@ -104,7 +104,7 @@ mod full_compile_tests
     fn mutation_test() -> Result<(), Box<dyn Error>>
     {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        FLAG = 1; FLAG = 0; IF FLAG THEN PUT; END;";
+        FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'HELLO'; END;";
 
         test_normal_compile(input)
     }
@@ -121,6 +121,14 @@ mod full_compile_tests
     {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         X = 'HELLO'; END;";
+
+        test_normal_compile(input)
+    }
+    #[test]
+    fn first_string_print_test() -> Result<(), Box<dyn Error>>
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        PUT 'HELLO'; END;";
 
         test_normal_compile(input)
     }

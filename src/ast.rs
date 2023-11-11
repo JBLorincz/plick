@@ -117,7 +117,7 @@ pub struct Statement {
 pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
-    PUT,
+    PUT(Put),
     IF(If),
     Declare(Declare),
     Assignment(Assignment),
@@ -156,4 +156,11 @@ pub struct Declare
 {
     pub var_name: String,
     pub attribute: Option<Type> 
+}
+
+
+#[derive(Debug,Clone)]
+pub struct Put
+{
+    pub message_to_print: Expr,
 }

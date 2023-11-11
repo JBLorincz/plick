@@ -404,6 +404,16 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
     Ok(Prototype { fn_name: label_name, args: args_list, source_loc })
 }
 
+
+pub fn parse_put(token_manager: &mut lexer::TokenManager) -> Result<Put, String>
+{
+    parse_token(token_manager, Token::PUT)?;
+    let expr_to_print = parse_expression(token_manager);
+
+    Ok(Put {message_to_print: expr_to_print})
+
+}
+
 pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: String) -> Result<Function, String>
 {
     let proto = parse_function_prototype(token_manager, label_name)?; 
@@ -476,10 +486,14 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             },
             Token::PUT => {
                 match command {
-                    Command::Empty => command = Command::PUT,             
+                    Command::Empty => command = Command::PUT(parse_put(token_manager)?),             
                     other_command => { return Err(get_error(&["4","PUT", &other_command.to_string()])); }
                 }
-                token_manager.next_token();
+                dbg!(&token_manager.current_token);
+                //panic!("Put just ran!");
+                parse_token(token_manager, Token::SEMICOLON)?;
+                break;
+                //token_manager.next_token();
             }
            Token::PROCEDURE => {
                let fn_name: String;
@@ -536,41 +550,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 token_manager.next_token();
                 break; 
             },
-            //Token::Identifier(identifier_string) =>{
-            //    //there's three cases here.
-            //    // 1. an assignment ( a = 2;)
-            //    // 2. a binary expression ( a + 4 / 2; )
-            //    // 3. a variable all by itself ( a; ) 
-            //    let identifier_st = identifier_string.clone();
-            //    token_manager.next_token();
-            //    let token_after_variable = token_manager.current_token.clone().unwrap();
-            //    match token_after_variable
-            //    {
-            //        Token::EQ =>{
-            //            token_manager.next_token();
-            //            let rhs_of_assignment = parse_expression(token_manager);
-            //            let assn = Assignment{var_name: identifier_st, value: rhs_of_assignment};
-            //            match command {
-            //                Command::Empty => command = Command::Assignment(assn),             
-            //                other_command => { return Err(get_error(&["4","Assignment", &other_command.to_string()])); }
-            //            }
-            //        }
-            //        Token::SEMICOLON => {
-            //            break;
-            //        },
-            //        current_tok => { //assume its a binary expression
-            //               let prec = get_binary_operator_precedence(&current_tok);
-            //               let lhs = Expr::Variable { name: identifier_st };
-            //               let bin_exp = build_recursive_binary_tree(token_manager, lhs, prec);
 
-            //         match command {
-            //            Command::Empty => command = Command::EXPR(bin_exp),
-            //            other_command => { return Err(get_error(&["4","expression", &other_command.to_string()])); }
-            //        }
-
-            //        },
-            //    }
-            //},
             _ => {
                 let expr = parse_expression(token_manager);
                 dbg!(&expr);
@@ -862,7 +842,7 @@ mod tests {
     #[test]
     fn test_parsing_if()
     {
-        let mut token_manager = TokenManager::new("IF 1 THEN PUT; END;");
+        let mut token_manager = TokenManager::new("IF 1 THEN PUT 'One Was Set!'; END;");
         let res = parse_if(&mut token_manager);
         let end = parse_statement(&mut token_manager);
         dbg!(&res);
@@ -909,7 +889,7 @@ mod tests {
     #[test]
     fn test_parsing_declare() -> Result<(),String>
     {
-        let mut token_manager = TokenManager::new("DECLARE x FIXED; PUT; PUT; PUT;");
+        let mut token_manager = TokenManager::new("DECLARE x FIXED; PUT 'HELLO'; PUT 'TWO'; PUT 'MESSAGE';");
 
         let decl = parse_declare(&mut token_manager)?;
         
