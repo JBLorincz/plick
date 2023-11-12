@@ -1,9 +1,10 @@
 use std::{env, process, fs};
 
-use plick::{Config, compile_input};
+use plick::{Config, compile_input, initialize_logger};
 
 fn main() {
     
+    initialize_logger();
     let cli_arguments = parse_cli_arguments();
 
     let file_to_compile_as_string = read_file_to_string(&cli_arguments.path_to_file);
