@@ -2,6 +2,7 @@
 use std::{env, fs::{self}, process};
 use codegen::codegen::{Compiler, CodeGenable};
 use lexer::{Token, TokenManager};
+use log::error;
 use parser::{parse_expression, parse_function, parse_opening };
 use inkwell::{targets::TargetMachine, types::{BasicMetadataTypeEnum, PointerType, FunctionType}, AddressSpace, module::{self, Module}, passes::PassManager};
 use inkwell::context;
@@ -132,8 +133,8 @@ pub fn compile_input(input: &str, config: Config)
             Ok(()) => println!("Module verified successfully!"),
             Err(err_message) => {
 
-                println!("Module verification failed:");
-                println!("{}",err_message);
+                error!("Module verification failed:");
+                error!("{}",err_message);
                 panic!("Failed Compilation!");
                 process::exit(1);
 
@@ -151,8 +152,8 @@ pub fn compile_input(input: &str, config: Config)
             Ok(_memoryBuffer) => println!("Written to memory buffer successfully!"),
             Err(err_message) => {
 
-                println!("memory write failed:");
-                println!("{}",err_message);
+                error!("memory write failed:");
+                error!("{}",err_message);
                 panic!("test!");
                 process::exit(1);
 

@@ -2,11 +2,14 @@
     
     use common::test_normal_compile;
     use plick::{compile_input, Config};
+    use log::{debug, error, trace, log_enabled, info, Level};
 
     mod common;
 
 mod full_compile_tests
 {
+    use log::warn;
+
     use crate::common::initialize_test_logger;
 
     use super::*;
@@ -14,6 +17,10 @@ mod full_compile_tests
     fn file_test() -> Result<(), Box<dyn Error>> 
     {
         initialize_test_logger();
+        error!("IM LOGGING MY FIRST ERROR!");
+        warn!("IM LOGGING MY FIRST WARN!");
+        debug!("IM LOGGING MY FIRST DEBUG!");
+        debug!("IM LOGGING MY FIRST TRACE!");
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
 
 

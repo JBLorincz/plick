@@ -3,6 +3,7 @@ use crate::error;
 use crate::ast::*;
 use crate::types::Type;
 
+use log::trace;
 
 ///Helper function used to advance the token manager,
 ///ensuring the token that was 'eaten' was the expected
@@ -158,11 +159,12 @@ pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Sta
 
 //parses identifiers like variable names but also function calls
 pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+     trace!("Parsing Identifier");
      let identifier_string: String;
    if let Some(Token::Identifier(ref val)) = token_manager.current_token 
    {
         identifier_string = val.clone();
-        println!("The identifier string is: {}",identifier_string);
+        trace!("The identifier string is: {}",identifier_string);
    }
    else {
        panic!("failed to parse identifier!");
@@ -171,17 +173,17 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
        token_manager.next_token();// prime next token
        if let Some(Token::OPEN_PAREN) = token_manager.current_token // if this is a function call
        {
-           println!("Found an open parenthesis first!");
+           trace!("Found an open parenthesis first!");
            //function call here.
            //now we loop through each expression in the arguments
            let mut expecting_comma: bool = false;// expecting comma does not affect breaking
-            println!("Turning expecting comma off!"); 
+            trace!("Turning expecting comma off!"); 
             token_manager.next_token();
            loop {
-                println!("Looping!");
+                trace!("Looping!");
                 if let Some(Token::CLOSED_PAREN) = token_manager.current_token
                 {
-                    println!("found a closed parenthesis!");
+                    trace!("found a closed parenthesis!");
                     token_manager.next_token();// eat the next token, ready for next use
                     break;
                 }
@@ -189,7 +191,7 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
                 {
                     if expecting_comma
                     {
-                        println!("Found comma at right place, continuing!");
+                        trace!("Found comma at right place, continuing!");
                         expecting_comma = false;
                         token_manager.next_token();// eat the token
 
@@ -202,13 +204,13 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
                 else if let Some(ref token) = token_manager.current_token
                 {
                     //parse as expression
-                    println!("Found a token called {:#?}", *token);
+                    trace!("Found a token called {:#?}", *token);
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     args_list.push(parsed_arg);
 
                     expecting_comma = true;
-                    println!("turned expecting comma on!");
+                    trace!("turned expecting comma on!");
                 }
                 else 
                 {
@@ -375,7 +377,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                 else if let Some(ref token) = token_manager.current_token
                 {
                     //parse as expression
-                    println!("Found a token called {:#?}", *token);
+                    trace!("Found a token called {:#?}", *token);
                     let parsed_arg: Expr = parse_expression(token_manager);
 
                     let arg_name: String;
@@ -391,7 +393,7 @@ pub fn parse_function_prototype(token_manager: &mut lexer::TokenManager, label_n
                     args_list.push(arg_name);
 
                     expecting_comma = true;
-                    println!("turned expecting comma on!");
+                    trace!("turned expecting comma on!");
                 }
                 else 
                 {
@@ -446,7 +448,7 @@ pub fn parse_function(token_manager: &mut lexer::TokenManager, label_name: Strin
         }
     }
 
-    println!("Exiting the function parsing!");
+    trace!("Exiting the function parsing!");
     
 
     parse_token(token_manager, Token::SEMICOLON)?;

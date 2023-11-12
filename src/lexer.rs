@@ -1,4 +1,5 @@
 use crate::{debugger::DebugController, ast::SourceLocation};
+use log::{debug, error, trace, log_enabled, info, Level};
 
 
     pub fn get_token_list(compilable_file: &str) -> Vec<Token>
@@ -7,7 +8,7 @@ use crate::{debugger::DebugController, ast::SourceLocation};
         let token_iter = TokenIterator::new(char_iter);
 
         let result = token_iter.collect();
-        println!("{:?}",result);
+        trace!("token list loaded: {:?}",result);
         result
     }
 
@@ -182,7 +183,7 @@ use crate::{debugger::DebugController, ast::SourceLocation};
                 }
                 else if is_special && current_character == '/'
                 {
-                    println!("THIS IS THE CHAR!");
+                    trace!("/ character found in lexing");
                     let next_lext_char = self.get_next_char();
                     let ch = next_lext_char?;
 
