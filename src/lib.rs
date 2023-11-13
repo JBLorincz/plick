@@ -68,12 +68,34 @@ pub fn initialize_logger() {
     env_logger::init();
 }
 pub fn compile_input(input: &str, config: Config) {
+    //let filename = config.filename.clone();
 
-    execute_compilation_actions(input, &config, |token_manager,compiler,target_machine| {
+    //let target_machine = build_default_target_machine(&config);
+    ////create compiler dependencies
+    //let c = context::Context::create();
+    //let b = c.create_builder();
+    //let m = c.create_module("globalMod");
 
+    //let mut optional_debugger: Option<&DebugController<'_>> = None;
+    //let debugger: DebugController;
 
-    let compilation_result = drive_compilation(token_manager,compiler);
- if let Err(err_msg) = compilation_result {
+    //if config.debug_mode {
+    //    debugger = setup_module_for_debugging(&m, &config);
+    //    optional_debugger = Some(&debugger);
+    //}
+
+    //let mut compiler = codegen::codegen::Compiler::new(&c, &b, &m, optional_debugger);
+
+    //let mut token_manager = lexer::TokenManager::new(input);
+
+    //if let Some(dbg) = optional_debugger {
+    //    token_manager.attach_debugger(dbg);
+    //}
+
+    execute_compilation_actions(input, &config, |token_manager, compiler, target_machine| {
+    let compilation_result = drive_compilation(token_manager, compiler);
+
+    if let Err(err_msg) = compilation_result {
         panic!("{}", err_msg);
     }
 
@@ -128,19 +150,19 @@ pub fn compile_input(input: &str, config: Config) {
     }
 
     });
+    
+}
 
-   }
-
-pub fn compile_input_to_memory(input: &str, config: Config) -> Result<MemoryBuffer, String> {
+pub fn compile_input_to_memory(input: &str, config: &Config) -> Result<MemoryBuffer, String> {
     Err(String::from("NotImplemented!"))
 }
 
 
-pub fn execute_compilation_actions<F: Fn(&mut TokenManager, &mut Compiler, &mut TargetMachine) -> () >(input: &str, config: &Config, closure: F)
+pub fn execute_compilation_actions<F: Fn(&mut TokenManager, &mut Compiler, &TargetMachine)>(input: &str, config: &Config, closure: F)
 {
     let filename = config.filename.clone();
 
-    let mut target_machine = build_default_target_machine(&config);
+    let target_machine = build_default_target_machine(&config);
     //create compiler dependencies
     let c = context::Context::create();
     let b = c.create_builder();
@@ -161,7 +183,7 @@ pub fn execute_compilation_actions<F: Fn(&mut TokenManager, &mut Compiler, &mut 
     if let Some(dbg) = optional_debugger {
         token_manager.attach_debugger(dbg);
     }
-    closure(&mut token_manager, &mut compiler,&mut target_machine);
+    closure(&mut token_manager, &mut compiler, &target_machine);
 }
 
 
