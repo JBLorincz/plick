@@ -4,44 +4,35 @@ use std::collections::HashMap;
 #[macro_use]
 mod errors;
 
-pub fn get_error(params: &[&str]) -> String
-{
-    if params.len() == 0
-    {
+pub fn get_error(params: &[&str]) -> String {
+    if params.len() == 0 {
         return "Unknown Error".to_string();
     }
     let split_op = params.split_first();
-    if let None = split_op
-    {
+    if let None = split_op {
         return "Unknown Error".to_string();
     }
-    
+
     let arguments = split_op.unwrap().1;
     let error_code = params[0];
-    for error_pair in DIAGNOSTICS.iter()
-    {
+    for error_pair in DIAGNOSTICS.iter() {
         let full_error_code = error_pair.0;
-        if full_error_code.ends_with(error_code)
-        {
+        if full_error_code.ends_with(error_code) {
             let mut error_message = error_pair.1.to_string();
-            for (i,arg) in arguments.iter().enumerate()
-            {
-                error_message = error_message.replace(format!("[{}]",i).as_str(), arg);
+            for (i, arg) in arguments.iter().enumerate() {
+                error_message = error_message.replace(format!("[{}]", i).as_str(), arg);
             }
 
-
-            let msg = format!("Error {}: {}",full_error_code,error_message);
+            let msg = format!("Error {}: {}", full_error_code, error_message);
             return msg;
         }
     }
 
-
     return "Unknown Error".to_string();
 }
 
-
 //The way to use this: get_error(&["8", "This is dynamic arguments here"]);
-create_errors!{
+create_errors! {
     E001: "Expected '[0]', recieved '[1]'",
     E002: "End of file was reached unexpectedly",
     E003: "Can't declare label '[0]' after label '[1]'",
