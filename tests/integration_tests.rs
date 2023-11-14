@@ -1,26 +1,18 @@
     use std::error::Error;
     
     use common::test_normal_compile;
-    use plick::{compile_input, Config};
-    use log::{debug, error, trace, log_enabled, info, Level};
+    use log::{debug, error, warn, trace, log_enabled, info, Level};
 
     mod common;
 
 mod full_compile_tests
 {
-    use log::warn;
-
-    use crate::common::initialize_test_logger;
+    use crate::common::{initialize_test_logger, run_new_test};
 
     use super::*;
    #[test]
     fn file_test() -> Result<(), Box<dyn Error>> 
     {
-        initialize_test_logger();
-        error!("IM LOGGING MY FIRST ERROR!");
-        warn!("IM LOGGING MY FIRST WARN!");
-        debug!("IM LOGGING MY FIRST DEBUG!");
-        debug!("IM LOGGING MY FIRST TRACE!");
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
 
 
@@ -47,20 +39,19 @@ mod full_compile_tests
                 PUT 'Third';
                 PUT 'Fourth';
                 END;";
-        
-    let mut conf = common::generate_test_config();
-    conf.filename = "file_test.o".to_string();
-        compile_input(input,conf);
-        Ok(())
-    }
+
+            let output = run_new_test(input)?;
+            Ok(())
+
+
+      }
      #[test]
     fn return_test() -> Result<(), Box<dyn Error>> 
     {
-        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE ();  RETURN 999-444;
                 END;
-                BOL: PROCEDURE(); PUT 'HELLO'; RETURN 0; END;
+                BOL: PROCEDURE(); PUT ' BOL '; RETURN 0; END;
                 LOL();
                 PUT 'HELLO';
                 LOL();
@@ -71,13 +62,15 @@ mod full_compile_tests
                 PUT 'HELLO';
                 END;";
         
-                test_normal_compile(input)
+
+
+            let output = run_new_test(input)?;
+            assert_eq!("HELLO BOL  BOL HELLOHELLO", output.stdout);
+            Ok(())
     }
      #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
     {
-        initialize_test_logger();
-
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                     LOL: PROCEDURE (A);  RETURN A-4;
                 END;
@@ -88,65 +81,83 @@ mod full_compile_tests
                 BOL();
                 LOL(2);
                 END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("HELLOHELLO", output.stdout);
+        Ok(())
+
         
-        test_normal_compile(input)
     }
      #[test]
     fn test_if_statement() -> Result<(), Box<dyn Error>> 
     {
-        initialize_test_logger();
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 0 THEN PUT 'HELLO'; END;";
+                IF 0 THEN PUT 'INLINE IF IS TRUE\n'; END;";
         
-        test_normal_compile(input)
+        let output = run_new_test(input)?;
+        assert_eq!("", output.stdout);
+        Ok(())
+
     }
 
      #[test]
     fn test_if_else_statement() -> Result<(), Box<dyn Error>> 
     {
-        initialize_test_logger();
-
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; END;";
-        test_normal_compile(input) 
+                IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("HELLOHELLOHELLOHELLO\n", output.stdout);
+        Ok(())
+
     }
 
     #[test]
     fn mutation_test() -> Result<(), Box<dyn Error>>
     {
-        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'HELLO'; END;";
+        FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'FOOBIE\n'; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("", output.stdout);
+        Ok(())
 
-        test_normal_compile(input)
+
     }
     #[test]
     fn drive_hello_world() -> Result<(), Box<dyn Error>>
     {
-        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         2 + 2 + 4 / 6; 2 + 4; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("", output.stdout);
+        Ok(())
 
-        test_normal_compile(input)
     }
     #[test]
     fn string_test() -> Result<(), Box<dyn Error>>
     {
-        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         X = 'HELLO'; END;";
 
-        test_normal_compile(input)
+        let output = run_new_test(input)?;
+        assert_eq!("", output.stdout);
+        Ok(())
+
+
     }
+
     #[test]
     fn first_string_print_test() -> Result<(), Box<dyn Error>>
     {
-        initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PUT 'HELLO'; END;";
+        PUT 'BEEP'; END;";
 
-        test_normal_compile(input)
+        let output = run_new_test(input)?;
+        assert_eq!("BEEP", output.stdout);
+        Ok(())
     }
 
 
@@ -173,6 +184,7 @@ mod should_fails
                 LOL(2);
                 END;";
         
+
         test_normal_compile(input);
     }
 
