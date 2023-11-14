@@ -21,6 +21,30 @@ pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>>
         compile_input(input,conf);
         Ok(())
 }
+
+
+pub fn run_new_test(input: &str) -> Result<RunTestResult, Box<dyn Error>>
+{
+       initialize_test_logger();
+
+        let output = test_memory_compile_and_run(input)?;
+
+            let output_string: String;
+            let stderr_string: String;
+            let exit_code: i32;
+    unsafe
+        {
+            output_string = String::from_utf8_unchecked(output.stdout);
+            stderr_string = String::from_utf8_unchecked(output.stderr);
+            exit_code = output.status.code().unwrap_or(0);
+        }
+
+        
+        
+        Ok(RunTestResult::new(output_string,stderr_string,exit_code))
+
+}
+
 pub fn test_memory_compile_and_run(input: &str) -> Result<Output, Box<dyn Error>>
 {
 
@@ -96,6 +120,22 @@ fn cleanup(&self)
            .expect("Trouble running file!");
 }
 
+}
+
+
+pub struct RunTestResult
+{
+    pub stdout: String,
+    pub stderr: String,
+    pub error_code: i32,
+}
+
+impl RunTestResult
+{
+    pub fn new(stdout: String, stderr: String, errorcode: i32) -> Self
+    {
+        RunTestResult { stdout, stderr, error_code: errorcode }
+    }
 }
 
 
