@@ -1,16 +1,13 @@
     use std::error::Error;
     
     use common::test_normal_compile;
-    use plick::{compile_input, Config};
-    use log::{debug, error, trace, log_enabled, info, Level};
+    use log::{debug, error, warn, trace, log_enabled, info, Level};
 
     mod common;
 
 mod full_compile_tests
 {
-    use log::warn;
-
-    use crate::common::{initialize_test_logger, test_memory_compile_and_run, run_new_test};
+    use crate::common::{initialize_test_logger, run_new_test};
 
     use super::*;
    #[test]

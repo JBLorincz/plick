@@ -95,33 +95,6 @@ pub fn compile_input(input: &str, config: Config) {
     });
 }
 
-pub fn compile_input_to_memory(input: &str, config: &Config) -> Result<MemoryBuffer, String> {
-
-    let mut membuf: Option<MemoryBuffer> = None;
-    execute_compilation_actions(input, &config, &mut |token_manager, compiler, target_machine| {
-        let compilation_result = drive_compilation(token_manager, compiler);
-
-        if let Err(err_msg) = compilation_result {
-            panic!("{}", err_msg);
-        }
-
-        if let Some(dbg) = compiler.debug_controller {
-            dbg.builder.finalize();
-        }
-
-        //comment for finalize says call before verification
-        if config.print_ir {
-            println!("{}", compiler.module.print_to_string());
-        }
-
-        verify_module(&compiler);
-
-        membuf = Some(output_module_to_memory_buffer(compiler, target_machine));
-
-    });
-    membuf.ok_or("Unable to get memory buffer!".to_string())
-}
-
 pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &TargetMachine)>(
     input: &str,
     config: &Config,

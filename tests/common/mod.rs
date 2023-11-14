@@ -1,7 +1,6 @@
 use std::{error::Error, env, mem, process::{Command, Output}, time::UNIX_EPOCH};
 
-use plick::{Config, compile_input, compile_input_to_memory};
-use env_logger::Env;
+use plick::{Config, compile_input};
 use uuid::Uuid;
 const RUST_LOG_CONFIG_STRING: &str = "trace";
 pub fn initialize_test_logger()
@@ -11,7 +10,6 @@ pub fn initialize_test_logger()
     }
 
     let _ = env_logger::builder().is_test(true).try_init();
-    //env_logger::init();
 }
 
 pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>>
@@ -27,7 +25,7 @@ pub fn run_new_test(input: &str) -> Result<RunTestResult, Box<dyn Error>>
 {
        initialize_test_logger();
 
-        let output = test_memory_compile_and_run(input)?;
+        let output = full_compile_test_and_run(input)?;
 
             let output_string: String;
             let stderr_string: String;
@@ -45,7 +43,7 @@ pub fn run_new_test(input: &str) -> Result<RunTestResult, Box<dyn Error>>
 
 }
 
-pub fn test_memory_compile_and_run(input: &str) -> Result<Output, Box<dyn Error>>
+pub fn full_compile_test_and_run(input: &str) -> Result<Output, Box<dyn Error>>
 {
 
     let mut conf = generate_test_config();
