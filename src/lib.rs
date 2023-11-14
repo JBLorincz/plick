@@ -2,6 +2,7 @@
 use codegen::codegen::{CodeGenable, Compiler};
 use inkwell::builder::Builder;
 use inkwell::context::{self, Context};
+use inkwell::memory_buffer;
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::{self, Module},
@@ -68,98 +69,64 @@ pub fn initialize_logger() {
     env_logger::init();
 }
 pub fn compile_input(input: &str, config: Config) {
-    //let filename = config.filename.clone();
+    execute_compilation_actions(input, &config, &mut |token_manager, compiler, target_machine| {
+        let compilation_result = drive_compilation(token_manager, compiler);
 
-    //let target_machine = build_default_target_machine(&config);
-    ////create compiler dependencies
-    //let c = context::Context::create();
-    //let b = c.create_builder();
-    //let m = c.create_module("globalMod");
-
-    //let mut optional_debugger: Option<&DebugController<'_>> = None;
-    //let debugger: DebugController;
-
-    //if config.debug_mode {
-    //    debugger = setup_module_for_debugging(&m, &config);
-    //    optional_debugger = Some(&debugger);
-    //}
-
-    //let mut compiler = codegen::codegen::Compiler::new(&c, &b, &m, optional_debugger);
-
-    //let mut token_manager = lexer::TokenManager::new(input);
-
-    //if let Some(dbg) = optional_debugger {
-    //    token_manager.attach_debugger(dbg);
-    //}
-
-    execute_compilation_actions(input, &config, |token_manager, compiler, target_machine| {
-    let compilation_result = drive_compilation(token_manager, compiler);
-
-    if let Err(err_msg) = compilation_result {
-        panic!("{}", err_msg);
-    }
-
-    if let Some(dbg) = compiler.debug_controller {
-        dbg.builder.finalize();
-    }
-
-    //comment for finalize says call before verification
-
-    let module_verification_result = compiler.module.verify();
-
-    if config.print_ir {
-        println!("{}", compiler.module.print_to_string());
-    }
-
-    match module_verification_result {
-        Ok(()) => println!("Module verified successfully!"),
-        Err(err_message) => {
-            error!("Module verification failed:");
-            error!("{}", err_message);
-            panic!("Failed Compilation!");
-            process::exit(1);
+        if let Err(err_msg) = compilation_result {
+            panic!("{}", err_msg);
         }
-    }
 
-    if config.dry_run {
-        let write_to_memory_result =
-            target_machine.write_to_memory_buffer(&compiler.module, inkwell::targets::FileType::Object);
-        match write_to_memory_result {
-            Ok(_memoryBuffer) => println!("Written to memory buffer successfully!"),
-            Err(err_message) => {
-                error!("memory write failed:");
-                error!("{}", err_message);
-                panic!("test!");
-                process::exit(1);
-            }
+        if let Some(dbg) = compiler.debug_controller {
+            dbg.builder.finalize();
         }
-    } else {
-        let write_to_file_result = target_machine.write_to_file(
-            &compiler.module,
-            inkwell::targets::FileType::Object,
-            Path::new(&config.filename),
-        );
-        match write_to_file_result {
-            Ok(()) => println!("Written to file successfully!"),
-            Err(err_message) => {
-                println!("file write failed:");
-                println!("{}", err_message);
-                process::exit(1);
-            }
-        }
-    }
 
+        //comment for finalize says call before verification
+        if config.print_ir {
+            println!("{}", compiler.module.print_to_string());
+        }
+
+        verify_module(&compiler);
+
+        if config.dry_run {
+            output_module_to_memory_buffer(&compiler, target_machine);
+        } else {
+            output_module_to_file(compiler, &config, target_machine);
+        }
     });
-    
 }
 
 pub fn compile_input_to_memory(input: &str, config: &Config) -> Result<MemoryBuffer, String> {
-    Err(String::from("NotImplemented!"))
+
+    let mut membuf: Option<MemoryBuffer> = None;
+    execute_compilation_actions(input, &config, &mut |token_manager, compiler, target_machine| {
+        let compilation_result = drive_compilation(token_manager, compiler);
+
+        if let Err(err_msg) = compilation_result {
+            panic!("{}", err_msg);
+        }
+
+        if let Some(dbg) = compiler.debug_controller {
+            dbg.builder.finalize();
+        }
+
+        //comment for finalize says call before verification
+        if config.print_ir {
+            println!("{}", compiler.module.print_to_string());
+        }
+
+        verify_module(&compiler);
+
+        membuf = Some(output_module_to_memory_buffer(compiler, target_machine));
+
+    });
+    membuf.ok_or("Unable to get memory buffer!".to_string())
 }
 
-
-pub fn execute_compilation_actions<F: Fn(&mut TokenManager, &mut Compiler, &TargetMachine)>(input: &str, config: &Config, closure: F)
-{
+pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &TargetMachine)>(
+    input: &str,
+    config: &Config,
+    closure: &mut F,
+) {
     let filename = config.filename.clone();
 
     let target_machine = build_default_target_machine(&config);
@@ -186,6 +153,52 @@ pub fn execute_compilation_actions<F: Fn(&mut TokenManager, &mut Compiler, &Targ
     closure(&mut token_manager, &mut compiler, &target_machine);
 }
 
+fn output_module_to_memory_buffer(compiler: &Compiler, target_machine: &TargetMachine)
+    -> MemoryBuffer
+{
+    let write_to_memory_result =
+        target_machine.write_to_memory_buffer(&compiler.module, inkwell::targets::FileType::Object);
+    match write_to_memory_result {
+        Ok(memory_buffer) => memory_buffer,
+        Err(err_message) => {
+            error!("memory write failed:");
+            error!("{}", err_message);
+            panic!("test!");
+            process::exit(1);
+        }
+    }
+}
+
+fn verify_module(compiler: &Compiler) {
+    let module_verification_result = compiler.module.verify();
+
+    match module_verification_result {
+        Ok(()) => println!("Module verified successfully!"),
+        Err(err_message) => {
+            error!("Module verification failed:");
+            error!("{}", err_message);
+            panic!("Failed Compilation!");
+            process::exit(1);
+        }
+    }
+}
+
+fn output_module_to_file(compiler: &Compiler, config: &Config, target_machine: &TargetMachine) 
+{
+    let write_to_file_result = target_machine.write_to_file(
+        &compiler.module,
+        inkwell::targets::FileType::Object,
+        Path::new(&config.filename),
+    );
+    match write_to_file_result {
+        Ok(()) => println!("Written to file successfully!"),
+        Err(err_message) => {
+            println!("file write failed:");
+            println!("{}", err_message);
+            process::exit(1);
+        }
+    }
+}
 
 fn build_default_target_machine(config: &Config) -> TargetMachine {
     let filename = config.filename.clone();
@@ -245,4 +258,3 @@ impl Default for Config {
         }
     }
 }
-

@@ -1,7 +1,8 @@
-use std::{error::Error, env};
+use std::{error::Error, env, mem, process::Command, time::UNIX_EPOCH};
 
-use plick::{Config, compile_input};
+use plick::{Config, compile_input, compile_input_to_memory};
 use env_logger::Env;
+use uuid::Uuid;
 const RUST_LOG_CONFIG_STRING: &str = "trace";
 pub fn initialize_test_logger()
 {
@@ -19,6 +20,79 @@ pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>>
     let conf = generate_test_config();
         compile_input(input,conf);
         Ok(())
+}
+pub fn test_memory_compile_and_run(input: &str) -> Result<(), Box<dyn Error>>
+{
+
+    let mut conf = generate_test_config();
+
+        let mystr: String = Uuid::new_v4().into();
+        let path_to_object_file = "TEST_".to_string() + &mystr + ".o";
+        let path_to_exe = "EXE_".to_string() + &mystr + ".exe";
+        conf.filename = path_to_object_file.clone();
+        
+        let membuf = compile_input(input,conf);
+        
+
+        let path_to_exe = "./".to_string()+&path_to_exe;
+
+        let test_file = TestFile::new(&path_to_exe, &path_to_object_file);
+
+        test_file.link_file()?;
+        test_file.run_file();
+        test_file.cleanup();
+
+             Ok(()) 
+}
+
+
+
+struct TestFile
+{
+    path_to_exe: String,
+    path_to_object_file: String
+}
+impl TestFile
+{
+pub fn new(exe: &str, obj: &str) -> Self
+{
+    TestFile { path_to_exe: exe.to_string(), path_to_object_file: obj.to_string() }
+}
+fn link_file(&self) -> Result<(), Box<dyn Error>>
+{
+       Command::new("cc")
+        .arg(&self.path_to_object_file)
+        .arg("-o")
+        .arg(&self.path_to_exe)
+        .spawn()
+        .expect("cc command failed to start")
+        .wait()?;
+
+       Ok(())
+}
+
+fn run_file(&self)
+{
+        dbg!(&self.path_to_exe);
+       Command::new(&self.path_to_exe)
+           .spawn()
+           .expect("Failed to run the test command!")
+           .wait()
+           .expect("Trouble running file!");
+
+}
+
+fn cleanup(&self)
+{
+       Command::new("rm")
+            .arg(&self.path_to_exe)
+            .arg(&self.path_to_object_file)
+           .spawn()
+           .expect("Failed to run the test command!")
+           .wait()
+           .expect("Trouble running file!");
+}
+
 }
 
 

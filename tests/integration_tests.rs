@@ -10,7 +10,7 @@ mod full_compile_tests
 {
     use log::warn;
 
-    use crate::common::initialize_test_logger;
+    use crate::common::{initialize_test_logger, test_memory_compile_and_run};
 
     use super::*;
    #[test]
@@ -109,7 +109,9 @@ mod full_compile_tests
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; END;";
-        test_normal_compile(input) 
+        //test_normal_compile(input)
+        test_memory_compile_and_run(input)
+        //panic!("wat?");
     }
 
     #[test]
