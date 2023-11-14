@@ -97,9 +97,9 @@ mod full_compile_tests
         initialize_test_logger();
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 0 THEN PUT 'HELLO'; END;";
+                IF 0 THEN PUT 'INLINE IF IS TRUE\n'; END;";
         
-        test_normal_compile(input)
+        test_memory_compile_and_run(input)
     }
 
      #[test]
@@ -108,10 +108,8 @@ mod full_compile_tests
         initialize_test_logger();
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; END; END;";
-        //test_normal_compile(input)
+                IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
         test_memory_compile_and_run(input)
-        //panic!("wat?");
     }
 
     #[test]
@@ -119,9 +117,9 @@ mod full_compile_tests
     {
         initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'HELLO'; END;";
+        FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'FOOBIE\n'; END;";
 
-        test_normal_compile(input)
+        test_memory_compile_and_run(input)
     }
     #[test]
     fn drive_hello_world() -> Result<(), Box<dyn Error>>
@@ -130,7 +128,8 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         2 + 2 + 4 / 6; 2 + 4; END;";
 
-        test_normal_compile(input)
+
+        test_memory_compile_and_run(input)
     }
     #[test]
     fn string_test() -> Result<(), Box<dyn Error>>
@@ -139,7 +138,7 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         X = 'HELLO'; END;";
 
-        test_normal_compile(input)
+        test_memory_compile_and_run(input)
     }
     #[test]
     fn first_string_print_test() -> Result<(), Box<dyn Error>>
@@ -148,7 +147,7 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         PUT 'HELLO'; END;";
 
-        test_normal_compile(input)
+        test_memory_compile_and_run(input)
     }
 
 
@@ -175,6 +174,7 @@ mod should_fails
                 LOL(2);
                 END;";
         
+
         test_normal_compile(input);
     }
 
