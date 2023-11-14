@@ -99,7 +99,10 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN PUT 'INLINE IF IS TRUE\n'; END;";
         
-        test_memory_compile_and_run(input)
+        test_memory_compile_and_run(input)?;
+
+
+        Ok(())
     }
 
      #[test]
@@ -109,7 +112,10 @@ mod full_compile_tests
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
-        test_memory_compile_and_run(input)
+        test_memory_compile_and_run(input)?;
+
+
+        Ok(())
     }
 
     #[test]
@@ -118,8 +124,12 @@ mod full_compile_tests
         initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         FLAG = 1; FLAG = 0; IF FLAG THEN PUT 'FOOBIE\n'; END;";
+        
+        test_memory_compile_and_run(input)?;
 
-        test_memory_compile_and_run(input)
+
+        Ok(())
+
     }
     #[test]
     fn drive_hello_world() -> Result<(), Box<dyn Error>>
@@ -127,9 +137,13 @@ mod full_compile_tests
         initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         2 + 2 + 4 / 6; 2 + 4; END;";
+        
+        test_memory_compile_and_run(input)?;
 
 
-        test_memory_compile_and_run(input)
+        Ok(())
+
+
     }
     #[test]
     fn string_test() -> Result<(), Box<dyn Error>>
@@ -137,17 +151,32 @@ mod full_compile_tests
         initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         X = 'HELLO'; END;";
+        
+        test_memory_compile_and_run(input)?;
 
-        test_memory_compile_and_run(input)
+
+        Ok(())
+
     }
     #[test]
     fn first_string_print_test() -> Result<(), Box<dyn Error>>
     {
         initialize_test_logger();
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        PUT 'HELLO'; END;";
+        PUT 'BEEP'; END;";
 
-        test_memory_compile_and_run(input)
+        let output = test_memory_compile_and_run(input)?;
+
+            let output_string: String;
+    unsafe
+        {
+            output_string = String::from_utf8_unchecked(output.stdout);
+        }
+
+        assert_eq!(output_string,"BEEP");
+        
+        Ok(())
+
     }
 
 

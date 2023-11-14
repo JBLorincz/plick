@@ -1,4 +1,4 @@
-use std::{error::Error, env, mem, process::Command, time::UNIX_EPOCH};
+use std::{error::Error, env, mem, process::{Command, Output}, time::UNIX_EPOCH};
 
 use plick::{Config, compile_input, compile_input_to_memory};
 use env_logger::Env;
@@ -21,7 +21,7 @@ pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>>
         compile_input(input,conf);
         Ok(())
 }
-pub fn test_memory_compile_and_run(input: &str) -> Result<(), Box<dyn Error>>
+pub fn test_memory_compile_and_run(input: &str) -> Result<Output, Box<dyn Error>>
 {
 
     let mut conf = generate_test_config();
@@ -31,7 +31,7 @@ pub fn test_memory_compile_and_run(input: &str) -> Result<(), Box<dyn Error>>
         let path_to_exe = "EXE_".to_string() + &mystr + ".exe";
         conf.filename = path_to_object_file.clone();
         
-        let membuf = compile_input(input,conf);
+        compile_input(input,conf);
         
 
         let path_to_exe = "./".to_string()+&path_to_exe;
@@ -39,10 +39,11 @@ pub fn test_memory_compile_and_run(input: &str) -> Result<(), Box<dyn Error>>
         let test_file = TestFile::new(&path_to_exe, &path_to_object_file);
 
         test_file.link_file()?;
-        test_file.run_file();
+        let output = test_file.run_file()?;
+        dbg!(&output);
         test_file.cleanup();
 
-             Ok(()) 
+             Ok(output) 
 }
 
 
@@ -71,14 +72,16 @@ fn link_file(&self) -> Result<(), Box<dyn Error>>
        Ok(())
 }
 
-fn run_file(&self)
+fn run_file(&self) -> Result<Output, Box<dyn Error>>
 {
         dbg!(&self.path_to_exe);
-       Command::new(&self.path_to_exe)
-           .spawn()
+       let program_output = Command::new(&self.path_to_exe)
+           .output()
            .expect("Failed to run the test command!")
-           .wait()
-           .expect("Trouble running file!");
+           ;
+
+
+       Ok(program_output)
 
 }
 
