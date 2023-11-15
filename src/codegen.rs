@@ -271,7 +271,7 @@ pub mod codegen {
                     todo!("Can't support type Void in if conditional!");
                 }
             };
-
+            dbg!(&conditional_as_float);
             let comparison = self
                 .builder
                 .build_float_compare(

@@ -1,6 +1,6 @@
 use inkwell::{
     types::{ArrayType, BasicType, BasicTypeEnum, StructType},
-    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue},
+    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue},
 };
 
 use crate::codegen::codegen::Compiler;
@@ -83,6 +83,8 @@ pub fn generate_fixed_decimal_code<'ctx>(
         .iter()
         .map(|w| -> IntValue<'ctx> { ctx.i8_type().const_int(*w as u64, false) })
         .collect();
+
+
     before_decimal_digits.resize(
         BEFORE_DIGIT_COUNT as usize,
         ctx.i8_type().const_int(0, false),
@@ -111,98 +113,155 @@ pub fn generate_fixed_decimal_code<'ctx>(
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx> {
-        dbg!("CONVERTING TO FLOATIE!");
-        let fixed_value_as_struct_value = fixed_value.value;
+        dbg!("Converting fixed value {} into a decimal!", &fixed_value);
+        let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
 
-        let pointer_to_struct_value = self
-            .builder
-            .build_alloca(fixed_value_as_struct_value.get_type(), "tmpalloca")
-            .unwrap();
-        let sign_bit_ptr = self
-            .builder
-            .build_struct_gep(pointer_to_struct_value, 0, "get_sign_bit")
-            .unwrap();
+        let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(self,&fixed_value_as_struct_value);
 
-        let sign_bit_val = self
-            .builder
-            .build_load(sign_bit_ptr, "sign_bit")
-            .unwrap()
-            .into_int_value();
+        fd_to_float_converter.alloca_struct_value();
 
-        let before_ptr = self
-            .builder
-            .build_struct_gep(pointer_to_struct_value, 1, "get_before")
-            .unwrap();
+        fd_to_float_converter.get_sign_bit_value();
+        
+        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
 
-        dbg!(before_ptr);
-        let before_arr = self
-            .builder
-            .build_load(before_ptr, "load_before_arr")
-            .unwrap()
-            .into_array_value();
+        dbg!(ptr_to_before_array);
+        let before_arr = fd_to_float_converter.get_before_array();
         dbg!(before_arr);
+
         let zero_intval = self.context.i8_type().const_zero();
         let mut before_int_values: Vec<IntValue<'ctx>> =
             vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
 
         for i in 0..BEFORE_DIGIT_COUNT as usize {
-            let index_as_intval = self.context.i8_type().const_int(i as u64, false);
+            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
 
-            let pointer_to_digit_array_value = self
-                .builder
-                .build_gep(before_ptr, &[zero_intval, index_as_intval], "load_digit")
-                .unwrap();
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
+            
 
-            dbg!(pointer_to_digit_array_value);
-            dbg!(self.module.print_to_string());
-            //.const_to_int(self.context.i8_type());
-            let digit_int_val = self
-                .builder
-                .build_load(pointer_to_digit_array_value, "diggit")
-                .unwrap()
-                .into_int_value();
             //now we take the array value, build a GEP for the inner array
             before_int_values[i] = digit_int_val;
         }
 
+        let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values);
+
+        result_floatval
+    }
+}
+
+struct FixedDecimalToFloatBuilder<'a, 'b, 'ctx>
+{
+    compiler: &'a Compiler<'a,'ctx>,
+    fd: &'b StructValue<'ctx>,
+    pointer_to_struct_value: Option<PointerValue<'ctx>>
+}
+
+impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
+
+    fn new(compiler: &'a Compiler<'a,'ctx>, fd: &'b StructValue<'ctx>) -> Self
+    {
+        FixedDecimalToFloatBuilder
+        {
+            compiler,
+            fd,
+            pointer_to_struct_value: None,
+        }
+
+    }
+   fn alloca_struct_value(&mut self) -> PointerValue<'ctx>
+    {
+        let pointer_to_struct_value = self.compiler.builder
+            .build_alloca(self.fd.get_type(), "tmpalloca")
+            .unwrap();
+        self.pointer_to_struct_value = Some(pointer_to_struct_value);
+
+        pointer_to_struct_value
+    }
+   fn get_sign_bit_value(&self) -> IntValue<'ctx>
+   {
+        let sign_bit_ptr = self.compiler
+            .builder
+            .build_struct_gep(self.pointer_to_struct_value.unwrap(), 0, "get_sign_bit")
+            .unwrap();
+
+        let sign_bit_val = self.compiler
+            .builder
+            .build_load(sign_bit_ptr, "sign_bit")
+            .unwrap()
+            .into_int_value();
+
+        sign_bit_val
+
+   }
+   fn get_before_ptr(&self) -> PointerValue<'ctx>
+    {
+            self.compiler.builder
+            .build_struct_gep(self.pointer_to_struct_value.unwrap(), 1, "get_before")
+            .unwrap()
+    }
+   fn get_before_array(&self) -> ArrayValue<'ctx>
+    {       
+        let before_ptr = self.get_before_ptr();    
+
+        self.compiler
+            .builder
+            .build_load(before_ptr, "load_before_arr")
+            .unwrap()
+            .into_array_value()
+    }
+
+   unsafe fn load_digit_from_digit_array(&self, index: IntValue<'ctx>, ptr_to_array: PointerValue<'ctx>) ->
+       IntValue<'ctx>
+   {
+       
+        let zero_intval = self.compiler.context.i8_type().const_zero();
+        let pointer_to_digit_array_value = self.compiler
+                .builder
+                .build_gep(ptr_to_array, &[zero_intval, index], "load_digit")
+                .unwrap();
+
+
+            let digit_int_val = self.compiler
+                .builder
+                .build_load(pointer_to_digit_array_value, "diggit")
+                .unwrap()
+                .into_int_value();
+
+            digit_int_val
+   }
+
+    unsafe fn sum_up_before_digits_into_a_float(&self, before_int_values: Vec<IntValue<'ctx>>) -> FloatValue<'ctx>
+    {
         let lhs = before_int_values[0];
 
-        //let mut result_floatval: FloatValue<'ctx> = lhs.const_unsigned_to_float(self.context.f64_type());
-        //let mut result_floatval: FloatValue<'ctx> = lhs.const_unsigned_to_float(self.context.f64_type());
-        let mut result_floatval: FloatValue<'ctx> = self
+        let mut result_floatval: FloatValue<'ctx> = self.compiler
             .builder
             .build_unsigned_int_to_float(
                 before_int_values[0],
-                self.context.f64_type(),
+                self.compiler.context.f64_type(),
                 "digAsFloat",
             )
             .unwrap();
 
         for i in 1..BEFORE_DIGIT_COUNT as usize {
             let float = self
+                .compiler
                 .builder
                 .build_unsigned_int_to_float(
                     before_int_values[i],
-                    self.context.f64_type(),
+                    self.compiler.context.f64_type(),
                     "digAsFloat",
                 )
                 .unwrap();
 
-            //let rhs = before_int_values[i].const_unsigned_to_float(self.context.f64_type());
             result_floatval = self
+                .compiler
                 .builder
                 .build_float_add(result_floatval, float, "summer")
                 .unwrap();
         }
-
-        //self.builder.build_gep(ptr, ordered_indexes, name)
-
-        //let after_ptr = self.builder.build_struct_gep(res,2,"get_after").unwrap();
-        //self.builder.build_struct_gep(res,2,"get_after");
-        dbg!("FLOATVAL: {}", result_floatval);
         result_floatval
-        //return self.context.f64_type().const_float(float_const as f64);
     }
+
 }
 
 ///Helper function

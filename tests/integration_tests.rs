@@ -89,7 +89,7 @@ mod full_compile_tests
         
     }
      #[test]
-    fn test_if_statement() -> Result<(), Box<dyn Error>> 
+    fn test_if_statement_false() -> Result<(), Box<dyn Error>> 
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
@@ -100,15 +100,38 @@ mod full_compile_tests
         Ok(())
 
     }
+     #[test]
+    fn test_if_statement_true() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                IF 1 THEN PUT 'INLINE IF IS TRUE\n'; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("INLINE IF IS TRUE\n", output.stdout);
+        Ok(())
+
+    }
 
      #[test]
-    fn test_if_else_statement() -> Result<(), Box<dyn Error>> 
+    fn if_else_statement_false() -> Result<(), Box<dyn Error>> 
     {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
 
         let output = run_new_test(input)?;
         assert_eq!("HELLOHELLOHELLOHELLO\n", output.stdout);
+        Ok(())
+
+    }
+     #[test]
+    fn if_else_statement_true() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                IF 1 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("HELLOHELLOHELLO\n", output.stdout);
         Ok(())
 
     }
