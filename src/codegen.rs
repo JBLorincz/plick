@@ -12,6 +12,7 @@ pub mod codegen {
     use crate::debugger::DebugController;
     use crate::error::get_error;
     use crate::lexer;
+    use crate::types::Puttable;
     use crate::types::character;
     use crate::types::fixed_decimal;
     use crate::types::fixed_decimal::FixedValue;
@@ -401,6 +402,19 @@ pub mod codegen {
             } else {
                 Ok(Box::new(returned_value.right().unwrap()))
             }
+        }
+
+pub unsafe fn print_puttable_type(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSiteValue<'ctx> {
+                let string_ptr = item.get_pointer_to_printable_string(self);
+
+                let res = self.builder.build_call(
+                    self.module.get_function("printf").unwrap(),
+                    &[BasicMetadataValueEnum::from(string_ptr)],
+                    "printf",
+                ).unwrap();
+
+                res
+
         }
 
         #[deprecated]

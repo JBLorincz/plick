@@ -3,7 +3,7 @@ use std::fmt::Display;
 use inkwell::{
     context::Context,
     types::{AnyType, AnyTypeEnum, ArrayType, BasicType, BasicTypeEnum, StructType},
-    values::{FloatValue, StructValue},
+    values::{FloatValue, StructValue, IntValue, PointerValue},
 };
 
 use crate::{codegen::codegen::Compiler, error::get_error};
@@ -156,6 +156,24 @@ pub fn infer_pli_type_via_name(name_of_pli_object: &str) -> Type {
 
     todo!("Make it so all functions don't return just a fixed decimal by default!")
 }
+
+
+
+pub trait Puttable<'a, 'ctx>
+{
+    fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx>;
+
+}
+
+
+
+
+
+
+
+
+
+
 
 ///A rust representation of a Fixed data type. Used for reference, not actually in the code (at
 ///least yet
