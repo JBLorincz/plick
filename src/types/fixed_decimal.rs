@@ -1,9 +1,11 @@
 use inkwell::{
     types::{ArrayType, BasicType, BasicTypeEnum, StructType},
-    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue},
+    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue}, AddressSpace,
 };
 
 use crate::codegen::codegen::Compiler;
+
+use super::Puttable;
 
 const BEFORE_DIGIT_COUNT: u32 = 16;
 const AFTER_DIGIT_COUNT: u32 = 15;
@@ -33,6 +35,85 @@ impl<'ctx> From<StructValue<'ctx>> for FixedValue<'ctx> {
         FixedValue { value }
     }
 }
+
+
+impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
+{
+    fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx> {
+
+         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(compiler,&self.value);
+
+        fd_to_float_converter.alloca_struct_value();
+
+        fd_to_float_converter.get_sign_bit_value();
+        
+        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
+
+        dbg!(ptr_to_before_array);
+        let before_arr = fd_to_float_converter.get_before_array();
+        dbg!(before_arr);
+
+        let zero_intval = compiler.context.i8_type().const_zero();
+        let mut before_int_values: Vec<IntValue<'ctx>> =
+            vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
+
+        for i in 0..BEFORE_DIGIT_COUNT as usize {
+            let current_digit_index = compiler.context.i8_type().const_int(i as u64, false);
+
+            unsafe
+            {
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
+            
+
+            //now we take the array value, build a GEP for the inner array
+            //BECAUSE WE WANT ASCII WE ADD 48 TO EVERY DIGIT
+            let ascii_ofset =  compiler.context.i8_type().const_int(48, false);
+            before_int_values[i] =  compiler
+                .builder
+                .build_int_add(digit_int_val, ascii_ofset, "ascioffset")
+                .unwrap();
+            }
+        }
+        //null terminator
+        //before_int_values.push(compiler.context.i8_type().const_zero());
+
+        
+        //HARD DECK
+        let _typ = compiler.context.i8_type().array_type(before_int_values.len() as u32);
+        //let aloca = compiler.builder.build_alloca(_typ, "fd_before_as_string").unwrap();
+
+        let placeholder: IntValue<'ctx> = compiler.context.i8_type().const_int(49,false);
+        let placeholder2: IntValue<'ctx> = compiler.context.i8_type().const_int(73,false);
+        let placeholder3: IntValue<'ctx> = compiler.context.i8_type().const_int(0,false);
+
+        let aloca = compiler.builder.build_alloca(compiler.context.i8_type().array_type(3), "fd_before_as_string").unwrap();
+        compiler
+            .builder
+            .build_store(aloca, compiler
+                         .context
+                         .i8_type()
+                         .const_array(&[placeholder, placeholder2, placeholder3]))
+            .unwrap();
+
+
+
+
+        let aloca = compiler.builder.build_bitcast(
+                        aloca,
+                        compiler.context.i8_type().ptr_type(AddressSpace::default()),
+                        "mybitcast",
+                    );
+        aloca.unwrap().into_pointer_value()
+
+       }
+}
+
+
+
+
+
+
+
 
 pub fn get_fixed_type<'ctx>(ctx: &'ctx inkwell::context::Context) -> StructType<'ctx> {
     let mut field_types: Vec<BasicTypeEnum> = vec![];
@@ -108,13 +189,18 @@ pub fn generate_fixed_decimal_code<'ctx>(
     values.push(before_decimal_value.into());
     values.push(after_decimal_value.into());
 
-    FixedValue::new(_type.const_named_struct(&values))
+    let new_fixed_value = FixedValue::new(_type.const_named_struct(&values));
+
+
+
+    new_fixed_value
 }
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx> {
         dbg!("Converting fixed value {} into a decimal!", &fixed_value);
         let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
+        self.print_puttable(&fixed_value);
 
         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(self,&fixed_value_as_struct_value);
 
