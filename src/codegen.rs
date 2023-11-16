@@ -11,6 +11,7 @@ pub mod codegen {
     use crate::ast::Expr;
     use crate::ast::Statement;
     use crate::codegen::utils;
+    use crate::codegen::utils::print_float_value;
     use crate::debugger::DebugController;
     use crate::error::get_error;
     use crate::lexer;
@@ -254,7 +255,7 @@ pub mod codegen {
             let conditional_type = if_statement.conditional.get_type();
             dbg!(&if_statement.conditional);
             let conditional_code = if_statement.conditional.codegen(self);
-
+            //panic!("{:#?}",&conditional_code);
             let conditional_as_float: FloatValue;
 
             match conditional_type {
@@ -262,6 +263,8 @@ pub mod codegen {
                     let fixed_value =
                         FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
                     conditional_as_float = self.fixed_decimal_to_float(&fixed_value);
+                    print_float_value(self, conditional_as_float);
+                    //panic!("{:#?}",&conditional_as_float);
                 }
                 Type::Char(size) => {
                     panic!("Can't support type Char in if conditional!");

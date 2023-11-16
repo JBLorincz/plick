@@ -1,4 +1,4 @@
-use inkwell::values::{FunctionValue, IntValue, FloatValue, BasicMetadataValueEnum};
+use inkwell::values::{FunctionValue, IntValue, FloatValue, BasicMetadataValueEnum, PointerValue};
 
 use super::codegen::Compiler;
 
@@ -57,8 +57,18 @@ pub fn build_pow<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, lhs: FloatValue<'ctx>
     result
 }
 
+pub fn print_float_value<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, float: FloatValue<'ctx>)
+{
+    let func_name = "printf";
+    let template_string: PointerValue<'ctx> = compiler.builder.build_global_string_ptr("%d", "glob_float_print").unwrap().as_pointer_value();
+    let func = compiler.module.get_function(func_name).unwrap();
+    let args = &[BasicMetadataValueEnum::from(template_string), BasicMetadataValueEnum::from(float)];
+    let res = compiler.builder.build_call(func,args,func_name).unwrap();
+
+}
 
 mod tests
 {
 
 }
+
