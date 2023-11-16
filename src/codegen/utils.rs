@@ -23,7 +23,7 @@ pub fn get_current_function<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>) -> Functio
 
 pub fn get_nth_digit_of_a_float<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, float: &FloatValue<'ctx>, index: IntValue<'ctx>) -> IntValue<'ctx>
 {
-    let ten = compiler.context.i8_type().const_int(10, false);
+    let ten = compiler.context.i64_type().const_int(10, false);
     let ten_float = compiler.context.f64_type().const_float(10.00);
 
     let float_as_int = compiler.builder.build_float_to_unsigned_int(float.clone(), compiler.context.i64_type(), "float_as_int")

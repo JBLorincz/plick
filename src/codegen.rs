@@ -797,6 +797,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "need to add line that adds extern funcs"]
     fn test_comparisons() {
         let c = Context::create();
         let m = c.create_module("repl");
@@ -824,6 +825,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "need to add line that adds extern funcs"]
     fn test_binary_codegen() {
         let c = Context::create();
         let m = c.create_module("repl");

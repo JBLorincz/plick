@@ -295,15 +295,18 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             self.builder.position_at_end(then_block);
             
             let sign_ptr = self.builder.build_struct_gep(allocd_fd, 0, "get_sign_bit_ptr").unwrap();
-            self.builder.build_store(sign_ptr, self.context.i8_type().const_int(1, false)).unwrap();
-
+            self.builder.build_store(sign_ptr, self.context.bool_type().const_int(1, false)).unwrap();
+            self.builder.build_unconditional_branch(cont_block).unwrap();
                       
-            
+            self.builder.position_at_end(else_block);
+            self.builder.build_unconditional_branch(cont_block).unwrap();
+
             self.builder.position_at_end(cont_block);
             //end of sign bit loading
 
             //start of calculating fv digits
             let bdcl = self.context.append_basic_block(current_func, "before_digits_calculation_loop");
+            self.builder.build_unconditional_branch(bdcl).unwrap();
             self.builder.position_at_end(bdcl);
 
             //counter 
@@ -313,15 +316,17 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             {
                 let index_as_intval = self.context.i8_type().const_int(i, false);
                 let digit_to_load_up = get_nth_digit_of_a_float(self, &float_value, index_as_intval);
+                let digi_as_i8 = self.builder.build_int_cast(digit_to_load_up, self.context.i8_type(), "turn_i64_into_i8").unwrap();
 
                 let current_digit_ptr = self.builder.build_gep(before_array_ptr,&[zero_intval,index_as_intval],"getdigiforconv")
                     .unwrap();
 
-                self.builder.build_store(current_digit_ptr, digit_to_load_up);
+                self.builder.build_store(current_digit_ptr, digi_as_i8).unwrap();
             }
             
 
             let after_before_loop = self.context.append_basic_block(current_func, "after_digits_loop");
+            self.builder.build_unconditional_branch(after_before_loop).unwrap();
             self.builder.position_at_end(after_before_loop);
             //end of calculating fv digits
 
@@ -461,34 +466,7 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
 
         result_float = self.compiler.builder.build_load(result_float_alloca,"load_result").unwrap().into_float_value();
         result_float
-        //let lhs = before_int_values[0];
 
-        //let mut result_floatval: FloatValue<'ctx> = self.compiler
-        //    .builder
-        //    .build_unsigned_int_to_float(
-        //        before_int_values[0],
-        //        self.compiler.context.f64_type(),
-        //        "digAsFloat",
-        //    )
-        //    .unwrap();
-
-        //for i in 1..BEFORE_DIGIT_COUNT as usize {
-        //    let float = self
-        //        .compiler
-        //        .builder
-        //        .build_unsigned_int_to_float(
-        //            before_int_values[i],
-        //            self.compiler.context.f64_type(),
-        //            "digAsFloat",
-        //        )
-        //        .unwrap();
-
-        //    result_floatval = self
-        //        .compiler
-        //        .builder
-        //        .build_float_add(result_floatval, float, "summer")
-        //        .unwrap();
-        //}
     }
 
 }
