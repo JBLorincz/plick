@@ -227,8 +227,7 @@ pub fn generate_fixed_decimal_code<'ctx>(
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
         dbg!("Converting fixed value {} into a decimal!", fixed_value);
-        self.print_const_string("im now printing the same fixed value but in the float conv:\n\0");
-        self.print_puttable(fixed_value);
+
         let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
 
         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(self,&fixed_value_as_struct_value);
@@ -248,11 +247,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
 
         for i in 0..BEFORE_DIGIT_COUNT as usize {
-            self.print_const_string("Digit: ");
             let current_digit_index = self.context.i8_type().const_int(i as u64, false);
         
             let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
-            print_int_value(self,digit_int_val);  
 
             //now we take the array value, build a GEP for the inner array
             before_int_values[i] = digit_int_val;
@@ -433,15 +430,9 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
         for (index,digit_value) in before_int_values.iter().enumerate()
         {
             let my_float = index as f64;
-            //panic!("{}",my_float);
-            let rhs = f64_type.const_float(my_float);
-            self.compiler.print_const_string(" MY RHS IS: ");
-            print_float_value(self.compiler, rhs);
-            self.compiler.print_const_string("  ");
-            let digit_log = build_pow(self.compiler, ten_float, rhs);
 
-            self.compiler.print_const_string("digit_log is:");
-            print_float_value(self.compiler,digit_log);
+            let rhs = f64_type.const_float(my_float);
+            let digit_log = build_pow(self.compiler, ten_float, rhs);
 
             let digit_scoped: IntValue<'ctx> = *digit_value;
 

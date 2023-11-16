@@ -112,9 +112,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         {
         let my_str = "the constant we are trying to gen is: ".to_string() + value.to_string().as_str();
 
-        self.print_const_string(&my_str);
-        self.print_const_string("gen_const_fixed_dec_is:\n\0");
-        self.print_puttable(&fd);
         }
 
         struc

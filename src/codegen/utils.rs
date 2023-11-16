@@ -55,17 +55,7 @@ pub fn build_pow<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, lhs: FloatValue<'ctx>
     let res = compiler.builder.build_call(func,args,pow_name).unwrap();
 
     let result: FloatValue<'ctx> = res.try_as_basic_value().left().unwrap().into_float_value();
-    unsafe {
-    compiler.print_const_string(" The result of pow'ing: \0");
-    print_float_value(compiler, lhs);
-    compiler.print_const_string(" and \0");
-    print_float_value(compiler, rhs);
-    compiler.print_const_string(" is: ");
-    print_float_value(compiler, result);
-    compiler.print_const_string("\n\0");
-
-    }
-      result
+    result
 }
 
 pub fn print_float_value<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, float: FloatValue<'ctx>)
