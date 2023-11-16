@@ -61,6 +61,7 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
         let mut before_int_values: Vec<IntValue<'ctx>> =
             vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
 
+        //before_int_values.push(compiler.context.i8_type().const_int(40,false));
         for i in 0..BEFORE_DIGIT_COUNT as usize {
             let current_digit_index = compiler.context.i8_type().const_int(i as u64, false);
 
@@ -79,8 +80,10 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
             }
         }
         //null terminator
+        before_int_values.push(compiler.context.i8_type().const_int(41,false));
         before_int_values.push(compiler.context.i8_type().const_zero());
 
+        before_int_values.splice(0..0, [compiler.context.i8_type().const_int(40,false)]);
         
         //HARD DECK
         let _typ = compiler.context.i8_type().array_type(before_int_values.len() as u32);
@@ -140,12 +143,14 @@ impl<'a,'ctx> Mathable<'a,'ctx> for FixedValue<'ctx>
 
 pub fn get_fixed_type<'ctx>(ctx: &'ctx inkwell::context::Context) -> StructType<'ctx> {
     let mut field_types: Vec<BasicTypeEnum> = vec![];
-    let before_decimal_array = ctx.i8_type().array_type(BEFORE_DIGIT_COUNT);
-    let after_decimal_array = ctx.i8_type().array_type(AFTER_DIGIT_COUNT);
+    //previously before decimal array
+    let left_of_decimal_array = ctx.i8_type().array_type(BEFORE_DIGIT_COUNT);
+    //previously after decimal array
+    let right_of_decimal_array = ctx.i8_type().array_type(AFTER_DIGIT_COUNT);
     let is_negative_type = ctx.bool_type();
     field_types.push(is_negative_type.as_basic_type_enum());
-    field_types.push(before_decimal_array.as_basic_type_enum());
-    field_types.push(after_decimal_array.as_basic_type_enum());
+    field_types.push(left_of_decimal_array.as_basic_type_enum());
+    field_types.push(right_of_decimal_array.as_basic_type_enum());
 
     let packed = false;
     ctx.struct_type(&field_types, packed)
@@ -158,13 +163,15 @@ pub fn create_empty_fixed<'a,'ctx>(
     let mut values: Vec<BasicValueEnum> = vec![];
 
     let is_negative_value = ctx.bool_type().const_int(0, false);
-    let before_decimal_value = ctx.i8_type().array_type(BEFORE_DIGIT_COUNT).const_zero();
-    let after_decimal_value = ctx.i8_type().array_type(AFTER_DIGIT_COUNT).const_zero();
+    let left_of_decimal_value = ctx.i8_type().array_type(BEFORE_DIGIT_COUNT).const_zero();
+    let right_of_decimal_value = ctx.i8_type().array_type(AFTER_DIGIT_COUNT).const_zero();
     values.push(is_negative_value.into());
-    values.push(before_decimal_value.into());
-    values.push(after_decimal_value.into());
+    values.push(left_of_decimal_value.into());
+    values.push(right_of_decimal_value.into());
 
-    _type.const_named_struct(&values)
+    let struc = _type.const_named_struct(&values);
+
+    struc
 }
 
 ///Coverts a f64 into a FixedValue
@@ -213,8 +220,6 @@ pub fn generate_fixed_decimal_code<'ctx>(
     values.push(after_decimal_value.into());
 
     let new_fixed_value = FixedValue::new(_type.const_named_struct(&values));
-
-
 
     new_fixed_value
 }
@@ -349,9 +354,11 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
     }
    fn alloca_struct_value(&mut self) -> PointerValue<'ctx>
     {
-        let pointer_to_struct_value = self.compiler.builder
+        let pointer_to_struct_value: PointerValue<'ctx> = self.compiler.builder
             .build_alloca(self.fd.get_type(), "tmpalloca")
             .unwrap();
+        let my_fd: StructValue<'ctx> = self.fd.clone();
+        self.compiler.builder.build_store(pointer_to_struct_value,my_fd).unwrap();
         self.pointer_to_struct_value = Some(pointer_to_struct_value);
 
         pointer_to_struct_value

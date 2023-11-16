@@ -8,7 +8,7 @@ use inkwell::{
 
 use crate::{codegen::codegen::Compiler, error::get_error};
 
-use self::fixed_decimal::generate_fixed_decimal_code;
+use self::fixed_decimal::{generate_fixed_decimal_code, FixedValue};
 
 pub mod character;
 /// Holds all type data
@@ -105,7 +105,19 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     }
 
     pub fn gen_const_fixed_decimal(&self, value: f64) -> StructValue<'ctx> {
-        generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into()
+        let struc: StructValue<'ctx> = generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into();
+
+        let fd = FixedValue::new(struc.clone());
+        unsafe
+        {
+        let my_str = "the constant we are trying to gen is: ".to_string() + value.to_string().as_str();
+
+        self.print_const_string(&my_str);
+        self.print_const_string("gen_const_fixed_dec_is:\n\0");
+        self.print_puttable(&fd);
+        }
+
+        struc
     }
 
     fn gen_float_decimal(&self, value: f64) -> FloatValue<'ctx> {

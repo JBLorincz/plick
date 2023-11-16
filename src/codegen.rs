@@ -262,7 +262,8 @@ pub mod codegen {
                 Type::FixedDecimal => {
                     let fixed_value =
                         FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
-                    self.print_const_string("here's my fixed:");
+                    self.print_const_string("here's my fixed:\0");
+                    self.print_puttable(&fixed_value);
                     self.print_puttable(&fixed_value);
                     conditional_as_float = self.fixed_decimal_to_float(&fixed_value);
                     self.print_const_string("\nfloat after conversion:\n\0");
