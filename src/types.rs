@@ -13,7 +13,7 @@ use self::fixed_decimal::generate_fixed_decimal_code;
 pub mod character;
 /// Holds all type data
 pub mod fixed_decimal;
-
+pub mod traits;
 const SIZE_OF_STRINGS: u32 = 255;
 
 //DCL (A,B,C,D,E) FIXED(3);

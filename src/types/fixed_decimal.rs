@@ -5,7 +5,7 @@ use inkwell::{
 
 use crate::codegen::codegen::Compiler;
 
-use super::Puttable;
+use super::{Puttable, traits::Mathable};
 
 const BEFORE_DIGIT_COUNT: u32 = 16;
 const AFTER_DIGIT_COUNT: u32 = 15;
@@ -118,6 +118,15 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
        }
 }
 
+impl<'a,'ctx> Mathable<'a,'ctx> for FixedValue<'ctx>
+{
+    fn convert_to_float(&self, compiler: &'a Compiler<'a,'ctx>) -> FloatValue<'ctx> {
+        unsafe {
+        compiler.fixed_decimal_to_float(self)
+        }
+    }
+}
+
 
 
 
@@ -207,8 +216,8 @@ pub fn generate_fixed_decimal_code<'ctx>(
 }
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
-    pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx> {
-        dbg!("Converting fixed value {} into a decimal!", &fixed_value);
+    pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
+        dbg!("Converting fixed value {} into a decimal!", fixed_value);
         let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
         //self.print_puttable(&fixed_value);
 

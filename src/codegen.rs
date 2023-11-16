@@ -20,6 +20,7 @@ pub mod codegen {
     use crate::types::infer_pli_type_via_name;
     use crate::types::Type;
     use crate::types::TypeModule;
+    use crate::types::traits::get_mathable_type;
     use inkwell::basic_block::BasicBlock;
     use inkwell::builder::Builder;
     use inkwell::context::Context;
@@ -258,7 +259,7 @@ pub mod codegen {
                 Type::FixedDecimal => {
                     let fixed_value =
                         FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
-                    conditional_as_float = self.fixed_decimal_to_float(fixed_value);
+                    conditional_as_float = self.fixed_decimal_to_float(&fixed_value);
                 }
                 Type::Char(size) => {
                     panic!("Can't support type Char in if conditional!");
@@ -521,30 +522,38 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                 dbg!(&rhs_codegen);
                 let lhs_float: FloatValue<'ctx>;
                 let rhs_float: FloatValue<'ctx>;
+                //new mathable code
+                
+                let lhs_mathable = get_mathable_type(lhs_codegen, lhstype)?;
+                lhs_float = lhs_mathable.convert_to_float(self);
 
-                match lhstype {
-                    Type::FixedDecimal => {
-                        let lhs_struct = lhs_codegen.as_any_value_enum().into_struct_value();
-                        let fixed_dec = fixed_decimal::FixedValue::new(lhs_struct);
+                let rhs_mathable = get_mathable_type(rhs_codegen, rhstype)?;
+                rhs_float = rhs_mathable.convert_to_float(self);
 
-                        lhs_float = self.fixed_decimal_to_float(fixed_dec);
-                    }
-                    other_type => todo!("Implement type conversion to float for {:?}", other_type),
-                };
+                //hard deck
+               // match lhstype {
+               //     Type::FixedDecimal => {
+               //         let lhs_struct: StructValue<'ctx> = lhs_codegen.as_any_value_enum().into_struct_value();
+               //         let fixed_dec = fixed_decimal::FixedValue::new(lhs_struct);
 
-                match rhstype {
-                    Type::FixedDecimal => {
-                        let rhs_struct = rhs_codegen.as_any_value_enum().into_struct_value();
-                        let fixed_dec = fixed_decimal::FixedValue::new(rhs_struct);
+               //         lhs_float = self.fixed_decimal_to_float(&fixed_dec);
+               //     }
+               //     other_type => todo!("Implement type conversion to float for {:?}", other_type),
+               // };
 
-                        rhs_float = self.fixed_decimal_to_float(fixed_dec);
-                    }
-                    other_type => todo!(
-                        "Implement type conversion to llvm floatvalue for {:?}",
-                        other_type
-                    ),
-                };
-
+//                match rhstype {
+//                    Type::FixedDecimal => {
+//                        let rhs_struct = rhs_codegen.as_any_value_enum().into_struct_value();
+//                        let fixed_dec = fixed_decimal::FixedValue::new(rhs_struct);
+//
+//                        rhs_float = self.fixed_decimal_to_float(&fixed_dec);
+//                    }
+//                    other_type => todo!(
+//                        "Implement type conversion to llvm floatvalue for {:?}",
+//                        other_type
+//                    ),
+//                };
+//
                 if true {
                     //TODO: Make this function return anyvalue and a fixed decimal
                     let compile_result: Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> =
