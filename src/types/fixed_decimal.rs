@@ -42,7 +42,7 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
     fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx> {
 
          let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(compiler,&self.value);
-
+         let const_int_zero = compiler.context.i8_type().const_zero();
         fd_to_float_converter.alloca_struct_value();
 
         fd_to_float_converter.get_sign_bit_value();
@@ -75,25 +75,35 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
             }
         }
         //null terminator
-        //before_int_values.push(compiler.context.i8_type().const_zero());
+        before_int_values.push(compiler.context.i8_type().const_zero());
 
         
         //HARD DECK
         let _typ = compiler.context.i8_type().array_type(before_int_values.len() as u32);
-        //let aloca = compiler.builder.build_alloca(_typ, "fd_before_as_string").unwrap();
+        let aloca = compiler.builder.build_alloca(_typ, "fd_before_as_string").unwrap();
 
-        let placeholder: IntValue<'ctx> = compiler.context.i8_type().const_int(49,false);
-        let placeholder2: IntValue<'ctx> = compiler.context.i8_type().const_int(73,false);
-        let placeholder3: IntValue<'ctx> = compiler.context.i8_type().const_int(0,false);
-
-        let aloca = compiler.builder.build_alloca(compiler.context.i8_type().array_type(3), "fd_before_as_string").unwrap();
+        //let aloca = compiler.builder.build_alloca(compiler.context.i8_type().array_type(3), "fd_before_as_string").unwrap();
         compiler
             .builder
-            .build_store(aloca, compiler
-                         .context
-                         .i8_type()
-                         .const_array(&[placeholder, placeholder2, placeholder3]))
+            .build_store(aloca, 
+                         _typ.const_zero())
             .unwrap();
+
+
+        unsafe {
+
+
+            for (index,intval) in before_int_values.iter().enumerate()
+            {
+                        let current_index_as_intval = compiler.context.i8_type().const_int(index as u64, false);
+                        let elemptr = compiler
+                .builder.build_gep(aloca, &[const_int_zero,current_index_as_intval], "lol")
+                .unwrap();
+
+                compiler.builder.build_store(elemptr,*intval).expect("Intval wasnt an intval!");
+            }
+
+        }
 
 
 
@@ -200,7 +210,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: FixedValue<'ctx>) -> FloatValue<'ctx> {
         dbg!("Converting fixed value {} into a decimal!", &fixed_value);
         let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
-        self.print_puttable(&fixed_value);
+        //self.print_puttable(&fixed_value);
 
         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(self,&fixed_value_as_struct_value);
 

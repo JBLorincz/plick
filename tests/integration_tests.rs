@@ -89,7 +89,7 @@ mod full_compile_tests
         
     }
      #[test]
-    fn test_if_statement_false() -> Result<(), Box<dyn Error>> 
+    fn if_statement_false() -> Result<(), Box<dyn Error>> 
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
@@ -101,11 +101,11 @@ mod full_compile_tests
 
     }
      #[test]
-    fn test_if_statement_true() -> Result<(), Box<dyn Error>> 
+    fn if_statement_true() -> Result<(), Box<dyn Error>> 
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                IF 1 THEN PUT 'INLINE IF IS TRUE\n'; END;";
+                IF 1234567 THEN PUT 'INLINE IF IS TRUE\n'; END;";
         
         let output = run_new_test(input)?;
         assert_eq!("INLINE IF IS TRUE\n", output.stdout);
