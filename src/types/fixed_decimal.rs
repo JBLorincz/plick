@@ -3,7 +3,7 @@ use inkwell::{
     values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue}, AddressSpace,
 };
 
-use crate::codegen::codegen::Compiler;
+use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float}};
 
 use super::{Puttable, traits::Mathable};
 
@@ -147,9 +147,9 @@ pub fn get_fixed_type<'ctx>(ctx: &'ctx inkwell::context::Context) -> StructType<
     ctx.struct_type(&field_types, packed)
 }
 
-pub fn create_empty_fixed<'ctx>(
+pub fn create_empty_fixed<'a,'ctx>(
     ctx: &'ctx inkwell::context::Context,
-    _type: &'ctx StructType,
+    _type: &'a StructType<'ctx>,
 ) -> StructValue<'ctx> {
     let mut values: Vec<BasicValueEnum> = vec![];
 
@@ -250,6 +250,76 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values);
 
         result_floatval
+    }
+
+
+    pub unsafe fn float_value_to_fixed_decimal(&'a self, float_value: FloatValue<'ctx>) -> FixedValue<'ctx>
+    {
+        let zero_intval = self.context.i8_type().const_zero();
+        let fixed_value: StructValue<'ctx> = create_empty_fixed(self.context, &self.type_module.fixed_type);
+        let allocd_fd: PointerValue<'ctx> = self.builder.build_alloca(fixed_value.get_type(), "allocate_fd_for_fixed_conv").unwrap();
+        self.builder.build_store(allocd_fd, fixed_value).unwrap();
+        let allocd_float = self.builder.build_alloca(float_value.get_type(), "allocate_float_for_fixed_conv").unwrap();
+
+
+        let rhs: FloatValue<'ctx> = float_value.get_type().const_zero();
+
+
+            let conditional = self
+            .builder
+            .build_float_compare(
+                inkwell::FloatPredicate::OLT,
+                float_value,
+                rhs,
+                "is_float_neg")
+            .unwrap();
+
+            //start of sign bit loading
+            let current_func = utils::get_current_function(self);
+            let then_block = self.context.append_basic_block(current_func, "then_block");
+            let else_block = self.context.append_basic_block(current_func, "else_block");
+            let cont_block = self.context.append_basic_block(current_func, "cont_block");
+                self.
+                builder.
+                build_conditional_branch(conditional, then_block, else_block)
+                .expect("This should be fine!");
+
+            self.builder.position_at_end(then_block);
+            
+            let sign_ptr = self.builder.build_struct_gep(allocd_fd, 0, "get_sign_bit_ptr").unwrap();
+            self.builder.build_store(sign_ptr, self.context.i8_type().const_int(1, false)).unwrap();
+
+                      
+            
+            self.builder.position_at_end(cont_block);
+            //end of sign bit loading
+
+            //start of calculating fv digits
+            let bdcl = self.context.append_basic_block(current_func, "before_digits_calculation_loop");
+            self.builder.position_at_end(bdcl);
+
+            //counter 
+
+            let before_array_ptr = self.builder.build_struct_gep(allocd_fd, 1, "get_before_array_ptr").unwrap();
+            for i in 0..16
+            {
+                let index_as_intval = self.context.i8_type().const_int(i, false);
+                let digit_to_load_up = get_nth_digit_of_a_float(self, &float_value, index_as_intval);
+
+                let current_digit_ptr = self.builder.build_gep(before_array_ptr,&[zero_intval,index_as_intval],"getdigiforconv")
+                    .unwrap();
+
+                self.builder.build_store(current_digit_ptr, digit_to_load_up);
+            }
+            
+
+            let after_before_loop = self.context.append_basic_block(current_func, "after_digits_loop");
+            self.builder.position_at_end(after_before_loop);
+            //end of calculating fv digits
+
+        
+        let fd_struct: StructValue<'ctx> = self.builder.build_load(allocd_fd, "loading_final_fd").unwrap().into_struct_value(); 
+        FixedValue::new(fd_struct)
     }
 }
 

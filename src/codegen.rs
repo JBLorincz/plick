@@ -1,5 +1,6 @@
 mod function_codegen;
 mod named_value_store;
+pub mod utils;
 pub mod codegen {
 
     use std::collections::HashMap;
@@ -9,6 +10,7 @@ pub mod codegen {
     use crate::ast::Command;
     use crate::ast::Expr;
     use crate::ast::Statement;
+    use crate::codegen::utils;
     use crate::debugger::DebugController;
     use crate::error::get_error;
     use crate::lexer;
@@ -165,7 +167,7 @@ pub mod codegen {
             m: &'a Module<'ctx>,
             d: Option<&'a DebugController<'ctx>>,
         ) -> Compiler<'a, 'ctx> {
-            //let named_values: RefCell<HashMap<String,NamedValue<'ctx>>> = RefCell::new(HashMap::new());
+
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
             Compiler {
                 context: c,
@@ -286,12 +288,8 @@ pub mod codegen {
                 .unwrap();
 
             //now we build the THEN block
-            let current_func = self
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_parent()
-                .unwrap();
+            let current_func = utils::get_current_function(self);
+
             let mut then_block = self.context.append_basic_block(current_func, "then");
             let mut else_block = self.context.append_basic_block(current_func, "else");
             let if_cont_block = self.context.append_basic_block(current_func, "ifcont");
@@ -530,30 +528,6 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                 let rhs_mathable = get_mathable_type(rhs_codegen, rhstype)?;
                 rhs_float = rhs_mathable.convert_to_float(self);
 
-                //hard deck
-               // match lhstype {
-               //     Type::FixedDecimal => {
-               //         let lhs_struct: StructValue<'ctx> = lhs_codegen.as_any_value_enum().into_struct_value();
-               //         let fixed_dec = fixed_decimal::FixedValue::new(lhs_struct);
-
-               //         lhs_float = self.fixed_decimal_to_float(&fixed_dec);
-               //     }
-               //     other_type => todo!("Implement type conversion to float for {:?}", other_type),
-               // };
-
-//                match rhstype {
-//                    Type::FixedDecimal => {
-//                        let rhs_struct = rhs_codegen.as_any_value_enum().into_struct_value();
-//                        let fixed_dec = fixed_decimal::FixedValue::new(rhs_struct);
-//
-//                        rhs_float = self.fixed_decimal_to_float(&fixed_dec);
-//                    }
-//                    other_type => todo!(
-//                        "Implement type conversion to llvm floatvalue for {:?}",
-//                        other_type
-//                    ),
-//                };
-//
                 if true {
                     //TODO: Make this function return anyvalue and a fixed decimal
                     let compile_result: Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> =
@@ -563,25 +537,27 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                                     .builder
                                     .build_float_add(lhs_float, rhs_float, "tmpadd")
                                     .unwrap();
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::MINUS => {
                                 let floatval =
-                                    self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub");
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                    self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub").unwrap();
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(floatval).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::MULTIPLY => {
                                 let var =
-                                    self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul");
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                    self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul")
+                                    .unwrap();
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::DIVIDE => {
                                 let var =
-                                    self.builder.build_float_div(lhs_float, rhs_float, "tmpdiv");
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                    self.builder.build_float_div(lhs_float, rhs_float, "tmpdiv")
+                                    .unwrap();
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::LESS_THAN => {

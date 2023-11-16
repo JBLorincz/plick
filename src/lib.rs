@@ -44,6 +44,8 @@ fn drive_compilation<'a, 'ctx>(
 
     //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
 
+    //TODO: make a func for importing C functions, this is too messy
+    //begin printf
     let printf_arg_type: PointerType<'ctx> =
         compiler.context.i8_type().ptr_type(AddressSpace::default());
 
@@ -56,6 +58,22 @@ fn drive_compilation<'a, 'ctx>(
         compiler
             .module
             .add_function("printf", printf_type, Some(module::Linkage::DLLImport));
+    //end printf
+    //begin pow
+    let pow_arg_type: PointerType<'ctx> =
+        compiler.context.f64_type().ptr_type(AddressSpace::default());
+
+    let pow_type: FunctionType<'ctx> = compiler
+        .context
+        .f64_type()
+        .fn_type(&[BasicMetadataTypeEnum::from(pow_arg_type),BasicMetadataTypeEnum::from(pow_arg_type)], true);
+
+    let _pow_func =
+        compiler
+            .module
+            .add_function("pow", pow_type, Some(module::Linkage::DLLImport));
+    //end pow
+
 
     unsafe {
         perform_parse_pass(token_manager)?
