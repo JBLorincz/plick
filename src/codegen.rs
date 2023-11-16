@@ -262,7 +262,10 @@ pub mod codegen {
                 Type::FixedDecimal => {
                     let fixed_value =
                         FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
+                    self.print_const_string("here's my fixed:");
+                    self.print_puttable(&fixed_value);
                     conditional_as_float = self.fixed_decimal_to_float(&fixed_value);
+                    self.print_const_string("\nfloat after conversion:\n\0");
                     print_float_value(self, conditional_as_float);
                     //panic!("{:#?}",&conditional_as_float);
                 }
@@ -445,18 +448,18 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                 todo!("PUT doesn't support non strings yet!");
             }
         }
-        #[deprecated]
-        pub unsafe fn generate_hello_world_print(&'a self) -> CallSiteValue<'ctx> {
+
+        pub unsafe fn print_const_string(&'a self, const_string: &str) -> CallSiteValue<'ctx> {
             let glob_string_ptr = self
                 .builder
-                .build_global_string_ptr("Hello World from PL/1!\n", "hello_world_str");
+                .build_global_string_ptr(const_string, "my_const");
 
             let myptr = glob_string_ptr.unwrap().as_pointer_value();
 
             let res = self.builder.build_call(
                 self.module.get_function("printf").unwrap(),
                 &[BasicMetadataValueEnum::from(myptr)],
-                "teffy",
+                "print_const_string",
             );
             return res.unwrap();
         }

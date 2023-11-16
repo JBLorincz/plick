@@ -32,7 +32,11 @@ impl<'ctx> Into<StructValue<'ctx>> for FixedValue<'ctx> {
 
 impl<'ctx> From<StructValue<'ctx>> for FixedValue<'ctx> {
     fn from(value: StructValue<'ctx>) -> Self {
-        FixedValue { value }
+        let fixed_value = FixedValue { value };
+
+
+
+        fixed_value
     }
 }
 
@@ -218,8 +222,9 @@ pub fn generate_fixed_decimal_code<'ctx>(
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
         dbg!("Converting fixed value {} into a decimal!", fixed_value);
+        self.print_const_string("im now printing the same fixed value but in the float conv:\n\0");
+        self.print_puttable(fixed_value);
         let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
-        //self.print_puttable(&fixed_value);
 
         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(self,&fixed_value_as_struct_value);
 
