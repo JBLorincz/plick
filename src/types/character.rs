@@ -1,9 +1,11 @@
 use inkwell::{
     types::{ArrayType, BasicTypeEnum, StructType},
-    values::{ArrayValue, IntValue},
+    values::{ArrayValue, IntValue, PointerValue, BasicValueEnum}, AddressSpace,
 };
 
-use super::SIZE_OF_STRINGS;
+use crate::codegen::codegen::Compiler;
+
+use super::{SIZE_OF_STRINGS, Puttable};
 
 ///Represents a CHAR PL/1 value.
 ///A string is just an array of characters (which are i8 integers for ASCII)
@@ -55,4 +57,30 @@ pub fn generate_character_code<'ctx>(
     let value = ctx.i8_type().const_array(&chars_as_numbers[..]);
 
     CharValue { value }
+}
+
+
+impl<'a, 'ctx> Puttable<'a, 'ctx> for CharValue<'ctx>
+{
+    fn get_pointer_to_printable_string(&self,compiler: &'a Compiler<'a,'ctx>) -> PointerValue<'ctx> {
+        let string_array  = self.value;
+                    
+                let allocd_string = compiler
+                    .builder
+                    .build_alloca(string_array.get_type(), "tmp_array")
+                    .unwrap();
+                compiler.builder.build_store(allocd_string, string_array).unwrap();
+
+                let bitc: BasicValueEnum<'ctx> = compiler
+                    .builder
+                    .build_bitcast(
+                        allocd_string,
+                        compiler.context.i8_type().ptr_type(AddressSpace::default()),
+                        "mybitcast",
+                    )
+                    .unwrap();
+
+                bitc.into_pointer_value()
+
+    }
 }

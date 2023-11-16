@@ -1,5 +1,6 @@
 mod function_codegen;
 mod named_value_store;
+pub mod utils;
 pub mod codegen {
 
     use std::collections::HashMap;
@@ -9,15 +10,20 @@ pub mod codegen {
     use crate::ast::Command;
     use crate::ast::Expr;
     use crate::ast::Statement;
+    use crate::codegen::utils;
+    use crate::codegen::utils::print_float_value;
     use crate::debugger::DebugController;
     use crate::error::get_error;
     use crate::lexer;
+    use crate::types::Puttable;
     use crate::types::character;
+    use crate::types::character::CharValue;
     use crate::types::fixed_decimal;
     use crate::types::fixed_decimal::FixedValue;
     use crate::types::infer_pli_type_via_name;
     use crate::types::Type;
     use crate::types::TypeModule;
+    use crate::types::traits::get_mathable_type;
     use inkwell::basic_block::BasicBlock;
     use inkwell::builder::Builder;
     use inkwell::context::Context;
@@ -162,7 +168,7 @@ pub mod codegen {
             m: &'a Module<'ctx>,
             d: Option<&'a DebugController<'ctx>>,
         ) -> Compiler<'a, 'ctx> {
-            //let named_values: RefCell<HashMap<String,NamedValue<'ctx>>> = RefCell::new(HashMap::new());
+
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
             Compiler {
                 context: c,
@@ -249,14 +255,16 @@ pub mod codegen {
             let conditional_type = if_statement.conditional.get_type();
             dbg!(&if_statement.conditional);
             let conditional_code = if_statement.conditional.codegen(self);
-
+            //panic!("{:#?}",&conditional_code);
             let conditional_as_float: FloatValue;
 
             match conditional_type {
                 Type::FixedDecimal => {
                     let fixed_value =
                         FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
-                    conditional_as_float = self.fixed_decimal_to_float(fixed_value);
+                    conditional_as_float = self.fixed_decimal_to_float(&fixed_value);
+                    print_float_value(self, conditional_as_float);
+                    //panic!("{:#?}",&conditional_as_float);
                 }
                 Type::Char(size) => {
                     panic!("Can't support type Char in if conditional!");
@@ -271,7 +279,7 @@ pub mod codegen {
                     todo!("Can't support type Void in if conditional!");
                 }
             };
-
+            dbg!(&conditional_as_float);
             let comparison = self
                 .builder
                 .build_float_compare(
@@ -283,12 +291,8 @@ pub mod codegen {
                 .unwrap();
 
             //now we build the THEN block
-            let current_func = self
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_parent()
-                .unwrap();
+            let current_func = utils::get_current_function(self);
+
             let mut then_block = self.context.append_basic_block(current_func, "then");
             let mut else_block = self.context.append_basic_block(current_func, "else");
             let if_cont_block = self.context.append_basic_block(current_func, "ifcont");
@@ -403,30 +407,33 @@ pub mod codegen {
             }
         }
 
+pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSiteValue<'ctx> {
+                let string_ptr = item.get_pointer_to_printable_string(self);
+
+                let res = self.builder.build_call(
+                    self.module.get_function("printf").unwrap(),
+                    &[BasicMetadataValueEnum::from(string_ptr)],
+                    "printf",
+                ).unwrap();
+
+                res
+
+        }
+
         #[deprecated]
         pub unsafe fn print_string(&'a self, message: Expr) -> CallSiteValue<'ctx> {
             if let Expr::Char { value } = message.clone() {
                 let genned_string = message.codegen(self);
 
-                //let glob_string_ptr = self.builder.build_global_string_ptr("Hello World from PL/1!\n", "hello_world_str");
 
                 let string_array: ArrayValue<'ctx> =
                     genned_string.as_any_value_enum().into_array_value();
-                let test = self
-                    .builder
-                    .build_alloca(string_array.get_type(), "tmp_array")
-                    .unwrap();
-                self.builder.build_store(test, string_array).unwrap();
 
-                let bitc = self
-                    .builder
-                    .build_bitcast(
-                        test,
-                        self.context.i8_type().ptr_type(AddressSpace::default()),
-                        "mybitcast",
-                    )
-                    .unwrap();
+                let char_value = CharValue::new(string_array);
+                let bitc = char_value.get_pointer_to_printable_string(self);
 
+
+             
                 let res = self.builder.build_call(
                     self.module.get_function("printf").unwrap(),
                     &[BasicMetadataValueEnum::from(bitc)],
@@ -516,29 +523,13 @@ pub mod codegen {
                 dbg!(&rhs_codegen);
                 let lhs_float: FloatValue<'ctx>;
                 let rhs_float: FloatValue<'ctx>;
+                //new mathable code
+                
+                let lhs_mathable = get_mathable_type(lhs_codegen, lhstype)?;
+                lhs_float = lhs_mathable.convert_to_float(self);
 
-                match lhstype {
-                    Type::FixedDecimal => {
-                        let lhs_struct = lhs_codegen.as_any_value_enum().into_struct_value();
-                        let fixed_dec = fixed_decimal::FixedValue::new(lhs_struct);
-
-                        lhs_float = self.fixed_decimal_to_float(fixed_dec);
-                    }
-                    other_type => todo!("Implement type conversion to float for {:?}", other_type),
-                };
-
-                match rhstype {
-                    Type::FixedDecimal => {
-                        let rhs_struct = rhs_codegen.as_any_value_enum().into_struct_value();
-                        let fixed_dec = fixed_decimal::FixedValue::new(rhs_struct);
-
-                        rhs_float = self.fixed_decimal_to_float(fixed_dec);
-                    }
-                    other_type => todo!(
-                        "Implement type conversion to llvm floatvalue for {:?}",
-                        other_type
-                    ),
-                };
+                let rhs_mathable = get_mathable_type(rhs_codegen, rhstype)?;
+                rhs_float = rhs_mathable.convert_to_float(self);
 
                 if true {
                     //TODO: Make this function return anyvalue and a fixed decimal
@@ -549,25 +540,27 @@ pub mod codegen {
                                     .builder
                                     .build_float_add(lhs_float, rhs_float, "tmpadd")
                                     .unwrap();
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::MINUS => {
                                 let floatval =
-                                    self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub");
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                    self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub").unwrap();
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(floatval).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::MULTIPLY => {
                                 let var =
-                                    self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul");
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                    self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul")
+                                    .unwrap();
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::DIVIDE => {
                                 let var =
-                                    self.builder.build_float_div(lhs_float, rhs_float, "tmpdiv");
-                                let fix = self.gen_const_fixed_decimal(0.0);
+                                    self.builder.build_float_div(lhs_float, rhs_float, "tmpdiv")
+                                    .unwrap();
+                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
                                 Ok(Box::new(fix))
                             }
                             lexer::Token::LESS_THAN => {
