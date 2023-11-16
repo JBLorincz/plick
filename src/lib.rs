@@ -3,6 +3,7 @@ use codegen::codegen::{CodeGenable, Compiler};
 use inkwell::builder::Builder;
 use inkwell::context::{self, Context};
 use inkwell::memory_buffer;
+use inkwell::types::FloatType;
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::{self, Module},
@@ -36,6 +37,14 @@ pub mod parser;
 mod passes;
 mod types;
 
+
+#[no_mangle]
+pub extern "C" fn powf(lhs: f64, rhs: f64) -> f64 {
+   
+    lhs + rhs
+}
+#[used]
+static MY_ARR: [extern "C" fn(f64,f64) -> f64; 1] = [powf];
 fn drive_compilation<'a, 'ctx>(
     token_manager: &mut TokenManager,
     compiler: &mut Compiler<'a, 'ctx>,
@@ -60,13 +69,13 @@ fn drive_compilation<'a, 'ctx>(
             .add_function("printf", printf_type, Some(module::Linkage::DLLImport));
     //end printf
     //begin pow
-    let pow_arg_type: PointerType<'ctx> =
-        compiler.context.f64_type().ptr_type(AddressSpace::default());
+    let doubler_pow: FloatType<'ctx> =
+        compiler.context.f64_type();
 
     let pow_type: FunctionType<'ctx> = compiler
         .context
         .f64_type()
-        .fn_type(&[BasicMetadataTypeEnum::from(pow_arg_type),BasicMetadataTypeEnum::from(pow_arg_type)], true);
+        .fn_type(&[BasicMetadataTypeEnum::from(doubler_pow),BasicMetadataTypeEnum::from(doubler_pow)], false);
 
     let _pow_func =
         compiler

@@ -3,7 +3,7 @@ use inkwell::{
     values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue}, AddressSpace,
 };
 
-use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float}};
+use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_int_value, build_pow, print_float_value}};
 
 use super::{Puttable, traits::Mathable};
 
@@ -248,10 +248,11 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
 
         for i in 0..BEFORE_DIGIT_COUNT as usize {
+            self.print_const_string("Digit: ");
             let current_digit_index = self.context.i8_type().const_int(i as u64, false);
-
+        
             let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
-            
+            print_int_value(self,digit_int_val);  
 
             //now we take the array value, build a GEP for the inner array
             before_int_values[i] = digit_int_val;
@@ -418,35 +419,85 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
 
     unsafe fn sum_up_before_digits_into_a_float(&self, before_int_values: Vec<IntValue<'ctx>>) -> FloatValue<'ctx>
     {
-        let lhs = before_int_values[0];
-
-        let mut result_floatval: FloatValue<'ctx> = self.compiler
+        let f64_type = self.compiler.context.f64_type();
+        let result_float: FloatValue<'ctx>;
+        let result_float_alloca = self
+            .compiler
             .builder
-            .build_unsigned_int_to_float(
-                before_int_values[0],
-                self.compiler.context.f64_type(),
-                "digAsFloat",
-            )
+            .build_alloca(self.compiler.context.f64_type(), "store_result")
             .unwrap();
 
-        for i in 1..BEFORE_DIGIT_COUNT as usize {
-            let float = self
-                .compiler
-                .builder
-                .build_unsigned_int_to_float(
-                    before_int_values[i],
-                    self.compiler.context.f64_type(),
-                    "digAsFloat",
-                )
+        self.compiler.builder.build_store(result_float_alloca, f64_type.const_zero()).unwrap();
+
+        let ten_float = self.compiler.context.f64_type().const_float(10.0);
+        for (index,digit_value) in before_int_values.iter().enumerate()
+        {
+            let my_float = index as f64;
+            //panic!("{}",my_float);
+            let rhs = f64_type.const_float(my_float);
+            self.compiler.print_const_string(" MY RHS IS: ");
+            print_float_value(self.compiler, rhs);
+            self.compiler.print_const_string("  ");
+            let digit_log = build_pow(self.compiler, ten_float, rhs);
+
+            self.compiler.print_const_string("digit_log is:");
+            print_float_value(self.compiler,digit_log);
+
+            let digit_scoped: IntValue<'ctx> = *digit_value;
+
+            let digit_value_as_float = self.
+                compiler.
+                builder.
+                build_unsigned_int_to_float(digit_scoped, f64_type, "lol")
                 .unwrap();
 
-            result_floatval = self
+
+
+
+            let digit_pure_value = self.compiler.builder.build_float_mul(digit_value_as_float, digit_log, "calc_digit_value")
+                .unwrap();
+            
+            let old_value = self
                 .compiler
                 .builder
-                .build_float_add(result_floatval, float, "summer")
-                .unwrap();
+                .build_load(result_float_alloca, "load_old_val")
+                .unwrap()
+                .into_float_value();
+            let new_value = self.compiler.builder.build_float_add(old_value, digit_pure_value, "lol").unwrap();
+
+            self.compiler.builder.build_store(result_float_alloca, new_value).unwrap();
         }
-        result_floatval
+
+        result_float = self.compiler.builder.build_load(result_float_alloca,"load_result").unwrap().into_float_value();
+        result_float
+        //let lhs = before_int_values[0];
+
+        //let mut result_floatval: FloatValue<'ctx> = self.compiler
+        //    .builder
+        //    .build_unsigned_int_to_float(
+        //        before_int_values[0],
+        //        self.compiler.context.f64_type(),
+        //        "digAsFloat",
+        //    )
+        //    .unwrap();
+
+        //for i in 1..BEFORE_DIGIT_COUNT as usize {
+        //    let float = self
+        //        .compiler
+        //        .builder
+        //        .build_unsigned_int_to_float(
+        //            before_int_values[i],
+        //            self.compiler.context.f64_type(),
+        //            "digAsFloat",
+        //        )
+        //        .unwrap();
+
+        //    result_floatval = self
+        //        .compiler
+        //        .builder
+        //        .build_float_add(result_floatval, float, "summer")
+        //        .unwrap();
+        //}
     }
 
 }

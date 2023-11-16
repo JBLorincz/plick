@@ -83,10 +83,11 @@ pub fn new(exe: &str, obj: &str) -> Self
 }
 fn link_file(&self) -> Result<(), Box<dyn Error>>
 {
-       Command::new("cc")
+       Command::new("clang")
         .arg(&self.path_to_object_file)
         .arg("-o")
         .arg(&self.path_to_exe)
+        .arg("-lm")
         .spawn()
         .expect("cc command failed to start")
         .wait()?;

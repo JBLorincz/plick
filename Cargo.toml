@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 env_logger = "0.10.1"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm14-0"] }
+libc = "0.2.150"
 log = "0.4.20"
 
 [dependencies.uuid]
