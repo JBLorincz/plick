@@ -101,6 +101,34 @@ mod full_compile_tests
 
     }
      #[test]
+    fn if_statement_dynamic_false() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                FLAG = 1;
+                FLAG = FLAG - 1;
+                IF FLAG THEN PUT 'INLINE IF IS TRUE\n'; ELSE PUT 'FALSE\n'; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("FALSE\n", output.stdout);
+        Ok(())
+
+    }
+     #[test]
+    fn if_statement_dynamic_true() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                FLAG = 0;
+                FLAG = FLAG + 1;
+                IF FLAG THEN PUT 'TRUE\n'; ELSE PUT 'FALSE\n'; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("TRUE\n", output.stdout);
+        Ok(())
+
+    }
+     #[test]
     fn if_statement_true() -> Result<(), Box<dyn Error>> 
     {
 
