@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::string;
 
 use crate::lexer;
@@ -101,6 +102,13 @@ impl Default for SourceLocation {
         }
     }
 }
+impl Display for SourceLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}",self.line_number,self.column_number);
+        Ok(())
+    }
+    
+}
 
 ///Represents a user-deined function.
 #[derive(Debug, Clone)]
@@ -163,3 +171,13 @@ pub struct Declare {
 pub struct Put {
     pub message_to_print: Expr,
 }
+
+#[derive(Debug, Clone)]
+pub struct IOList {
+    pub items: Vec<Expr>
+}
+
+
+
+
+
