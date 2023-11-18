@@ -133,6 +133,7 @@ pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
     PUT(Put),
+    GET(IOList),
     IF(If),
     Declare(Declare),
     Assignment(Assignment),

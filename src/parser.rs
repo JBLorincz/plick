@@ -541,10 +541,23 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                     }
                 }
                 dbg!(&token_manager.current_token);
-                //panic!("Put just ran!");
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
-                //token_manager.next_token();
+            }
+            Token::GET => {
+                match command {
+                    Command::Empty => {
+                        parse_token(token_manager, Token::GET)?;
+                        let list = IOList::parse_from_tokens(token_manager).unwrap();
+                        command = Command::GET(*list)
+                    },
+                    other_command => {
+                        return Err(get_error(&["4", "PUT", &other_command.to_string()]));
+                    }
+                }
+                dbg!(&token_manager.current_token);
+                parse_token(token_manager, Token::SEMICOLON)?;
+                break;
             }
             Token::PROCEDURE => {
                 let fn_name: String;
@@ -705,17 +718,10 @@ impl Parseable for ast::IOList
         
         let items: Vec<Expr> = parse_arguments_in_parens(token_manager)?;
 
-        //parse_token(token_manager, Token::SEMICOLON)?;
-
-
         Ok(Box::new(IOList{ items}))
 
     }
 }
-
-
-
-
 mod tests {
 
     use crate::lexer::TokenManager;
@@ -786,6 +792,24 @@ mod tests {
         assert_eq!(list.items.len(),3);
         dbg!("{:#?}",&list);
     }
+
+    #[test]
+    fn parse_get() {
+        let mut tok_man = TokenManager::new("GET LIST(A,B,C);");
+
+        let statement = parse_statement(&mut tok_man).unwrap();
+
+        match statement.command
+        {
+              Command::GET(list) =>
+              {
+                  dbg!(list);
+              }
+              other => panic!("Expected GET LIST to parse into a GET command, but received a {:#?}",other)
+        };
+    }
+
+
 
     #[test]
     fn test_parsing_identifier() {

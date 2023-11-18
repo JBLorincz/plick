@@ -140,6 +140,9 @@ pub mod codegen {
                 Command::PUT(msg) => {
                     return Box::new(compiler.print_string(msg.message_to_print));
                 }
+                Command::GET(list) => {
+                    todo!("Add codegen for GET!")
+                }
                 Command::EXPR(expr) => expr.codegen(compiler),
                 Command::IF(if_statement) => {
                     Box::new(compiler.generate_if_statement_code(if_statement).unwrap())

@@ -215,6 +215,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "FLOAT" => Token::FLOAT,
             "=" => Token::EQ,
             "PUT" => Token::PUT,
+            "GET" => Token::GET,
             "RETURN" | "RET" => Token::RETURN,
             "DATA" => Token::DATA,
             "END" => Token::END,
@@ -259,7 +260,7 @@ pub enum Token {
     FLOAT,
     COMMA,
     DATA,
-    //GET,
+    GET,
     OPTIONS,
     LIST,
     NumVal(i32),        // integer
