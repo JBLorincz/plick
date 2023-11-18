@@ -5,7 +5,7 @@ use inkwell::{
 
 use crate::codegen::codegen::Compiler;
 
-use super::{SIZE_OF_STRINGS, Puttable};
+use super::{SIZE_OF_STRINGS, traits::Puttable};
 
 ///Represents a CHAR PL/1 value.
 ///A string is just an array of characters (which are i8 integers for ASCII)
