@@ -176,6 +176,7 @@ mod full_compile_tests
 
 
     }
+
     #[test]
     fn drive_hello_world() -> Result<(), Box<dyn Error>>
     {
@@ -216,6 +217,8 @@ mod full_compile_tests
 
 mod should_fails
 {
+    use crate::common::run_new_test;
+
     use super::*;
     use super::common::initialize_test_logger;
      #[test]
@@ -239,6 +242,16 @@ mod should_fails
         test_normal_compile(input);
     }
 
+    #[test]
+    #[should_panic(expected = "top level")]
+    fn top_level_list()
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        LIST(3,4,5) END;";
+        
+        let output = run_new_test(input);
+
+    }
     #[test]
     #[should_panic(expected="support type Char")]
     fn string_conditional_panic() -> ()
