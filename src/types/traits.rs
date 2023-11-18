@@ -1,8 +1,13 @@
-use inkwell::values::{FloatValue, AnyValue, StructValue};
+use inkwell::values::{FloatValue, AnyValue, StructValue, PointerValue};
 
 use crate::codegen::codegen::Compiler;
 
 use super::{Type, fixed_decimal::FixedValue};
+
+pub trait Puttable<'a, 'ctx>
+{
+    fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx>;
+}
 
 
 

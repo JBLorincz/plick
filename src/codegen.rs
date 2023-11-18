@@ -15,7 +15,6 @@ pub mod codegen {
     use crate::debugger::DebugController;
     use crate::error::get_error;
     use crate::lexer;
-    use crate::types::Puttable;
     use crate::types::character;
     use crate::types::character::CharValue;
     use crate::types::fixed_decimal;
@@ -23,6 +22,7 @@ pub mod codegen {
     use crate::types::infer_pli_type_via_name;
     use crate::types::Type;
     use crate::types::TypeModule;
+    use crate::types::traits::Puttable;
     use crate::types::traits::get_mathable_type;
     use inkwell::basic_block::BasicBlock;
     use inkwell::builder::Builder;

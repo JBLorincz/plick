@@ -5,7 +5,7 @@ use inkwell::{
 
 use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_int_value, build_pow, print_float_value}};
 
-use super::{Puttable, traits::Mathable};
+use super::traits::{Puttable, Mathable};
 
 const BEFORE_DIGIT_COUNT: u32 = 16;
 const AFTER_DIGIT_COUNT: u32 = 15;
@@ -267,7 +267,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         let fixed_value: StructValue<'ctx> = create_empty_fixed(self.context, &self.type_module.fixed_type);
         let allocd_fd: PointerValue<'ctx> = self.builder.build_alloca(fixed_value.get_type(), "allocate_fd_for_fixed_conv").unwrap();
         self.builder.build_store(allocd_fd, fixed_value).unwrap();
-        let allocd_float = self.builder.build_alloca(float_value.get_type(), "allocate_float_for_fixed_conv").unwrap();
+        self.builder.build_alloca(float_value.get_type(), "allocate_float_for_fixed_conv").unwrap();
 
 
         let rhs: FloatValue<'ctx> = float_value.get_type().const_zero();
