@@ -219,6 +219,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "DATA" => Token::DATA,
             "END" => Token::END,
             "WHILE" => Token::WHILE,
+            "LIST" => Token::LIST,
             "SKIP" => Token::SKIP,
             "DECLARE" | "DCL" => Token::DECLARE,
             "OPTIONS" => Token::OPTIONS,
@@ -260,7 +261,7 @@ pub enum Token {
     DATA,
     //GET,
     OPTIONS,
-    //LIST,
+    LIST,
     NumVal(i32),        // integer
     Identifier(String), //an identifier / variable name
 }

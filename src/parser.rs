@@ -1,3 +1,6 @@
+use std::error::Error;
+
+use crate::ast;
 use crate::ast::*;
 use crate::error;
 use crate::types::Type;
@@ -403,6 +406,58 @@ pub fn parse_function_prototype(
     })
 }
 
+pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Result<Vec<Expr>, String>
+
+{
+    parse_token(token_manager, Token::OPEN_PAREN)?;
+    let mut expecting_comma = false;
+    let mut args_list: Vec<Expr> = vec![];
+    loop {
+
+        let source_loc = token_manager.get_source_location();
+        if let Some(Token::CLOSED_PAREN) = token_manager.current_token {
+            parse_token(token_manager, Token::CLOSED_PAREN)?;
+
+            //parse_token(token_manager, Token::SEMICOLON)?;
+            break;
+        } else if let Some(Token::COMMA) = token_manager.current_token {
+            if expecting_comma {
+                expecting_comma = false;
+                parse_token(token_manager, Token::COMMA)?;
+            } else {
+                return Err(format!(
+                    "Expected an expression, found a comma at {}",
+                    source_loc
+                )
+                .to_string());
+            }
+        } else if let Some(ref token) = token_manager.current_token {
+            //
+            //START OF CALLBACK
+            trace!("Found a token called {:#?}", *token);
+            let parsed_arg: Expr = parse_expression(token_manager);
+
+            //let arg_name: String;
+            //if let Expr::Variable { name, _type } = parsed_arg {
+            //    arg_name = name.clone();
+            //} else {
+            //    return Err(format!("Expected variable in function prototype, found _").to_string());
+            //}
+
+            args_list.push(parsed_arg);
+            //END OF CALLBACK SHIT
+
+            expecting_comma = true;
+            trace!("turned expecting comma on!");
+        } else {
+            return Err(format!("{:?}", token_manager.current_token).to_string());
+        }
+    }
+    Ok(args_list)
+}
+
+
+
 pub fn parse_put(token_manager: &mut lexer::TokenManager) -> Result<Put, String> {
     parse_token(token_manager, Token::PUT)?;
     let expr_to_print = parse_expression(token_manager);
@@ -635,6 +690,32 @@ pub fn parse_opening(token_manager: &mut lexer::TokenManager) -> Result<(), Stri
     Ok(())
 }
 
+
+// TRAITS ////////////////
+
+pub trait Parseable {
+    fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>, Box<dyn Error>>;
+}
+
+impl Parseable for ast::IOList
+{
+    fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>, Box<dyn Error>> {
+        
+        parse_token(token_manager, Token::LIST)?;
+        
+        let items: Vec<Expr> = parse_arguments_in_parens(token_manager)?;
+
+        //parse_token(token_manager, Token::SEMICOLON)?;
+
+
+        Ok(Box::new(IOList{ items}))
+
+    }
+}
+
+
+
+
 mod tests {
 
     use crate::lexer::TokenManager;
@@ -694,6 +775,16 @@ mod tests {
         } else {
             panic!("Result of parse numeric was not a numeric expression!");
         }
+    }
+
+    #[test]
+    fn parse_list() {
+        let mut tok_man = TokenManager::new("LIST(A,B,C)");
+
+        let list: Box<IOList> = IOList::parse_from_tokens(&mut tok_man).unwrap();
+
+        assert_eq!(list.items.len(),3);
+        dbg!("{:#?}",&list);
     }
 
     #[test]
