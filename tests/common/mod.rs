@@ -83,7 +83,7 @@ pub fn new(exe: &str, obj: &str) -> Self
 }
 fn link_file(&self) -> Result<(), Box<dyn Error>>
 {
-       Command::new("clang")
+       Command::new("cc")
         .arg(&self.path_to_object_file)
         .arg("-o")
         .arg(&self.path_to_exe)
