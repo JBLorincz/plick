@@ -5,6 +5,7 @@ use inkwell::{
     types::{AnyType, AnyTypeEnum, ArrayType, BasicType, BasicTypeEnum, StructType},
     values::{FloatValue, StructValue, IntValue, PointerValue},
 };
+use log::debug;
 
 use crate::{codegen::codegen::Compiler, error::get_error};
 
@@ -121,13 +122,17 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         todo!("fill this out!")
     }
     pub fn convert_plick_type_to_llvm_basic_type(&'a self, _type: Type) -> BasicTypeEnum<'ctx> {
-        match _type {
+        let result = match _type {
             Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),
             Type::Char(size) => self.get_character_type(size).as_basic_type_enum(),
             Type::Float => todo!("implement float type"),
             Type::Void => panic!("Can't convert void type to basic type enum!"),
             Type::TBD => panic!("Can't convert TBD type to basic type enum!"),
-        }
+        };
+
+        debug!("Type {} turned into {}", _type, result);
+
+        result
     }
     pub fn convert_plick_type_to_llvm_any_type(&'a self, _type: Type) -> AnyTypeEnum<'ctx> {
         match _type {

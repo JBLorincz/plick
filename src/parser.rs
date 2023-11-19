@@ -11,6 +11,7 @@ use crate::{
     types::infer_pli_type_via_name,
 };
 
+use log::debug;
 use log::trace;
 
 ///Helper function used to advance the token manager,
@@ -20,6 +21,7 @@ pub fn parse_token(
     token_manager: &mut lexer::TokenManager,
     token_to_check_for: Token,
 ) -> Result<(), String> {
+    trace!("Calling parse_token looking for {:?}", &token_to_check_for);
     let current_tok_copy = token_manager.current_token.clone();
     if let None = current_tok_copy {
         let err_msg = get_error(&["2"]);
@@ -29,6 +31,7 @@ pub fn parse_token(
     let current_tok_copy = current_tok_copy.unwrap();
 
     if std::mem::discriminant(&token_to_check_for) == std::mem::discriminant(&current_tok_copy) {
+        trace!("Found it!" );
         token_manager.next_token();
         Ok(())
     } else {
@@ -36,12 +39,13 @@ pub fn parse_token(
             "1",
             &token_to_check_for.to_string(),
             &current_tok_copy.to_string(),
+            format!("{}",token_manager.get_source_location()).as_str()
         ]);
         Err(err_msg)
     }
 }
 
-pub fn parse_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     if let Some(Token::NumVal(value)) = token_manager.current_token {
         token_manager.next_token(); //loads the next token into the token manager.
         return Expr::NumVal {
@@ -102,6 +106,7 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
 }
 
 pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare, String> {
+    log::info!("Parsing the declare!");
     parse_token(token_manager, Token::DECLARE)?;
     let new_variable_name;
     let mut variable_type = Type::FixedDecimal;
@@ -122,12 +127,29 @@ pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare,
             variable_type = Type::Float;
             token_manager.next_token();
         }
+        Some(Token::CHARACTER) => {
+            parse_token(token_manager, Token::CHARACTER)?;
+
+            parse_token(token_manager, Token::OPEN_PAREN)?;
+            let numval = parse_constant_numeric(token_manager);
+            parse_token(token_manager, Token::CLOSED_PAREN)?;
+
+            let string_size = match numval            {
+                Expr::NumVal{value, _type: _} => value,
+                other => panic!("Expected numval, received {:#?}", other)
+            };
+
+            if string_size <= 0
+            {
+                panic!("character can't have a size below zero!");
+            }
+            variable_type = Type::Char(string_size as u32);
+        }
         Some(Token::SEMICOLON) => variable_type = variable_type,
-        _ => return Err("Could not parse declare statement".to_string()),
+        ref other => return Err(format!("Could not parse declare statement {:#?}", other)),
     };
 
-    parse_token(token_manager, Token::SEMICOLON)?;
-
+    log::info!("Finish parsing declare");
     Ok(Declare {
         var_name: new_variable_name,
         attribute: Some(variable_type),
@@ -324,7 +346,7 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
     match token_manager.current_token.as_ref().unwrap() {
         Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
         Token::Identifier(_) => parse_identifier(token_manager),
-        Token::NumVal(_) => parse_numeric(token_manager),
+        Token::NumVal(_) => parse_constant_numeric(token_manager),
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
@@ -510,6 +532,7 @@ pub fn parse_function(
 
 ///Parses a PL/1 statement
 pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statement, String> {
+    debug!("Calling parse statement!");
     let mut command: Command = Command::Empty;
     let mut label: Option<String> = None;
     while let Some(ref token) = token_manager.current_token {
@@ -541,10 +564,23 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                     }
                 }
                 dbg!(&token_manager.current_token);
-                //panic!("Put just ran!");
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
-                //token_manager.next_token();
+            }
+            Token::GET => {
+                match command {
+                    Command::Empty => {
+                        parse_token(token_manager, Token::GET)?;
+                        let list = IOList::parse_from_tokens(token_manager).unwrap();
+                        command = Command::GET(*list)
+                    },
+                    other_command => {
+                        return Err(get_error(&["4", "PUT", &other_command.to_string()]));
+                    }
+                }
+                dbg!(&token_manager.current_token);
+                parse_token(token_manager, Token::SEMICOLON)?;
+                break;
             }
             Token::PROCEDURE => {
                 let fn_name: String;
@@ -705,17 +741,10 @@ impl Parseable for ast::IOList
         
         let items: Vec<Expr> = parse_arguments_in_parens(token_manager)?;
 
-        //parse_token(token_manager, Token::SEMICOLON)?;
-
-
         Ok(Box::new(IOList{ items}))
 
     }
 }
-
-
-
-
 mod tests {
 
     use crate::lexer::TokenManager;
@@ -768,7 +797,7 @@ mod tests {
     fn test_parsing_numeric() {
         let mut tok_man = TokenManager::new("4");
 
-        let result: Expr = parse_numeric(&mut tok_man);
+        let result: Expr = parse_constant_numeric(&mut tok_man);
 
         if let Expr::NumVal { value, _type } = result {
             assert_eq!(4, value);
@@ -786,6 +815,24 @@ mod tests {
         assert_eq!(list.items.len(),3);
         dbg!("{:#?}",&list);
     }
+
+    #[test]
+    fn parse_get() {
+        let mut tok_man = TokenManager::new("GET LIST(A,B,C);");
+
+        let statement = parse_statement(&mut tok_man).unwrap();
+
+        match statement.command
+        {
+              Command::GET(list) =>
+              {
+                  dbg!(list);
+              }
+              other => panic!("Expected GET LIST to parse into a GET command, but received a {:#?}",other)
+        };
+    }
+
+
 
     #[test]
     fn test_parsing_identifier() {

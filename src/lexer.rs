@@ -43,6 +43,7 @@ impl<'a, 'b> TokenManager<'a, 'b> {
     ///Thus function returns the next token from the token iterator.
     pub fn next_token(&mut self) -> &Option<Token> {
         self.current_token = self.token_iter.next();
+        trace!("Next Token: {:?}",&self.current_token);
 
         &self.current_token
     }
@@ -215,6 +216,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "FLOAT" => Token::FLOAT,
             "=" => Token::EQ,
             "PUT" => Token::PUT,
+            "GET" => Token::GET,
             "RETURN" | "RET" => Token::RETURN,
             "DATA" => Token::DATA,
             "END" => Token::END,
@@ -222,6 +224,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "LIST" => Token::LIST,
             "SKIP" => Token::SKIP,
             "DECLARE" | "DCL" => Token::DECLARE,
+            "CHARACTER" | "CHAR" => Token::CHARACTER,
             "OPTIONS" => Token::OPTIONS,
             _ => Token::Identifier(current_word_buffer),
         })
@@ -259,9 +262,10 @@ pub enum Token {
     FLOAT,
     COMMA,
     DATA,
-    //GET,
+    GET,
     OPTIONS,
     LIST,
+    CHARACTER,
     NumVal(i32),        // integer
     Identifier(String), //an identifier / variable name
 }

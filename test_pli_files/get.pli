@@ -1,0 +1,14 @@
+HELLO:   PROCEDURE OPTIONS (MAIN);
+				
+				DECLARE X CHAR(20);
+				DECLARE Y CHAR(20);
+				DECLARE Z CHAR(20);
+				GET LIST(X,Y,Z);
+				PUT '\\n Printing X: ';
+				PUT X;
+				PUT '\n Printing Y: ';
+				PUT Y;
+				PUT '\n Printing Z: ';
+				PUT Z;
+				PUT '\nExiting...\n';
+                END;

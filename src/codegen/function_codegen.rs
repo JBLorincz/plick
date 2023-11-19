@@ -102,7 +102,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             self.named_values.insert(NamedValue {
                 name,
                 _type: Type::FixedDecimal,
-                value: alloca,
+                pointer: alloca,
             });
         }
         Ok(())
