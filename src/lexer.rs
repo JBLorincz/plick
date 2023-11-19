@@ -43,6 +43,7 @@ impl<'a, 'b> TokenManager<'a, 'b> {
     ///Thus function returns the next token from the token iterator.
     pub fn next_token(&mut self) -> &Option<Token> {
         self.current_token = self.token_iter.next();
+        trace!("Next Token: {:?}",&self.current_token);
 
         &self.current_token
     }
@@ -223,6 +224,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "LIST" => Token::LIST,
             "SKIP" => Token::SKIP,
             "DECLARE" | "DCL" => Token::DECLARE,
+            "CHARACTER" | "CHAR" => Token::CHARACTER,
             "OPTIONS" => Token::OPTIONS,
             _ => Token::Identifier(current_word_buffer),
         })
@@ -263,6 +265,7 @@ pub enum Token {
     GET,
     OPTIONS,
     LIST,
+    CHARACTER,
     NumVal(i32),        // integer
     Identifier(String), //an identifier / variable name
 }

@@ -2,7 +2,8 @@ use std::collections::HashMap;
 ///The error module contains all of the error types.
 
 #[macro_use]
-mod errors;
+pub mod errors;
+
 
 pub fn get_error(params: &[&str]) -> String {
     if params.len() == 0 {
@@ -33,7 +34,7 @@ pub fn get_error(params: &[&str]) -> String {
 
 //The way to use this: get_error(&["8", "This is dynamic arguments here"]);
 create_errors! {
-    E001: "Expected '[0]', recieved '[1]'",
+    E001: "Expected '[0]', recieved '[1]' [2]",
     E002: "End of file was reached unexpectedly",
     E003: "Can't declare label '[0]' after label '[1]'",
     E004: "Can't invoke command '[0]' after command'[1]'",

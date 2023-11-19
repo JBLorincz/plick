@@ -37,14 +37,6 @@ pub mod parser;
 mod passes;
 mod types;
 
-
-#[no_mangle]
-pub extern "C" fn powf(lhs: f64, rhs: f64) -> f64 {
-   
-    lhs + rhs
-}
-#[used]
-static MY_ARR: [extern "C" fn(f64,f64) -> f64; 1] = [powf];
 fn drive_compilation<'a, 'ctx>(
     token_manager: &mut TokenManager,
     compiler: &mut Compiler<'a, 'ctx>,
@@ -69,13 +61,13 @@ fn drive_compilation<'a, 'ctx>(
             .add_function("printf", printf_type, Some(module::Linkage::DLLImport));
     //end printf
     //begin pow
-    let doubler_pow: FloatType<'ctx> =
+    let double_type: FloatType<'ctx> =
         compiler.context.f64_type();
 
     let pow_type: FunctionType<'ctx> = compiler
         .context
         .f64_type()
-        .fn_type(&[BasicMetadataTypeEnum::from(doubler_pow),BasicMetadataTypeEnum::from(doubler_pow)], false);
+        .fn_type(&[BasicMetadataTypeEnum::from(double_type),BasicMetadataTypeEnum::from(double_type)], false);
 
     let _pow_func =
         compiler
@@ -83,6 +75,21 @@ fn drive_compilation<'a, 'ctx>(
             .add_function("pow", pow_type, Some(module::Linkage::DLLImport));
     //end pow
 
+    //start scanf
+        let scanf_arg_type: PointerType<'ctx> =
+        compiler.context.i8_type().ptr_type(AddressSpace::default());
+
+        let scanf_type: FunctionType<'ctx> = compiler
+        .context
+        .i32_type()
+        .fn_type(&[BasicMetadataTypeEnum::from(scanf_arg_type)], true);
+
+    let _scanf_func =
+        compiler
+            .module
+            .add_function("scanf", scanf_type, Some(module::Linkage::DLLImport));
+ 
+    //end scanf
 
     unsafe {
         perform_parse_pass(token_manager)?
