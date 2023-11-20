@@ -1,6 +1,7 @@
 mod function_codegen;
 mod named_value_store;
 pub mod utils;
+pub mod prelude;
 pub mod codegen {
 
     use std::collections::HashMap;
