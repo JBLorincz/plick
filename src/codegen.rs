@@ -78,37 +78,40 @@ pub mod codegen {
     }
 
     
+    /// This function runs for each line of the program, compiling it
+    ///DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
+    ///IF NEW COMMANDS ARE ADDED.
     impl<'a, 'ctx> CodeGenable<'a, 'ctx> for Statement {
         unsafe fn codegen(
             self,
             compiler: &'a Compiler<'a, 'ctx>,
         ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
-            //DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
-            //IF NEW COMMANDS ARE ADDED.
             match self.command {
                 Command::Declare(dec) => {
                     dec.codegen(compiler)
-                },
-                Command::PUT(msg) => {
-                    return Box::new(compiler.print_string(msg.message_to_print));
                 }
-                Command::GET(list) => {
-                    let _res = compiler.generate_get_code(list).unwrap();
-                    Box::new(compiler.generate_float_code(-999.0))
+                Command::PUT(put) => {
+                    put.codegen(compiler)
                 }
-                Command::EXPR(expr) => expr.codegen(compiler),
+                Command::GET(get) => {
+                    get.codegen(compiler)
+                }
+                Command::EXPR(expr) => {
+                    expr.codegen(compiler)
+                }
                 Command::IF(if_statement) => {
                     if_statement.codegen(compiler)
                 }
-                Command::END => panic!("found END"),
-                Command::RETURN(_expr) => panic!("found RETURN!"),
-                Command::Empty => panic!("found EMPTY"),
                 Command::Assignment(assn) => {
                     assn.codegen(compiler)
                 }
                 Command::FunctionDec(func) => {
                     func.codegen(compiler)
                 }
+
+                Command::END => panic!("found END"),
+                Command::RETURN(_expr) => todo!("Handle top level return"),
+                Command::Empty => panic!("found EMPTY"),
             }
         }
     }
@@ -134,29 +137,8 @@ pub mod codegen {
 
 
 
-        #[deprecated]
-        pub unsafe fn create_variable(
-            &self,
-            assignment: ast::Assignment,
-        ) -> Box<dyn BasicValue<'ctx> + 'ctx> {
-            let _type = assignment.value.get_type();
-            dbg!(&_type);
-            let name = assignment.var_name.clone();
-
-            dbg!(&assignment);
-
-            let variable_ptr = self.allocate_variable(&assignment);
-
-            dbg!(&variable_ptr);
-            let value_of_variable = self.assign_variable(assignment, variable_ptr);
-            self.named_values
-                .insert(NamedValue::new(name, _type, variable_ptr));
-
-            Box::new(value_of_variable)
-        }
-
         ///NOTE: does not assign anything to variables
-        unsafe fn create_variable_and_return_ptr(&self, name: &str, _type: &Type) -> PointerValue<'ctx>
+        unsafe fn create_empty_variable_and_return_ptr(&self, name: &str, _type: &Type) -> PointerValue<'ctx>
         {
             dbg!(&_type);
 
@@ -173,16 +155,15 @@ pub mod codegen {
             variable_ptr
         }
 
-
-
-        unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx> {
+        pub unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx> {
 
             let current_function = get_current_function(self);
             let _type = assignment.value.get_type();
 
             self.create_entry_block_alloca(&assignment.var_name, &current_function, &_type)
         }
-        unsafe fn assign_variable(
+
+        pub unsafe fn assign_variable(
             &self,
             assignment: ast::Assignment,
             new_variable: PointerValue<'ctx>,
@@ -213,60 +194,14 @@ pub mod codegen {
                 }
 
                 None => {
-                    self.create_variable_and_return_ptr(variable_name, _type)
+                    self.create_empty_variable_and_return_ptr(variable_name, _type)
                 }
             }
         }
 
 
 
-        unsafe fn generate_get_code(
-            &self,
-            list: ast::IOList,
-        ) -> Result<(), Box<dyn Error>> {
-            log::trace!("Calling generate get code!");
-
-            let mut result: IntValue<'ctx>;
-            for i in list.items.iter()
-            {
-                log::debug!("{:#?}",i);
-                if let Expr::Variable { _type, name }  = i
-                {
-                    log::debug!("Running get loop for variable {}",name);
-                    let does_var_exist: bool = self
-                        .named_values.try_get(name).map(|v| true).unwrap_or(false);
-
-                    log::trace!("Does value exist? {}",does_var_exist);
-                    let real_type = self
-                        .named_values
-                        .try_get(name)
-                        .map(|value| value._type)
-                        .unwrap_or(_type.clone());
-
-                    log::trace!("getting variable {} of type {}",name,real_type);
-
-                    let format_string = &Self::get_format_string_for_type(&real_type);
-                    let format_string_ptr = self.builder.build_global_string_ptr(format_string, "format_string")?.as_pointer_value();
-                    
-                    let scanf_func = self.get_function("scanf")?;
-
-                    let variable_ptr = self.create_or_load_variable(name, &real_type);
-
-
-                    let mut args :Vec<BasicMetadataValueEnum> = vec![];
-                    args.push(format_string_ptr.into());
-                    args.push(variable_ptr.into());
-                    
-                    let scanf_return_value  = self.builder.build_call(scanf_func, &args[..], "scanf")?;
-                    result = scanf_return_value.try_as_basic_value().left().unwrap().into_int_value();
-                }
-                else
-                {
-                    panic!("Expected a variable in the GET LIST, recieved a {:#?}",i);
-                }
-            }
-            Ok(())
-        }
+        
 
         pub fn get_format_string_for_type(_type: &Type) -> String
         {
@@ -297,7 +232,7 @@ pub mod codegen {
         }
 
 
-        unsafe fn get_function(&self, name: &str) -> Result<FunctionValue<'ctx>, Box<dyn Error>>
+        pub unsafe fn get_function(&self, name: &str) -> Result<FunctionValue<'ctx>, Box<dyn Error>>
         {
             self.module.get_function(name).ok_or(Box::new(CodegenError{ message: "Function named ___ not found!".to_string()}))
         }
@@ -316,7 +251,7 @@ pub mod codegen {
             //}
 
             //let function_to_call: FunctionValue<'ctx> = get_func_result.unwrap();
-            let function_to_call: FunctionValue<'ctx> = self.get_function(&fn_name).map_err(|err| "lol".to_string())?;
+            let function_to_call: FunctionValue<'ctx> = self.get_function(&fn_name).map_err(|_err| "lol".to_string())?;
 
             //handle argument checks here
             if args.len() != function_to_call.get_params().len() {
@@ -381,56 +316,6 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 
         }
 
-        pub unsafe fn print_string(&'a self, message: Expr) -> CallSiteValue<'ctx> {
-            
-            if let Expr::Char { value } = message.clone() {
-                let genned_string = message.codegen(self);
-
-
-                let string_array: ArrayValue<'ctx> =
-                    genned_string.as_any_value_enum().into_array_value();
-
-                let char_value = CharValue::new(string_array);
-                let bitc = char_value.get_pointer_to_printable_string(self);
-
-
-             
-                let res = self.builder.build_call(
-                    self.get_function("printf").unwrap(),
-                    &[BasicMetadataValueEnum::from(bitc)],
-                    "printf",
-                );
-
-                return res.unwrap();
-            }
-            else if let Expr::Variable { _type, name } = message.clone()
-            {
-                 let genned_string = message.codegen(self);
-
-
-                let string_array: ArrayValue<'ctx> =
-                    genned_string.as_any_value_enum().into_array_value();
-
-                let char_value = CharValue::new(string_array);
-                let bitc = char_value.get_pointer_to_printable_string(self);
-
-
-             
-                let res = self.builder.build_call(
-                    self.get_function("printf").unwrap(),
-                    &[BasicMetadataValueEnum::from(bitc)],
-                    "printf",
-                );
-
-                return res.unwrap();
-
-
-            }
-            else {
-                todo!("PUT doesn't support non strings yet! you passed in a {:?}",message);
-            }
-        }
-
         pub unsafe fn print_const_string(&'a self, const_string: &str) -> CallSiteValue<'ctx> {
             let glob_string_ptr = self
                 .builder
@@ -469,7 +354,7 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                     let fixed_decimal_struct = result_value.into_struct_value();
                     return Ok(Box::new(fixed_decimal_struct));
                 }
-                Type::Char(size) => {
+                Type::Char(_size) => {
                     let character_array = result_value.into_array_value();
                     return Ok(Box::new(character_array));
                 }
@@ -485,8 +370,6 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                 }
             }
         }
-
-        
 
         pub unsafe fn generate_function_prototype_code(
             self: &'a Self,

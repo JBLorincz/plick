@@ -571,8 +571,8 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 match command {
                     Command::Empty => {
                         parse_token(token_manager, Token::GET)?;
-                        let list = IOList::parse_from_tokens(token_manager).unwrap();
-                        command = Command::GET(*list)
+                        let list_to_get = *IOList::parse_from_tokens(token_manager).unwrap();
+                        command = Command::GET(Get { list_to_get })
                     },
                     other_command => {
                         return Err(get_error(&["4", "PUT", &other_command.to_string()]));

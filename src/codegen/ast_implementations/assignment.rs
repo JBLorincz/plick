@@ -2,7 +2,7 @@ use std::error::Error;
 
 use inkwell::values::{BasicValue, BasicValueEnum, AnyValue};
 
-use crate::{codegen::{codegen::CodeGenable, named_value_store::NamedValueStore}, ast};
+use crate::{codegen::{codegen::{CodeGenable, Compiler}, named_value_store::NamedValueStore, named_value::NamedValue}, ast};
 
 impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Assignment
 {
@@ -37,7 +37,7 @@ impl<'a, 'ctx> ast::Assignment
                 }
 
                 None => {
-                    let new_variable = compiler.create_variable(self.clone());
+                    let new_variable = compiler.create_variable_from_assignment(self.clone());
                     Ok(Box::new(new_variable.as_any_value_enum()))
                 }
             }
@@ -45,4 +45,25 @@ impl<'a, 'ctx> ast::Assignment
 }
 
 
-      
+impl<'a,'ctx> Compiler<'a,'ctx>
+{
+        unsafe fn create_variable_from_assignment(
+            &self,
+            assignment: ast::Assignment,
+        ) -> Box<dyn BasicValue<'ctx> + 'ctx> {
+            let _type = assignment.value.get_type();
+            dbg!(&_type);
+            let name = assignment.var_name.clone();
+
+            dbg!(&assignment);
+
+            let variable_ptr = self.allocate_variable(&assignment);
+
+            dbg!(&variable_ptr);
+            let value_of_variable = self.assign_variable(assignment, variable_ptr);
+            self.named_values
+                .insert(NamedValue::new(name, _type, variable_ptr));
+
+            Box::new(value_of_variable)
+        }
+}
