@@ -86,6 +86,13 @@ pub mod codegen {
             self,
             compiler: &'a Compiler<'a, 'ctx>,
         ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
+
+            match self.label
+            {
+                Some(label_name) => compiler.codegen_label(&label_name).unwrap(),
+                None => ()
+            };
+
             match self.command {
                 Command::Declare(dec) => {
                     dec.codegen(compiler)
@@ -469,6 +476,21 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             self.builder.position_at_end(new_func_block);
 
             main_func
+        }
+
+
+
+        unsafe fn codegen_label(&self, label_name: &str) -> Result<(), Box<dyn Error>>
+        {
+            let old_block = self.builder.get_insert_block().unwrap();
+
+            let label_block = self.context.insert_basic_block_after(old_block, label_name);
+
+            self.builder.build_unconditional_branch(label_block)?;
+
+            self.builder.position_at_end(label_block);
+            
+            Ok(())
         }
     }
 }

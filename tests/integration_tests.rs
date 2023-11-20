@@ -88,6 +88,31 @@ mod full_compile_tests
 
         
     }
+
+    #[test]
+    fn goto_loop_thrice() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                FLAG = 2;
+                LOOP: Put 'Hello!';        
+                FLAG = FLAG - 1;
+                IF FLAG < 0 THEN GOTO FIN;
+                GOTO LOOP;
+
+                FIN:
+                END;
+        ";
+
+        
+        let output = run_new_test(input)?;
+        assert_eq!("Hello!Hello!Hello!", output.stdout);
+        Ok(())
+
+    }
+
+
+
      #[test]
     fn if_statement_false() -> Result<(), Box<dyn Error>> 
     {
