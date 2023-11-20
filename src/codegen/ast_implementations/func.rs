@@ -1,15 +1,46 @@
+use std::error::Error;
+
+use crate::{ast, codegen::{codegen::{CodeGenable, Compiler}, named_value::NamedValue}};
+
 use inkwell::{
     basic_block::BasicBlock,
     debug_info::{AsDIScope, DISubprogram},
     values::{BasicValue, FunctionValue, PointerValue},
 };
 
-use crate::{ast, codegen::named_value_store::NamedValueStore, error::get_error, types::Type};
+use crate::{codegen::named_value_store::NamedValueStore, error::get_error, types::Type};
 
-use super::codegen::Compiler;
-use super::codegen::*;
 
-impl<'a, 'ctx> Compiler<'a, 'ctx> {
+impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Function
+{
+    unsafe fn codegen(self, compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>)
+                -> Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx> {
+
+                    self.codegen_with_error_info(compiler).expect("Error codegenning a FUNCTION")
+        
+    }
+    
+}
+
+
+impl<'a, 'ctx> ast::Function
+{
+
+    unsafe fn codegen_with_error_info(self, compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>)
+                -> Result<Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx>,Box<dyn Error>> {
+
+                    let current_function = compiler.builder.get_insert_block().unwrap();
+                    let llvm_created_function =
+                        Box::new(compiler.generate_function_code(self).unwrap());
+                    compiler.builder.position_at_end(current_function);
+                    Ok(llvm_created_function)
+                }
+}
+
+
+
+impl<'a,'ctx> Compiler<'a,'ctx>
+{
     pub unsafe fn generate_function_code(
         &self,
         function_ast: ast::Function,

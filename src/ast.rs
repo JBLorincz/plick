@@ -133,7 +133,7 @@ pub enum Command {
     Empty, //represents a statement that is just a semicolon by itself.
     END,
     PUT(Put),
-    GET(IOList),
+    GET(Get),
     IF(If),
     Declare(Declare),
     Assignment(Assignment),
@@ -171,6 +171,11 @@ pub struct Declare {
 #[derive(Debug, Clone)]
 pub struct Put {
     pub message_to_print: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct Get {
+    pub list_to_get: IOList,
 }
 
 #[derive(Debug, Clone)]

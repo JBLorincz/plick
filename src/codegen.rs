@@ -1,7 +1,8 @@
-mod function_codegen;
+mod ast_implementations;
 mod named_value_store;
 pub mod utils;
 pub mod prelude;
+pub mod named_value;
 pub mod codegen {
 
     use std::collections::HashMap;
@@ -12,6 +13,7 @@ pub mod codegen {
     use crate::ast::Command;
     use crate::ast::Expr;
     use crate::ast::Statement;
+    use crate::codegen::named_value::NamedValue;
     use crate::codegen::utils;
     use crate::codegen::utils::print_float_value;
     use crate::debugger::DebugController;
@@ -67,18 +69,7 @@ pub mod codegen {
         pub named_values: NamedValueHashmapStore<'ctx>,
     }
 
-    #[derive(Debug, Clone)]
-    pub struct NamedValue<'ctx> {
-        pub name: String,
-        pub _type: Type,
-        pub pointer: PointerValue<'ctx>,
-    }
-
-    impl<'ctx> NamedValue<'ctx> {
-        pub fn new(name: String, _type: Type, value: PointerValue<'ctx>) -> NamedValue<'ctx> {
-            NamedValue { name, _type, pointer: value }
-        }
-    }
+    
 
     ///A trait which all provides an interface to compile a syntax element
     pub trait CodeGenable<'a, 'ctx> {
@@ -86,88 +77,41 @@ pub mod codegen {
             -> Box<dyn AnyValue<'ctx> + 'ctx>;
     }
 
-    impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr {
-        unsafe fn codegen(
-            mut self,
-            compiler: &'a Compiler<'a, 'ctx>,
-        ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
-            match self {
-                ast::Expr::Variable { name, _type } => {
-                    compiler.generate_variable_code(&name).unwrap()
-                }
-                ast::Expr::Binary {
-                    operator,
-                    left,
-                    right,
-                } => {
-                    let bin_res = compiler.generate_binary_expression_code(ast::Expr::Binary {
-                        operator,
-                        left,
-                        right,
-                    });
-                    let binary_value = bin_res.unwrap();
-                    binary_value
-                }
-                ast::Expr::NumVal { value, _type } => {
-                    //Box::new(compiler.generate_float_code(value as f64))
-                    Box::new(compiler.gen_const_fixed_decimal(value as f64))
-                }
-                ast::Expr::Char { value } => {
-                    //Box::new(compiler.generate_float_code(value as f64))
-                    let character_value =
-                        character::generate_character_code(compiler.context, &value);
-                    let arr_value: ArrayValue = character_value.into();
-                    Box::new(arr_value)
-                }
-                ast::Expr::Call {
-                    ref fn_name,
-                    ref mut args,
-                    _type,
-                } => {
-                    let function_call_result = compiler.generate_function_call_code(fn_name, args);
-                    function_call_result.unwrap()
-                }
-                other => {
-                    todo!("Implement codegen ability for {:#?}", other);
-                }
-            }
-        }
-    }
+    
+    /// This function runs for each line of the program, compiling it
+    ///DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
+    ///IF NEW COMMANDS ARE ADDED.
     impl<'a, 'ctx> CodeGenable<'a, 'ctx> for Statement {
         unsafe fn codegen(
             self,
             compiler: &'a Compiler<'a, 'ctx>,
         ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
-            //DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
-            //IF NEW COMMANDS ARE ADDED.
             match self.command {
                 Command::Declare(dec) => {
-                    return Box::new(compiler.generate_declare_code(&dec))
-                },
-                Command::PUT(msg) => {
-                    return Box::new(compiler.print_string(msg.message_to_print));
+                    dec.codegen(compiler)
                 }
-                Command::GET(list) => {
-                    let _res = compiler.generate_get_code(list).unwrap();
-                    Box::new(compiler.generate_float_code(-999.0))
+                Command::PUT(put) => {
+                    put.codegen(compiler)
                 }
-                Command::EXPR(expr) => expr.codegen(compiler),
+                Command::GET(get) => {
+                    get.codegen(compiler)
+                }
+                Command::EXPR(expr) => {
+                    expr.codegen(compiler)
+                }
                 Command::IF(if_statement) => {
-                    Box::new(compiler.generate_if_statement_code(if_statement).unwrap())
+                    if_statement.codegen(compiler)
                 }
-                Command::END => panic!("found END"),
-                Command::RETURN(_expr) => panic!("found RETURN!"),
-                Command::Empty => panic!("found EMPTY"),
                 Command::Assignment(assn) => {
-                    Box::new(compiler.generate_assignment_code(assn).as_any_value_enum())
+                    assn.codegen(compiler)
                 }
                 Command::FunctionDec(func) => {
-                    let current_function = compiler.builder.get_insert_block().unwrap();
-                    let llvm_created_function =
-                        Box::new(compiler.generate_function_code(func).unwrap());
-                    compiler.builder.position_at_end(current_function);
-                    llvm_created_function
+                    func.codegen(compiler)
                 }
+
+                Command::END => panic!("found END"),
+                Command::RETURN(_expr) => todo!("Handle top level return"),
+                Command::Empty => panic!("found EMPTY"),
             }
         }
     }
@@ -192,70 +136,9 @@ pub mod codegen {
         }
 
 
-        unsafe fn generate_declare_code(&self,declare: &ast::Declare) -> PointerValue<'ctx>
-        {
-            log::info!("Generating declare code!");
-            let name = declare.var_name.clone(); 
-            log::info!("Name: {}",name);
-            let _type = declare.attribute.unwrap_or(infer_pli_type_via_name(&name));
-
-            log::info!("Type: {}",_type);
-            //let current_function = get_current_function(self);
-            //self.create_entry_block_alloca(&name, &current_function, &_type)
-            self.create_or_load_variable(&name, &_type)
-        }
-
-        unsafe fn generate_assignment_code(
-            &self,
-            assignment: ast::Assignment,
-        ) -> Box<dyn BasicValue<'ctx> + 'ctx> {
-
-            let variable_in_map = self.named_values.try_get(&assignment.var_name);
-
-            match variable_in_map {
-
-                Some(_pointer_value) => {
-                    let value_to_store = assignment.value.codegen(self);
-
-                    let initial_value: BasicValueEnum<'ctx> =
-                        self.convert_anyvalue_to_basicvalue(value_to_store);
-
-                    let _store_result = self
-                        .builder
-                        .build_store(_pointer_value.pointer, initial_value);
-
-                    return Box::new(initial_value);
-                }
-
-                None => {
-                    self.create_variable(assignment)
-                }
-            }
-        }
-
-        #[deprecated]
-        unsafe fn create_variable(
-            &self,
-            assignment: ast::Assignment,
-        ) -> Box<dyn BasicValue<'ctx> + 'ctx> {
-            let _type = assignment.value.get_type();
-            dbg!(&_type);
-            let name = assignment.var_name.clone();
-
-            dbg!(&assignment);
-
-            let variable_ptr = self.allocate_variable(&assignment);
-
-            dbg!(&variable_ptr);
-            let value_of_variable = self.assign_variable(assignment, variable_ptr);
-            self.named_values
-                .insert(NamedValue::new(name, _type, variable_ptr));
-
-            Box::new(value_of_variable)
-        }
 
         ///NOTE: does not assign anything to variables
-        unsafe fn create_variable_and_return_ptr(&self, name: &str, _type: &Type) -> PointerValue<'ctx>
+        unsafe fn create_empty_variable_and_return_ptr(&self, name: &str, _type: &Type) -> PointerValue<'ctx>
         {
             dbg!(&_type);
 
@@ -272,16 +155,15 @@ pub mod codegen {
             variable_ptr
         }
 
-
-
-        unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx> {
+        pub unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx> {
 
             let current_function = get_current_function(self);
             let _type = assignment.value.get_type();
 
             self.create_entry_block_alloca(&assignment.var_name, &current_function, &_type)
         }
-        unsafe fn assign_variable(
+
+        pub unsafe fn assign_variable(
             &self,
             assignment: ast::Assignment,
             new_variable: PointerValue<'ctx>,
@@ -297,7 +179,7 @@ pub mod codegen {
         }
 
 
-        unsafe fn create_or_load_variable(&self, variable_name: &str, _type: &Type) -> PointerValue<'ctx>
+        pub unsafe fn create_or_load_variable(&self, variable_name: &str, _type: &Type) -> PointerValue<'ctx>
         {
             let variable_in_map = self.named_values.try_get(variable_name);
 
@@ -312,60 +194,14 @@ pub mod codegen {
                 }
 
                 None => {
-                    self.create_variable_and_return_ptr(variable_name, _type)
+                    self.create_empty_variable_and_return_ptr(variable_name, _type)
                 }
             }
         }
 
 
 
-        unsafe fn generate_get_code(
-            &self,
-            list: ast::IOList,
-        ) -> Result<(), Box<dyn Error>> {
-            log::trace!("Calling generate get code!");
-
-            let mut result: IntValue<'ctx>;
-            for i in list.items.iter()
-            {
-                log::debug!("{:#?}",i);
-                if let Expr::Variable { _type, name }  = i
-                {
-                    log::debug!("Running get loop for variable {}",name);
-                    let does_var_exist: bool = self
-                        .named_values.try_get(name).map(|v| true).unwrap_or(false);
-
-                    log::trace!("Does value exist? {}",does_var_exist);
-                    let real_type = self
-                        .named_values
-                        .try_get(name)
-                        .map(|value| value._type)
-                        .unwrap_or(_type.clone());
-
-                    log::trace!("getting variable {} of type {}",name,real_type);
-
-                    let format_string = &Self::get_format_string_for_type(&real_type);
-                    let format_string_ptr = self.builder.build_global_string_ptr(format_string, "format_string")?.as_pointer_value();
-                    
-                    let scanf_func = self.get_function("scanf")?;
-
-                    let variable_ptr = self.create_or_load_variable(name, &real_type);
-
-
-                    let mut args :Vec<BasicMetadataValueEnum> = vec![];
-                    args.push(format_string_ptr.into());
-                    args.push(variable_ptr.into());
-                    
-                    let scanf_return_value  = self.builder.build_call(scanf_func, &args[..], "scanf")?;
-                    result = scanf_return_value.try_as_basic_value().left().unwrap().into_int_value();
-                }
-                else
-                {
-                    panic!("Expected a variable in the GET LIST, recieved a {:#?}",i);
-                }
-            }
-            Ok(())
-        }
+        
 
         pub fn get_format_string_for_type(_type: &Type) -> String
         {
@@ -373,93 +209,13 @@ pub mod codegen {
             {
                 Type::FixedDecimal => "%d".to_string(),
                 Type::Float => "%f".to_string(),
-                //Type::Char(string_length) => format!("\'%{}s\'%*c",string_length),
-                //Type::Char(string_length) => "%s".to_string(),
-                //Type::Char(string_length) => "%*[\']%[^\']*%*[\']".to_string(),
-                //Type::Char(string_length) => "%*[\']%[^']*%*[\']%*c".to_string(),
                 Type::Char(string_length) => " \'%[^\']\'".to_string(),
                 Type::Void => panic!("Can't get format string for type Void!"),
                 Type::TBD => panic!("Can't get format string for type TBD!"),
             }
         }
 
-        unsafe fn generate_if_statement_code(
-            &self,
-            if_statement: ast::If,
-        ) -> Result<FloatValue<'ctx>, String> {
-            let conditional_type = if_statement.conditional.get_type();
-            dbg!(&if_statement.conditional);
-            let conditional_code = if_statement.conditional.codegen(self);
-            //panic!("{:#?}",&conditional_code);
-            let conditional_as_float: FloatValue;
-
-            match conditional_type {
-                Type::FixedDecimal => {
-                    let fixed_value =
-                        FixedValue::from(conditional_code.as_any_value_enum().into_struct_value());
-                    conditional_as_float = self.fixed_decimal_to_float(&fixed_value);
-                }
-                Type::Char(size) => {
-                    panic!("Can't support type Char in if conditional!");
-                }
-                Type::TBD => {
-                    todo!("Can't support type TBD in if conditional!");
-                }
-                Type::Float => {
-                    todo!("Can't support type Float in if conditional!");
-                }
-                Type::Void => {
-                    todo!("Can't support type Void in if conditional!");
-                }
-            };
-            dbg!(&conditional_as_float);
-            let comparison = self
-                .builder
-                .build_float_compare(
-                    inkwell::FloatPredicate::ONE,
-                    conditional_as_float,
-                    self.generate_float_code(0.0),
-                    "ifcond",
-                )
-                .unwrap();
-
-            //now we build the THEN block
-            let current_func = utils::get_current_function(self);
-
-            let mut then_block = self.context.append_basic_block(current_func, "then");
-            let mut else_block = self.context.append_basic_block(current_func, "else");
-            let if_cont_block = self.context.append_basic_block(current_func, "ifcont");
-
-            self.builder
-                .build_conditional_branch(comparison, then_block, else_block)
-                .map_err(|err| get_error(&["8", &err.to_string()]))?;
-
-            self.builder.position_at_end(then_block);
-            for statement in if_statement.then_statements {
-                statement.codegen(self);
-            }
-            //now we add a statement to jump to the if_cont block
-            self.builder.build_unconditional_branch(if_cont_block);
-            then_block = self.builder.get_insert_block().unwrap();
-            //handle else here
-
-            self.builder.position_at_end(else_block);
-            if let Some(else_statements) = if_statement.else_statements {
-                for statement in else_statements {
-                    statement.codegen(self);
-                }
-            }
-            //now we add a statement to jump to the if_cont block
-            self.builder.build_unconditional_branch(if_cont_block);
-            else_block = self.builder.get_insert_block().unwrap();
-
-            //handle merge block
-            self.builder.position_at_end(if_cont_block);
-            let return_value = self.generate_float_code(-999.0);
-            Ok(return_value)
-        }
-
-        unsafe fn convert_anyvalue_to_basicvalue(
+        pub unsafe fn convert_anyvalue_to_basicvalue(
             &self,
             value: Box<dyn AnyValue<'ctx> + 'ctx>,
         ) -> BasicValueEnum<'ctx> {
@@ -476,12 +232,12 @@ pub mod codegen {
         }
 
 
-        unsafe fn get_function(&self, name: &str) -> Result<FunctionValue<'ctx>, Box<dyn Error>>
+        pub unsafe fn get_function(&self, name: &str) -> Result<FunctionValue<'ctx>, Box<dyn Error>>
         {
             self.module.get_function(name).ok_or(Box::new(CodegenError{ message: "Function named ___ not found!".to_string()}))
         }
 
-        unsafe fn generate_function_call_code(
+        pub unsafe fn generate_function_call_code(
             &self,
             fn_name: &String,
             args: &mut Vec<ast::Expr>,
@@ -495,7 +251,7 @@ pub mod codegen {
             //}
 
             //let function_to_call: FunctionValue<'ctx> = get_func_result.unwrap();
-            let function_to_call: FunctionValue<'ctx> = self.get_function(&fn_name).map_err(|err| "lol".to_string())?;
+            let function_to_call: FunctionValue<'ctx> = self.get_function(&fn_name).map_err(|_err| "lol".to_string())?;
 
             //handle argument checks here
             if args.len() != function_to_call.get_params().len() {
@@ -560,56 +316,6 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 
         }
 
-        pub unsafe fn print_string(&'a self, message: Expr) -> CallSiteValue<'ctx> {
-            
-            if let Expr::Char { value } = message.clone() {
-                let genned_string = message.codegen(self);
-
-
-                let string_array: ArrayValue<'ctx> =
-                    genned_string.as_any_value_enum().into_array_value();
-
-                let char_value = CharValue::new(string_array);
-                let bitc = char_value.get_pointer_to_printable_string(self);
-
-
-             
-                let res = self.builder.build_call(
-                    self.get_function("printf").unwrap(),
-                    &[BasicMetadataValueEnum::from(bitc)],
-                    "printf",
-                );
-
-                return res.unwrap();
-            }
-            else if let Expr::Variable { _type, name } = message.clone()
-            {
-                 let genned_string = message.codegen(self);
-
-
-                let string_array: ArrayValue<'ctx> =
-                    genned_string.as_any_value_enum().into_array_value();
-
-                let char_value = CharValue::new(string_array);
-                let bitc = char_value.get_pointer_to_printable_string(self);
-
-
-             
-                let res = self.builder.build_call(
-                    self.get_function("printf").unwrap(),
-                    &[BasicMetadataValueEnum::from(bitc)],
-                    "printf",
-                );
-
-                return res.unwrap();
-
-
-            }
-            else {
-                todo!("PUT doesn't support non strings yet! you passed in a {:?}",message);
-            }
-        }
-
         pub unsafe fn print_const_string(&'a self, const_string: &str) -> CallSiteValue<'ctx> {
             let glob_string_ptr = self
                 .builder
@@ -625,10 +331,10 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             return res.unwrap();
         }
 
-        unsafe fn generate_float_code(&'a self, value: f64) -> FloatValue<'ctx> {
+        pub unsafe fn generate_float_code(&'a self, value: f64) -> FloatValue<'ctx> {
             self.context.f64_type().const_float(value)
         }
-        unsafe fn generate_variable_code(
+        pub unsafe fn generate_variable_code(
             &'a self,
             variable_name: &str,
         ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
@@ -648,7 +354,7 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                     let fixed_decimal_struct = result_value.into_struct_value();
                     return Ok(Box::new(fixed_decimal_struct));
                 }
-                Type::Char(size) => {
+                Type::Char(_size) => {
                     let character_array = result_value.into_array_value();
                     return Ok(Box::new(character_array));
                 }
@@ -662,146 +368,6 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
                 Type::Void => {
                     panic!("Tried to retrieve a variable of type Void!")
                 }
-            }
-
-            //return Ok(Box::new(result_value));
-        }
-
-        unsafe fn generate_binary_expression_code(
-            &self,
-            binary_expr: ast::Expr,
-        ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
-            if let ast::Expr::Binary {
-                operator,
-                left,
-                right,
-            } = binary_expr
-            {
-                let lhstype = left.get_type();
-                let rhstype = right.get_type();
-
-                let lhs_codegen = left.codegen(self);
-                let rhs_codegen = right.codegen(self);
-                dbg!(&lhs_codegen);
-                dbg!(&rhs_codegen);
-                let lhs_float: FloatValue<'ctx>;
-                let rhs_float: FloatValue<'ctx>;
-                //new mathable code
-                
-                let lhs_mathable = get_mathable_type(lhs_codegen, lhstype)?;
-                lhs_float = lhs_mathable.convert_to_float(self);
-
-                let rhs_mathable = get_mathable_type(rhs_codegen, rhstype)?;
-                rhs_float = rhs_mathable.convert_to_float(self);
-
-                if true {
-                    //TODO: Make this function return anyvalue and a fixed decimal
-                    let compile_result: Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> =
-                        match operator {
-                            lexer::Token::PLUS => {
-                                let var = self
-                                    .builder
-                                    .build_float_add(lhs_float, rhs_float, "tmpadd")
-                                    .unwrap();
-                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
-                                Ok(Box::new(fix))
-                            }
-                            lexer::Token::MINUS => {
-                                let floatval =
-                                    self.builder.build_float_sub(lhs_float, rhs_float, "tmpsub").unwrap();
-                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(floatval).into();
-                                Ok(Box::new(fix))
-                            }
-                            lexer::Token::MULTIPLY => {
-                                let var =
-                                    self.builder.build_float_mul(lhs_float, rhs_float, "tmpmul")
-                                    .unwrap();
-                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
-                                Ok(Box::new(fix))
-                            }
-                            lexer::Token::DIVIDE => {
-                                let var =
-                                    self.builder.build_float_div(lhs_float, rhs_float, "tmpdiv")
-                                    .unwrap();
-                                let fix: StructValue<'ctx> = self.float_value_to_fixed_decimal(var).into();
-                                Ok(Box::new(fix))
-                            }
-                            lexer::Token::LESS_THAN => {
-                                let val = self
-                                    .builder
-                                    .build_float_compare(
-                                        inkwell::FloatPredicate::OLT,
-                                        lhs_float,
-                                        rhs_float,
-                                        "tmplt",
-                                    )
-                                    .map_err(|builder_error| {
-                                        format!(
-                                            "Unable to create less than situation: {}",
-                                            builder_error
-                                        )
-                                    })?;
-
-                                let cmp_as_float = self
-                                    .builder
-                                    .build_unsigned_int_to_float(
-                                        val,
-                                        self.context.f64_type(),
-                                        "tmpbool",
-                                    )
-                                    .map_err(|e| {
-                                        format!("Unable to convert unsigned int to float: {}", e)
-                                    })?;
-
-                                Ok(Box::new(cmp_as_float))
-                            }
-                            lexer::Token::GREATER_THAN => {
-                                let val = self
-                                    .builder
-                                    .build_float_compare(
-                                        inkwell::FloatPredicate::OGT,
-                                        lhs_float,
-                                        rhs_float,
-                                        "tmpgt",
-                                    )
-                                    .map_err(|builder_error| {
-                                        format!(
-                                            "Unable to create greater than situation: {}",
-                                            builder_error
-                                        )
-                                    })?;
-
-                                let cmp_as_float = self
-                                    .builder
-                                    .build_unsigned_int_to_float(
-                                        val,
-                                        self.context.f64_type(),
-                                        "tmpbool",
-                                    )
-                                    .map_err(|e| {
-                                        format!("Unable to convert unsigned int to float: {}", e)
-                                    })?;
-                                Ok(Box::new(cmp_as_float))
-                            }
-                            _ => {
-                                return Err(format!(
-                                    "Binary operator had unexpected operator! {:?}",
-                                    operator
-                                ))
-                            }
-                        };
-
-                    return compile_result.map_err(|builder_error| {
-                        format!(
-                            "There was an error building the binary expression: {}",
-                            builder_error
-                        )
-                    });
-                } else {
-                    Err("Cannot generate binary expression IR without float values!".to_string())
-                }
-            } else {
-                Err("Fed non binary expression to generate binary expression code!".to_string())
             }
         }
 
@@ -926,7 +492,6 @@ mod tests {
     };
     use std::cell::RefCell;
 
-    use super::codegen::NamedValue;
     use super::named_value_store::{NamedValueHashmapStore, NamedValueStore};
     fn get_test_compiler<'a, 'ctx>(
         c: &'ctx Context,

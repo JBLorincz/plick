@@ -2,7 +2,8 @@ use std::{cell::RefCell, collections::HashMap, fmt::Debug};
 
 use inkwell::context::Context;
 
-use super::codegen::NamedValue;
+use super::named_value::NamedValue;
+
 
 pub trait NamedValueStore<'ctx> {
     fn clear(&self);
