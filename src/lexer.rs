@@ -305,7 +305,7 @@ mod tests {
     }
     #[test]
     fn hello_world_parse() {
-        let input = fs::read_to_string("./hello_world.pli").unwrap();
+        let input = fs::read_to_string("./test_pli_files/hello_world.pli").unwrap();
         let output: Vec<Token> = vec![
             LABEL(String::from("HELLO")),
             PROCEDURE,
@@ -349,7 +349,7 @@ mod tests {
         let input = format!(
             "{}{}",
             "/*This is a comment!*/",
-            fs::read_to_string("./hello_world.pli").unwrap()
+            fs::read_to_string("./test_pli_files/hello_world.pli").unwrap()
         );
         let output: Vec<Token> = vec![
             LABEL(String::from("HELLO")),

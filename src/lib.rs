@@ -26,6 +26,7 @@ use std::{
     process,
 };
 
+use codegen::prelude;
 use crate::debugger::{setup_module_for_debugging, DebugController};
 
 pub mod ast;
@@ -43,53 +44,7 @@ fn drive_compilation<'a, 'ctx>(
 ) -> Result<(), String> {
     compiler.initalize_main_function();
 
-    //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
-
-    //TODO: make a func for importing C functions, this is too messy
-    //begin printf
-    let printf_arg_type: PointerType<'ctx> =
-        compiler.context.i8_type().ptr_type(AddressSpace::default());
-
-    let printf_type: FunctionType<'ctx> = compiler
-        .context
-        .i32_type()
-        .fn_type(&[BasicMetadataTypeEnum::from(printf_arg_type)], true);
-
-    let _printf_func =
-        compiler
-            .module
-            .add_function("printf", printf_type, Some(module::Linkage::DLLImport));
-    //end printf
-    //begin pow
-    let double_type: FloatType<'ctx> =
-        compiler.context.f64_type();
-
-    let pow_type: FunctionType<'ctx> = compiler
-        .context
-        .f64_type()
-        .fn_type(&[BasicMetadataTypeEnum::from(double_type),BasicMetadataTypeEnum::from(double_type)], false);
-
-    let _pow_func =
-        compiler
-            .module
-            .add_function("pow", pow_type, Some(module::Linkage::DLLImport));
-    //end pow
-
-    //start scanf
-        let scanf_arg_type: PointerType<'ctx> =
-        compiler.context.i8_type().ptr_type(AddressSpace::default());
-
-        let scanf_type: FunctionType<'ctx> = compiler
-        .context
-        .i32_type()
-        .fn_type(&[BasicMetadataTypeEnum::from(scanf_arg_type)], true);
-
-    let _scanf_func =
-        compiler
-            .module
-            .add_function("scanf", scanf_type, Some(module::Linkage::DLLImport));
- 
-    //end scanf
+    prelude::add_extern_functions(compiler);
 
     unsafe {
         perform_parse_pass(token_manager)?
