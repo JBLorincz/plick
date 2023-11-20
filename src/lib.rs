@@ -37,16 +37,9 @@ pub mod parser;
 mod passes;
 mod types;
 
-fn drive_compilation<'a, 'ctx>(
-    token_manager: &mut TokenManager,
-    compiler: &mut Compiler<'a, 'ctx>,
-) -> Result<(), String> {
-    compiler.initalize_main_function();
 
-    //Below is introducing "builtin functions" the compiler needs to accomplish things like IO
-
-    //TODO: make a func for importing C functions, this is too messy
-    //begin printf
+fn add_extern_functions<'a, 'ctx>(compiler: &mut Compiler<'a, 'ctx>)
+{
     let printf_arg_type: PointerType<'ctx> =
         compiler.context.i8_type().ptr_type(AddressSpace::default());
 
@@ -89,7 +82,16 @@ fn drive_compilation<'a, 'ctx>(
             .module
             .add_function("scanf", scanf_type, Some(module::Linkage::DLLImport));
  
-    //end scanf
+}
+
+
+fn drive_compilation<'a, 'ctx>(
+    token_manager: &mut TokenManager,
+    compiler: &mut Compiler<'a, 'ctx>,
+) -> Result<(), String> {
+    compiler.initalize_main_function();
+
+    add_extern_functions(compiler);
 
     unsafe {
         perform_parse_pass(token_manager)?
