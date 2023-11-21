@@ -15,6 +15,7 @@ pub mod codegen {
     use crate::ast::Statement;
     use crate::codegen::named_value::NamedValue;
     use crate::codegen::utils;
+    use crate::codegen::utils::branch_only_if_no_terminator;
     use crate::codegen::utils::print_float_value;
     use crate::debugger::DebugController;
     use crate::error::errors::CodegenError;
@@ -44,6 +45,7 @@ pub mod codegen {
     use inkwell::values::BasicMetadataValueEnum;
     use inkwell::values::BasicValueEnum;
     use inkwell::values::CallSiteValue;
+    use inkwell::values::InstructionValue;
     use inkwell::values::IntValue;
     use inkwell::values::StructValue;
     use inkwell::values::{
@@ -64,12 +66,81 @@ pub mod codegen {
         pub builder: &'a builder::Builder<'ctx>,
         pub module: &'a module::Module<'ctx>,
         pub type_module: TypeModule<'ctx>,
+        pub function_properties: RefCell<FunctionProperties<'ctx>>,
         pub debug_controller: Option<&'a DebugController<'ctx>>,
 
         pub named_values: NamedValueHashmapStore<'ctx>,
     }
 
+    #[derive(Debug,Clone)]
+    pub struct FunctionProperties<'ctx>
+    {
+        labeled_blocks: HashMap<String, BasicBlock<'ctx>>,
+        future_jump_blocks: HashMap<String, BasicBlock<'ctx>>,
+    }
     
+    impl<'ctx> FunctionProperties<'ctx>
+    {
+        pub fn new() -> Self
+        {
+            let labeled_blocks = HashMap::new();
+            let future_jump_blocks = HashMap::new();
+            FunctionProperties 
+            {
+                labeled_blocks,
+                future_jump_blocks
+            }
+        }
+
+        pub fn reset(&mut self, other: &FunctionProperties<'ctx>)
+        {
+            if !self.future_jump_blocks.is_empty()
+            {
+                panic!("Trying to leave a function without having all blocks defined!");
+            }
+
+            self.labeled_blocks.clear();
+            
+            for kvp in other.labeled_blocks.iter()
+            {
+                self.labeled_blocks.insert(kvp.0.clone(), kvp.1.clone());
+            }
+            for kvp in other.future_jump_blocks.iter()
+            {
+                self.future_jump_blocks.insert(kvp.0.clone(), kvp.1.clone());
+            }
+        }
+        pub fn get_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>>
+        {
+            self.labeled_blocks.get(name).map(|bb| bb.clone())
+        }
+        pub fn store_labeled_block(&mut self, name: &str, block: BasicBlock<'ctx>) -> Result<(), Box<dyn Error>>
+        {
+            let result = self.labeled_blocks.insert(name.to_string(), block);
+            match result
+            {
+                Some(val) => Err(Box::new(CodegenError{message: format!("Used the label {} more than once!",name)})),
+                None => Ok(())
+            }
+
+
+        }
+        pub fn get_future_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>>
+        {
+            self.future_jump_blocks.get(name).map(|bb| bb.clone())
+        }
+        pub fn store_placeholder_block(&mut self,name: &str,location_of_placeholder: BasicBlock<'ctx>)
+        {
+            self.future_jump_blocks.insert(name.to_string(), location_of_placeholder);
+        }
+        pub fn remove_label(&mut self, name: &str)
+        {
+            self.future_jump_blocks.remove(name);
+        }
+    }
+    
+
+
 
     ///A trait which all provides an interface to compile a syntax element
     pub trait CodeGenable<'a, 'ctx> {
@@ -86,6 +157,13 @@ pub mod codegen {
             self,
             compiler: &'a Compiler<'a, 'ctx>,
         ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
+
+            match self.label
+            {
+                Some(label_name) => compiler.codegen_label(&label_name).unwrap(),
+                None => ()
+            };
+
             match self.command {
                 Command::Declare(dec) => {
                     dec.codegen(compiler)
@@ -95,6 +173,9 @@ pub mod codegen {
                 }
                 Command::GET(get) => {
                     get.codegen(compiler)
+                }
+                Command::GO(go) => {
+                    go.codegen(compiler)
                 }
                 Command::EXPR(expr) => {
                     expr.codegen(compiler)
@@ -125,11 +206,13 @@ pub mod codegen {
         ) -> Compiler<'a, 'ctx> {
 
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
+            let function_properties  = RefCell::new(FunctionProperties::new()); 
             Compiler {
                 context: c,
                 builder: b,
                 module: m,
                 named_values,
+                function_properties,
                 debug_controller: d,
                 type_module: TypeModule::new(&c),
             }
@@ -470,6 +553,42 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 
             main_func
         }
+
+
+
+        unsafe fn codegen_label(&self, label_name: &str) -> Result<(), Box<dyn Error>>
+        {
+            log::debug!("Generating a block named label {}",label_name);
+            let old_block = self.builder.get_insert_block().unwrap();
+
+            let label_block = self.context.insert_basic_block_after(old_block, label_name);
+
+            let x = branch_only_if_no_terminator(self,label_block);
+
+            self.function_properties.borrow_mut().store_labeled_block(label_name, label_block.clone())?;
+
+            let myblo = self.function_properties.borrow().future_jump_blocks.clone();
+            let substitute_block = myblo.get(label_name).clone();
+            //now go back and see if any future jump calls need to be rehydrated
+            match substitute_block
+            {
+                Some(blok) => {
+                    log::warn!("BLOK HAS BEEN ENTERED!");
+                    dbg!(blok);
+                    dbg!(label_block);
+                    blok.replace_all_uses_with(&label_block); blok.remove_from_function().unwrap(); 
+
+                },
+                None => ()
+            };
+            self.function_properties.borrow_mut().remove_label(label_name);
+            //end rehydration
+
+
+            self.builder.position_at_end(label_block);
+            
+            Ok(())
+        }
     }
 }
 
@@ -492,6 +611,7 @@ mod tests {
     };
     use std::cell::RefCell;
 
+    use super::codegen::FunctionProperties;
     use super::named_value_store::{NamedValueHashmapStore, NamedValueStore};
     fn get_test_compiler<'a, 'ctx>(
         c: &'ctx Context,
@@ -503,11 +623,13 @@ mod tests {
         let builder = b;
         let named_values = NamedValueHashmapStore::new();
         let debug_controller = None;
+        let function_properties = RefCell::new(FunctionProperties::new());
         let compiler = Compiler {
             context,
             module,
             builder,
             named_values,
+            function_properties,
             debug_controller,
             type_module: TypeModule::new(&context),
         };

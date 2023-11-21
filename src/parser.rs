@@ -567,6 +567,28 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
+            Token::GO => {
+                match command {
+                    Command::Empty => command = Command::GO(*(ast::Go::parse_from_tokens(token_manager).unwrap())),
+                    other_command => {
+                        return Err(get_error(&["4", "PUT", &other_command.to_string()]));
+                    }
+                }
+                dbg!(&token_manager.current_token);
+                parse_token(token_manager, Token::SEMICOLON)?;
+                break;
+            }
+            Token::PUT => {
+                match command {
+                    Command::Empty => command = Command::PUT(parse_put(token_manager)?),
+                    other_command => {
+                        return Err(get_error(&["4", "PUT", &other_command.to_string()]));
+                    }
+                }
+                dbg!(&token_manager.current_token);
+                parse_token(token_manager, Token::SEMICOLON)?;
+                break;
+            }
             Token::GET => {
                 match command {
                     Command::Empty => {
@@ -626,7 +648,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "IF", &other_command.to_string()]));
                     }
                 }
-                //token_manager.next_token();
+
                 break;
             }
             Token::RETURN => {
@@ -745,6 +767,25 @@ impl Parseable for ast::IOList
 
     }
 }
+
+impl Parseable for ast::Go
+{
+    fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>, Box<dyn Error>> {
+        parse_token(token_manager, Token::GO)?;
+        
+        //TODO: Implement a "Parse Raw Word To String" function
+        let exp = parse_identifier(token_manager);
+        if let Expr::Variable { _type: _, name: nam } = exp
+        {
+            Ok(Box::new(Go{label_to_go_to: nam}))
+        }
+        else
+        {
+            panic!("Expected some string 'identifier' type after GO command, found something else!");
+        }
+    }
+}
+
 mod tests {
 
     use crate::lexer::TokenManager;

@@ -226,7 +226,7 @@ pub fn generate_fixed_decimal_code<'ctx>(
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
-        dbg!("Converting fixed value {} into a decimal!", fixed_value);
+        log::info!("Converting fixed value {:?} into a decimal!", fixed_value);
 
         let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
 

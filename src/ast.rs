@@ -134,6 +134,7 @@ pub enum Command {
     END,
     PUT(Put),
     GET(Get),
+    GO(Go),
     IF(If),
     Declare(Declare),
     Assignment(Assignment),
@@ -181,6 +182,11 @@ pub struct Get {
 #[derive(Debug, Clone)]
 pub struct IOList {
     pub items: Vec<Expr>
+}
+
+#[derive(Debug, Clone)]
+pub struct Go {
+    pub label_to_go_to: String
 }
 
 

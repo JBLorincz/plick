@@ -1,12 +1,9 @@
-use inkwell::values::{FunctionValue, IntValue, FloatValue, BasicMetadataValueEnum, PointerValue};
+use inkwell::{values::{FunctionValue, IntValue, FloatValue, BasicMetadataValueEnum, PointerValue, InstructionValue, AnyValue}, basic_block::BasicBlock};
 
 use super::codegen::Compiler;
 
 /// A module that holds code generation utilities
 /// that are reused across the application.
-
-
-
 
 pub fn get_current_function<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>) -> FunctionValue<'ctx>
 {
@@ -20,6 +17,14 @@ pub fn get_current_function<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>) -> Functio
     current_func
 }
 
+
+pub unsafe fn branch_only_if_no_terminator<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, block: BasicBlock<'ctx>)
+{
+            if let None = compiler.builder.get_insert_block().unwrap().get_terminator()
+            {
+                compiler.builder.build_unconditional_branch(block).unwrap().as_any_value_enum();
+            }
+}
 
 pub fn get_nth_digit_of_a_float<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, float: &FloatValue<'ctx>, index: IntValue<'ctx>) -> IntValue<'ctx>
 {
