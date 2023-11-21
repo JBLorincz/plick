@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{ast, codegen::{codegen::{CodeGenable, Compiler}, named_value::NamedValue}, error::errors::CodegenError};
+use crate::{ast, codegen::{codegen::{CodeGenable, Compiler}, named_value::NamedValue, utils::get_current_function}, error::errors::CodegenError};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -88,8 +88,10 @@ impl<'a,'ctx> Compiler<'a,'ctx>
 
         self.check_if_function_has_a_return_value(&llvm_function, &function_ast)?;
 
-        self.build_return_value(&function_ast)?;
-
+        if let None = self.builder.get_insert_block().unwrap().get_terminator()
+        {
+            self.build_return_value(&function_ast)?;
+        }
         self.verify_function(llvm_function, &function_ast)?;
 
         Ok(llvm_function)
@@ -171,13 +173,6 @@ impl<'a,'ctx> Compiler<'a,'ctx>
         match func.return_value {
             None => {
                 return Err(get_error(&["7"]));
-                self.builder.build_return(None).map_err(|builder_func| {
-                    format!(
-                        "error building function return with no value: {}",
-                        builder_func
-                    )
-                })?;
-                //return Ok(function);
             }
             Some(_) => Ok(()),
         }
