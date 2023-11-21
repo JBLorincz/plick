@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::{ast, codegen::{codegen::{CodeGenable, Compiler}, named_value::NamedValue}};
+use crate::{ast, codegen::{codegen::{CodeGenable, Compiler}, named_value::NamedValue}, error::errors::CodegenError};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -30,10 +30,19 @@ impl<'a, 'ctx> ast::Function
                 -> Result<Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx>,Box<dyn Error>> {
 
                     let current_function = compiler.builder.get_insert_block().unwrap();
-                    let llvm_created_function =
-                        Box::new(compiler.generate_function_code(self).unwrap());
+
+                    let old_function_info = compiler.function_properties.borrow().clone();
+
+                    let generated_code_result =
+                        Box::new(compiler.generate_function_code(self));
+    
+                    //reapply the old function data
+                    compiler.function_properties.borrow_mut().reset(&old_function_info);
+
+                    let llvm_created_function = generated_code_result.map_err(|message| CodegenError{message} )?;
+
                     compiler.builder.position_at_end(current_function);
-                    Ok(llvm_created_function)
+                    Ok(Box::new(llvm_created_function))
                 }
 }
 

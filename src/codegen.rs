@@ -64,12 +64,55 @@ pub mod codegen {
         pub builder: &'a builder::Builder<'ctx>,
         pub module: &'a module::Module<'ctx>,
         pub type_module: TypeModule<'ctx>,
+        pub function_properties: RefCell<FunctionProperties<'ctx>>,
         pub debug_controller: Option<&'a DebugController<'ctx>>,
 
         pub named_values: NamedValueHashmapStore<'ctx>,
     }
 
+    #[derive(Debug,Clone)]
+    pub struct FunctionProperties<'ctx>
+    {
+        labeled_blocks: HashMap<String, BasicBlock<'ctx>>,
+    }
     
+    impl<'ctx> FunctionProperties<'ctx>
+    {
+        pub fn new() -> Self
+        {
+            let labeled_blocks = HashMap::new();
+            FunctionProperties 
+            {
+                labeled_blocks
+            }
+        }
+
+        pub fn reset(&mut self, other: &FunctionProperties<'ctx>)
+        {
+            self.labeled_blocks.clear();
+
+            for kvp in other.labeled_blocks.iter()
+            {
+                self.labeled_blocks.insert(kvp.0.clone(), kvp.1.clone());
+            }
+        }
+        pub fn get_labeled_block(&self, name: &str) -> Option<&BasicBlock<'ctx>>
+        {
+            self.labeled_blocks.get(name)
+        }
+        pub fn store_labeled_block(&mut self, name: &str, block: BasicBlock<'ctx>) -> Result<(), Box<dyn Error>>
+        {
+            let result = self.labeled_blocks.insert(name.to_string(), block);
+            result.ok_or(CodegenError{message: "Trying to create a duplicate block!".to_string()})?;
+
+            Ok(())
+
+
+        }
+    }
+    
+
+
 
     ///A trait which all provides an interface to compile a syntax element
     pub trait CodeGenable<'a, 'ctx> {
@@ -132,11 +175,13 @@ pub mod codegen {
         ) -> Compiler<'a, 'ctx> {
 
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
+            let function_properties  = RefCell::new(FunctionProperties::new()); 
             Compiler {
                 context: c,
                 builder: b,
                 module: m,
                 named_values,
+                function_properties,
                 debug_controller: d,
                 type_module: TypeModule::new(&c),
             }
@@ -488,6 +533,9 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 
             self.builder.build_unconditional_branch(label_block)?;
 
+
+            self.function_properties.borrow_mut().store_labeled_block(label_name, label_block.clone())?;
+
             self.builder.position_at_end(label_block);
             
             Ok(())
@@ -514,6 +562,7 @@ mod tests {
     };
     use std::cell::RefCell;
 
+    use super::codegen::FunctionProperties;
     use super::named_value_store::{NamedValueHashmapStore, NamedValueStore};
     fn get_test_compiler<'a, 'ctx>(
         c: &'ctx Context,
@@ -525,11 +574,13 @@ mod tests {
         let builder = b;
         let named_values = NamedValueHashmapStore::new();
         let debug_controller = None;
+        let function_properties = RefCell::new(FunctionProperties::new());
         let compiler = Compiler {
             context,
             module,
             builder,
             named_values,
+            function_properties,
             debug_controller,
             type_module: TypeModule::new(&context),
         };
