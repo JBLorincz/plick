@@ -2,6 +2,6 @@ HELLO:   PROCEDURE OPTIONS (MAIN);
 
 		  FLAG = 0;
 
-LOOP:	PUT '\nHELLO!\n";
-		GOTO LOOP;
+LOOP:	PUT '\nHELLO!\n';
+		GO LOOP;
 end;
