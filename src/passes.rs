@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use crate::{
     ast::{Command, Statement},
-    codegen::codegen::{CodeGenable, Compiler},
+    codegen::{codegen::{CodeGenable, Compiler}, utils},
     lexer::{Token, TokenManager},
     parser::{self, parse_opening},
     types::Type,
@@ -82,12 +82,14 @@ impl PassResult {
         for i in self.statements {
             i.codegen(compiler);
         }
-
+        
+        if let None = compiler.builder.get_insert_block().unwrap().get_terminator()
+        {
         let _build_return_result = compiler
             .builder
             .build_return(None)
             .map_err(|_err| "Error in code generation pass")?;
-
+        }
         Ok(())
     }
 }

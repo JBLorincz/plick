@@ -74,6 +74,12 @@ pub fn compile_input(input: &str, config: Config) {
             println!("{}", compiler.module.print_to_string());
         }
 
+        //verify_module(&compiler);
+        if config.write_ir_to_file
+        {
+            output_module_as_ir_to_file(&compiler, target_machine,&config);
+        }
+
         verify_module(&compiler);
         if config.write_ir_to_file
         {
