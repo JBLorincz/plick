@@ -75,7 +75,10 @@ pub fn compile_input(input: &str, config: Config) {
         }
 
         verify_module(&compiler);
-
+        if config.write_ir_to_file
+        {
+            output_module_as_ir_to_file(&compiler, target_machine,&config);
+        }
         if config.dry_run {
             output_module_to_memory_buffer(&compiler, target_machine);
         } else {
@@ -130,7 +133,27 @@ fn output_module_to_memory_buffer(compiler: &Compiler, target_machine: &TargetMa
         }
     }
 }
+fn output_module_as_ir_to_file(compiler: &Compiler, target_machine: &TargetMachine,config: &Config)
+{
+    let write_to_memory_result =
+        target_machine.write_to_memory_buffer(&compiler.module, inkwell::targets::FileType::Object);
 
+
+
+    let x = match write_to_memory_result {
+        Ok(memory_buffer) => (),
+        Err(err_message) => {
+            error!("memory write failed:");
+            error!("{}", err_message);
+            panic!("test!");
+            process::exit(1);
+        }
+    };
+        let file_name =  Path::new(&config.filename).file_stem().unwrap();
+        let file_name_as_str: String = format!("{}{}",file_name.to_str().unwrap() , ".ll");
+        let path_to_file = Path::new(&file_name_as_str);
+        compiler.module.print_to_file(path_to_file);
+}
 fn verify_module(compiler: &Compiler) {
     let module_verification_result = compiler.module.verify();
 
@@ -206,6 +229,7 @@ pub struct Config {
     pub optimize: bool,
     pub debug_mode: bool,
     pub print_ir: bool,
+    pub write_ir_to_file: bool,
     pub dry_run: bool, //if true, won't save the compiled output to the disk - enable during testing
 }
 
@@ -215,7 +239,8 @@ impl Default for Config {
             filename: String::from("a.o"),
             optimize: true,
             debug_mode: true,
-            print_ir: true,
+            print_ir: false,
+            write_ir_to_file: true,
             dry_run: false,
         }
     }
