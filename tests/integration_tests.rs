@@ -94,19 +94,20 @@ mod full_compile_tests
     {
 
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                FLAG = 2;
+                FLAG = 10;
                 LOOP: Put 'Hello!';        
                 FLAG = FLAG - 1;
-                IF FLAG < 0 THEN GOTO FIN;
-                GOTO LOOP;
+                IF FLAG < 8 THEN GO FIN;
+                GO LOOP;
 
-                FIN:
+                FIN: 
+                PUT 'End!';
                 END;
         ";
 
         
         let output = run_new_test(input)?;
-        assert_eq!("Hello!Hello!Hello!", output.stdout);
+        assert_eq!("Hello!Hello!Hello!End!", output.stdout);
         Ok(())
 
     }

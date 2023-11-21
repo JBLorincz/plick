@@ -15,6 +15,7 @@ pub mod codegen {
     use crate::ast::Statement;
     use crate::codegen::named_value::NamedValue;
     use crate::codegen::utils;
+    use crate::codegen::utils::branch_only_if_no_terminator;
     use crate::codegen::utils::print_float_value;
     use crate::debugger::DebugController;
     use crate::error::errors::CodegenError;
@@ -44,6 +45,7 @@ pub mod codegen {
     use inkwell::values::BasicMetadataValueEnum;
     use inkwell::values::BasicValueEnum;
     use inkwell::values::CallSiteValue;
+    use inkwell::values::InstructionValue;
     use inkwell::values::IntValue;
     use inkwell::values::StructValue;
     use inkwell::values::{
@@ -74,6 +76,7 @@ pub mod codegen {
     pub struct FunctionProperties<'ctx>
     {
         labeled_blocks: HashMap<String, BasicBlock<'ctx>>,
+        future_jump_blocks: HashMap<String, BasicBlock<'ctx>>,
     }
     
     impl<'ctx> FunctionProperties<'ctx>
@@ -81,33 +84,58 @@ pub mod codegen {
         pub fn new() -> Self
         {
             let labeled_blocks = HashMap::new();
+            let future_jump_blocks = HashMap::new();
             FunctionProperties 
             {
-                labeled_blocks
+                labeled_blocks,
+                future_jump_blocks
             }
         }
 
         pub fn reset(&mut self, other: &FunctionProperties<'ctx>)
         {
-            self.labeled_blocks.clear();
+            if !self.future_jump_blocks.is_empty()
+            {
+                panic!("Trying to leave a function without having all blocks defined!");
+            }
 
+            self.labeled_blocks.clear();
+            
             for kvp in other.labeled_blocks.iter()
             {
                 self.labeled_blocks.insert(kvp.0.clone(), kvp.1.clone());
             }
+            for kvp in other.future_jump_blocks.iter()
+            {
+                self.future_jump_blocks.insert(kvp.0.clone(), kvp.1.clone());
+            }
         }
-        pub fn get_labeled_block(&self, name: &str) -> Option<&BasicBlock<'ctx>>
+        pub fn get_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>>
         {
-            self.labeled_blocks.get(name)
+            self.labeled_blocks.get(name).map(|bb| bb.clone())
         }
         pub fn store_labeled_block(&mut self, name: &str, block: BasicBlock<'ctx>) -> Result<(), Box<dyn Error>>
         {
             let result = self.labeled_blocks.insert(name.to_string(), block);
-            result.ok_or(CodegenError{message: "Trying to create a duplicate block!".to_string()})?;
+            match result
+            {
+                Some(val) => Err(Box::new(CodegenError{message: format!("Used the label {} more than once!",name)})),
+                None => Ok(())
+            }
 
-            Ok(())
 
-
+        }
+        pub fn get_future_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>>
+        {
+            self.future_jump_blocks.get(name).map(|bb| bb.clone())
+        }
+        pub fn store_placeholder_block(&mut self,name: &str,location_of_placeholder: BasicBlock<'ctx>)
+        {
+            self.future_jump_blocks.insert(name.to_string(), location_of_placeholder);
+        }
+        pub fn remove_label(&mut self, name: &str)
+        {
+            self.future_jump_blocks.remove(name);
         }
     }
     
@@ -145,6 +173,9 @@ pub mod codegen {
                 }
                 Command::GET(get) => {
                     get.codegen(compiler)
+                }
+                Command::GO(go) => {
+                    go.codegen(compiler)
                 }
                 Command::EXPR(expr) => {
                     expr.codegen(compiler)
@@ -527,14 +558,32 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 
         unsafe fn codegen_label(&self, label_name: &str) -> Result<(), Box<dyn Error>>
         {
+            log::debug!("Generating a block named label {}",label_name);
             let old_block = self.builder.get_insert_block().unwrap();
 
             let label_block = self.context.insert_basic_block_after(old_block, label_name);
 
-            self.builder.build_unconditional_branch(label_block)?;
-
+            let x = branch_only_if_no_terminator(self,label_block);
 
             self.function_properties.borrow_mut().store_labeled_block(label_name, label_block.clone())?;
+
+            let myblo = self.function_properties.borrow().future_jump_blocks.clone();
+            let substitute_block = myblo.get(label_name).clone();
+            //now go back and see if any future jump calls need to be rehydrated
+            match substitute_block
+            {
+                Some(blok) => {
+                    log::warn!("BLOK HAS BEEN ENTERED!");
+                    dbg!(blok);
+                    dbg!(label_block);
+                    blok.replace_all_uses_with(&label_block); blok.remove_from_function().unwrap(); 
+
+                },
+                None => ()
+            };
+            self.function_properties.borrow_mut().remove_label(label_name);
+            //end rehydration
+
 
             self.builder.position_at_end(label_block);
             

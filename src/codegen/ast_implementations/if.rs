@@ -2,7 +2,7 @@ use std::error::Error;
 
 use inkwell::values::FloatValue;
 
-use crate::{ast, codegen::{codegen::CodeGenable, utils::get_current_function}, types::{Type, fixed_decimal::FixedValue}, error::get_error};
+use crate::{ast, codegen::{codegen::CodeGenable, utils::{get_current_function, self}}, types::{Type, fixed_decimal::FixedValue}, error::get_error};
 
 impl<'a,'ctx> CodeGenable<'a,'ctx> for ast::If
 {
@@ -82,7 +82,11 @@ impl<'a,'ctx> ast::If
                 statement.codegen(compiler);
             }
             //now we add a statement to jump to the if_cont block
-            compiler.builder.build_unconditional_branch(if_cont_block)?;
+            //ONLY IF THERE IS NO TERMINATOR ALREADY
+            if let None = compiler.builder.get_insert_block().unwrap().get_terminator()
+            {
+                compiler.builder.build_unconditional_branch(if_cont_block)?;
+            }
             then_block = compiler.builder.get_insert_block().unwrap();
             //handle else here
 
@@ -93,7 +97,7 @@ impl<'a,'ctx> ast::If
                 }
             }
             //now we add a statement to jump to the if_cont block
-            compiler.builder.build_unconditional_branch(if_cont_block)?;
+            utils::branch_only_if_no_terminator(compiler,if_cont_block);
             else_block = compiler.builder.get_insert_block().unwrap();
 
             //handle merge block
