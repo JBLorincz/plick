@@ -39,7 +39,7 @@ pub fn get_character_type<'ctx>(
     char_array
 }
 
-///Coverts a f64 into a FixedValue
+///Converts a constant string into a charvalue
 pub fn generate_character_code<'ctx>(
     ctx: &'ctx inkwell::context::Context,
     value: &str,
@@ -64,12 +64,14 @@ impl<'a, 'ctx> Puttable<'a, 'ctx> for CharValue<'ctx>
 {
     fn get_pointer_to_printable_string(&self,compiler: &'a Compiler<'a,'ctx>) -> PointerValue<'ctx> {
         let string_array  = self.value;
-                    
-                let allocd_string = compiler
-                    .builder
-                    .build_alloca(string_array.get_type(), "tmp_array")
-                    .unwrap();
-                compiler.builder.build_store(allocd_string, string_array).unwrap();
+                let const_string = self.value.get_string_constant().unwrap(); 
+                let allocd_string = compiler.builder.build_global_string_ptr(const_string.to_str().unwrap(), "char_const").unwrap();
+                
+               // let allocd_string = compiler
+               //     .builder
+               //     .build_alloca(string_array.get_type(), "tmp_array")
+               //     .unwrap();
+               // compiler.builder.build_store(allocd_string, string_array).unwrap();
 
                 let bitc: BasicValueEnum<'ctx> = compiler
                     .builder
