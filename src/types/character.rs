@@ -67,12 +67,6 @@ impl<'a, 'ctx> Puttable<'a, 'ctx> for CharValue<'ctx>
                 let const_string = self.value.get_string_constant().unwrap(); 
                 let allocd_string = compiler.builder.build_global_string_ptr(const_string.to_str().unwrap(), "char_const").unwrap();
                 
-               // let allocd_string = compiler
-               //     .builder
-               //     .build_alloca(string_array.get_type(), "tmp_array")
-               //     .unwrap();
-               // compiler.builder.build_store(allocd_string, string_array).unwrap();
-
                 let bitc: BasicValueEnum<'ctx> = compiler
                     .builder
                     .build_bitcast(

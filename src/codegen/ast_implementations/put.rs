@@ -1,6 +1,7 @@
 use std::error::Error;
 
-use inkwell::values::{IntValue, BasicMetadataValueEnum, CallSiteValue, ArrayValue};
+use inkwell::AddressSpace;
+use inkwell::values::{IntValue, BasicMetadataValueEnum, CallSiteValue, ArrayValue, BasicValueEnum};
 
 use crate::codegen::codegen::{CodeGenable, Compiler};
 use crate::ast::{self, Expr};
@@ -44,14 +45,27 @@ if let Expr::Char { value } = message.clone() {
 }
 else if let Expr::Variable { _type, name } = message.clone()
 {
-     let genned_string = message.codegen(self);
+     
+
+    let var_ptr = self.named_values.try_get(&name).unwrap();
+
+    //let genned_string = message.codegen(self);
 
 
-    let string_array: ArrayValue<'ctx> =
-        genned_string.as_any_value_enum().into_array_value();
 
-    let char_value = CharValue::new(string_array);
-    let bitc = char_value.get_pointer_to_printable_string(self);
+    //let string_array: ArrayValue<'ctx> =
+    //    genned_string.as_any_value_enum().into_array_value();
+
+    let arr_ptr = var_ptr.pointer;
+    let bitc: BasicValueEnum<'ctx> = self
+                    .builder
+                    .build_bitcast(
+                        arr_ptr,
+                        self.context.i8_type().ptr_type(AddressSpace::default()),
+                        "mybitcast",
+                    )
+                    .unwrap();
+
 
 
  
