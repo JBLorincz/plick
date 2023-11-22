@@ -1,4 +1,5 @@
 #![allow(unused_imports, dead_code)]
+use cli::Arguments;
 use codegen::codegen::{CodeGenable, Compiler};
 use inkwell::builder::Builder;
 use inkwell::context::{self, Context};
@@ -31,6 +32,7 @@ use crate::debugger::{setup_module_for_debugging, DebugController};
 
 pub mod ast;
 mod codegen;
+pub mod cli;
 mod debugger;
 mod error;
 pub mod lexer;
@@ -74,17 +76,17 @@ pub fn compile_input(input: &str, config: Config) {
             println!("{}", compiler.module.print_to_string());
         }
 
-        //verify_module(&compiler);
-        if config.write_ir_to_file
-        {
-            output_module_as_ir_to_file(&compiler, target_machine,&config);
-        }
       
         if config.write_ir_to_file
         {
             output_module_as_ir_to_file(&compiler, target_machine,&config);
         }
-        if config.dry_run {
+
+        verify_module(&compiler);
+        if config.write_ir_to_file
+        {
+        }
+        else if config.dry_run {
             output_module_to_memory_buffer(&compiler, target_machine);
         } else {
             output_module_to_file(compiler, &config, target_machine);
@@ -152,10 +154,8 @@ fn output_module_as_ir_to_file(compiler: &Compiler, target_machine: &TargetMachi
             process::exit(1);
         }
     };
-        let file_name =  Path::new(&config.filename).file_stem().unwrap();
-        let file_name_as_str: String = format!("{}{}",file_name.to_str().unwrap() , ".ll");
-        let path_to_file = Path::new(&file_name_as_str);
-        compiler.module.print_to_file(path_to_file);
+        let file_name =  Path::new(&config.filename);
+        compiler.module.print_to_file(file_name);
 }
 fn verify_module(compiler: &Compiler) {
     let module_verification_result = compiler.module.verify();
@@ -243,8 +243,41 @@ impl Default for Config {
             optimize: true,
             debug_mode: true,
             print_ir: false,
-            write_ir_to_file: true,
+            write_ir_to_file: false,
             dry_run: false,
         }
     }
+}
+
+impl From<Arguments> for Config {
+    fn from(value: Arguments) -> Self {
+        let default = Config::default();
+        let filename = get_output_filename(&value);
+        Config 
+        { 
+            filename,
+            write_ir_to_file: value.save_as_ir,
+            ..default
+        }
+    }
+}
+
+
+
+fn get_output_filename(arguments: &Arguments) -> String
+{
+    let path = Path::new(&arguments.path_to_file);
+    let file_stem = path.file_stem().unwrap();
+    let result = file_stem.to_str().unwrap().to_string();
+    result+&get_output_extension(&arguments)
+}
+
+fn get_output_extension(arguments: &Arguments) -> String
+{
+    if arguments.save_as_ir
+    {
+        return ".ll".to_string();
+    }
+
+    ".o".to_string()
 }
