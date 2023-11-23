@@ -1,0 +1,6 @@
+
+HELLO:   PROCEDURE OPTIONS (MAIN);
+
+	PUT 3;
+	PUT 0;
+end;
