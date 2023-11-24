@@ -2,14 +2,14 @@
 
 
 
-                LOL: PROCEDURE ();  999-444; END;
-                BOL: PROCEDURE(); PUT; 4-7; END;
+                LOL: PROCEDURE ();  RETURN 999-444; END;
+                BOL: PROCEDURE(); PUT'Hello from Bol'; RETURN 4-7; END;
                 LOL();
-                PUT;
+                PUT 'Top-level';
                 LOL();
                 BOL();
                 BOL();
                 LOL();
-                PUT;
-                PUT;
+                PUT 'Top-level';
+                PUT 'Top-level';
                 END;

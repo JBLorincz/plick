@@ -11,7 +11,7 @@ mod full_compile_tests
 
     use super::*;
    #[test]
-    fn file_test() -> Result<(), Box<dyn Error>> 
+    fn function_test() -> Result<(), Box<dyn Error>> 
     {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
 
@@ -88,7 +88,6 @@ mod full_compile_tests
 
         
     }
-
     #[test]
     fn goto_loop_thrice() -> Result<(), Box<dyn Error>> 
     {
@@ -113,6 +112,34 @@ mod full_compile_tests
     }
 
 
+    #[test]
+    fn putting_numbers_and_strings_test() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "
+    HELLO:   PROCEDURE OPTIONS (MAIN);
+
+	PUT 3;
+	PUT 0;
+	DECLARE VALUE FIXED;
+	VALUE = 3;
+	PUT VALUE;
+	VALUE = 4;
+	PUT VALUE;
+	VALUE = 5;
+	PUT VALUE;
+	PUT 'FINAL VALUE';
+	DECLARE MYLOL CHARACTER(50);
+	MYLOL = 'Testy';
+	PUT MYLOL;
+end;
+            ";
+
+        
+        let output = run_new_test(input)?;
+        assert_eq!("Hello!Hello!Hello!End!", output.stdout);
+        Ok(())
+
+    }
 
      #[test]
     fn if_statement_false() -> Result<(), Box<dyn Error>> 
