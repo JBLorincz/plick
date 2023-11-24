@@ -36,7 +36,22 @@ pub fn get_puttable_type<'a,'ctx>(value: Box<dyn AnyValue<'ctx> +'ctx>, _type: T
 pub trait Mathable<'a, 'ctx>
 {
     fn convert_to_float(&self, compiler: &'a Compiler<'a,'ctx>) -> FloatValue<'ctx>;
-    //fn convert_from_float(float_value: &FloatValue<'ctx>, compiler: &'a Compiler<'a,'ctx>);
+    //fn convert_from_float(float_value: &FloatValue<'ctx>, compiler: &'a Compiler<'a,'ctx>) -> Box<dyn Mathable<'a,'ctx>>;
+}
+
+pub trait MathableFactory<'a, 'ctx, T>
+    where T: Mathable<'a,'ctx>
+{
+    unsafe fn create_mathable(float: &FloatValue<'ctx>, compiler: &Compiler<'a,'ctx>) -> Box<T>;
+}
+
+impl<'a,'ctx> MathableFactory<'a,'ctx, FixedValue<'ctx>>
+for FixedValue<'ctx>
+{
+    unsafe fn create_mathable(float: &FloatValue<'ctx>, compiler: &Compiler<'a,'ctx>) -> Box<FixedValue<'ctx>> 
+    {
+        Box::new(compiler.float_value_to_fixed_decimal(float.clone()))
+    }
 }
 
 

@@ -1,12 +1,11 @@
 use std::error::Error;
 
 use inkwell::values::{AnyValue, ArrayValue, FloatValue, StructValue};
-
 use crate::{
     ast,
     codegen::codegen::{CodeGenable, Compiler},
     lexer,
-    types::{character, traits::get_mathable_type, Type, resolve_types, fixed_decimal::FixedValue},
+    types::{character, traits::MathableFactory , traits::get_mathable_type, Type, resolve_types, fixed_decimal::FixedValue},
 };
 
 impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr {
@@ -174,8 +173,9 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
         {
             Type::FixedDecimal => 
             {
-                let fixed_decimal_output = compiler.float_value_to_fixed_decimal(x);
-                let fd_as_struct: StructValue<'ctx> = fixed_decimal_output.into();
+
+                let fixed_value = FixedValue::create_mathable(&x, compiler);
+                let fd_as_struct: StructValue<'ctx> = fixed_value.value;
                 return Ok(Box::new(fd_as_struct));
             },
             other => {panic!("Can't convert math output into type");}

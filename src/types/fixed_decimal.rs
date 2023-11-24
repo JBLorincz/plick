@@ -15,7 +15,7 @@ const AFTER_DIGIT_COUNT: u32 = 15;
 ///16 digits before the decimal, 15 after.
 #[derive(Debug)]
 pub struct FixedValue<'ctx> {
-    value: StructValue<'ctx>,
+    pub value: StructValue<'ctx>,
 }
 
 impl<'ctx> FixedValue<'ctx> {
