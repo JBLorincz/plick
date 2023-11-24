@@ -3,7 +3,7 @@
 
 
                 LOL: PROCEDURE ();  RETURN 999-444; END;
-                BOL: PROCEDURE(); PUT'Hello from Bol'; RETURN 4-7; END;
+                BOL: PROCEDURE(); PUT 'Hello from Bol'; RETURN 4-7; END;
                 LOL();
                 PUT 'Top-level';
                 LOL();
