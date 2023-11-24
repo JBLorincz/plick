@@ -76,13 +76,13 @@ pub fn generate_character_code_for_size<'ctx>(
     }
 
 
+    chars_as_numbers.push(ctx.i8_type().const_zero()); //terminator
     let empty_character_count = size - string_with_terminator.chars().count() as u32;
     for i in 0..empty_character_count
     {
         chars_as_numbers.push(ctx.i8_type().const_int(1, false));
     }
 
-    chars_as_numbers.push(ctx.i8_type().const_zero()); //terminator
 
 
     let value = ctx.i8_type().const_array(&chars_as_numbers[..]);
