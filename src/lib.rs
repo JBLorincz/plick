@@ -38,7 +38,7 @@ mod error;
 pub mod lexer;
 pub mod parser;
 mod passes;
-mod types;
+pub mod types;
 
 fn drive_compilation<'a, 'ctx>(
     token_manager: &mut TokenManager,

@@ -28,7 +28,7 @@ impl<'a,'ctx> ast::If
   unsafe fn codegen_with_error_info(self, compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>)
                 -> Result<Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx>, Box<dyn Error>> {
             
-            let conditional_type = self.conditional.get_type();
+            let conditional_type = self.conditional.get_type(compiler);
 
             log::trace!("Conditional in if statement: {:#?}",&self.conditional);
 

@@ -1,8 +1,11 @@
 use inkwell::{AddressSpace, types::{BasicMetadataTypeEnum, PointerType, FunctionType, FloatType}, module};
 
+use crate::types::fixed_decimal::FixedValue;
+
+use crate::types::fixed_decimal::add_fd_print_function;
+
 use super::codegen::Compiler;
-
-
+//use crate::types::
 
 
 
@@ -48,5 +51,10 @@ pub fn add_extern_functions<'a, 'ctx>(compiler: &mut Compiler<'a, 'ctx>)
         compiler
             .module
             .add_function("scanf", scanf_type, Some(module::Linkage::DLLImport));
+
+
+
+    //fd print 
+    add_fd_print_function(compiler);
  
 }

@@ -64,7 +64,7 @@ pub enum FixedRadix {
 
 #[derive(Debug, Clone)]
 pub struct TypeModule<'ctx> {
-    fixed_type: StructType<'ctx>,
+    pub fixed_type: StructType<'ctx>,
 }
 
 ///Takes two input types, and determines what the output type should be.

@@ -1,11 +1,11 @@
 use inkwell::{
-    types::{ArrayType, BasicType, BasicTypeEnum, StructType},
-    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue}, AddressSpace,
+    types::{ArrayType, BasicType, BasicTypeEnum, StructType, FunctionType, BasicMetadataTypeEnum},
+    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue, BasicMetadataValueEnum}, AddressSpace, module::Linkage,
 };
 
 use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_int_value, build_pow, print_float_value}};
 
-use super::traits::{Puttable, Mathable};
+use super::{traits::{Puttable, Mathable}, Type};
 
 const BEFORE_DIGIT_COUNT: u32 = 16;
 const AFTER_DIGIT_COUNT: u32 = 15;
@@ -43,6 +43,18 @@ impl<'ctx> From<StructValue<'ctx>> for FixedValue<'ctx> {
 
 impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
 {
+        unsafe fn print_object(&self, compiler: &'a Compiler<'a, 'ctx>) 
+        {
+            let print_func = compiler.get_function("print_fixed_decimal").unwrap();
+
+            let struc = self.value;
+
+            let name = "print_puttable";
+
+            compiler.builder.build_call(print_func, &[struc.into()], name).unwrap();
+    }
+
+
     fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx> {
 
          let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(compiler,&self.value);
@@ -493,6 +505,49 @@ fn convert_num_to_arr(value: i64) -> Vec<u8> {
 
     before_decimal
 }
+
+
+pub fn add_fd_print_function<'a,'ctx>(compiler: &mut Compiler<'a,'ctx>)
+{
+    let mut param_types: Vec<BasicMetadataTypeEnum> = vec![];
+
+    let fd_type = compiler.type_module.fixed_type;
+
+    param_types.push(fd_type.into());
+
+    let ty: FunctionType<'ctx> = compiler.context.void_type().fn_type(&param_types[..], false);
+
+    let print_fd_func = compiler.module.add_function("print_fixed_decimal", ty, Some(Linkage::Internal));
+
+    let current_bb = compiler.builder.get_insert_block().unwrap();
+
+    let func_bb = compiler.context.append_basic_block(print_fd_func, "entry");
+    //let func_bb = print_fd_func.get_last_basic_block().unwrap();
+
+    compiler.builder.position_at_end(func_bb);
+    let fixedvalue_param = func_bb.get_parent().unwrap().get_first_param().unwrap();
+    let alloca_value = compiler.builder.build_alloca(fixedvalue_param.get_type(), "num_to_print").unwrap();
+    compiler.builder.build_store(alloca_value, fixedvalue_param.into_struct_value()).unwrap();
+
+    let mut args: Vec<BasicMetadataValueEnum> = vec![];
+    let fd = FixedValue::from(fixedvalue_param.into_struct_value());
+    let ptr = fd.get_pointer_to_printable_string(compiler);
+
+    args.push(ptr.into());
+
+    let func = compiler.module.get_function("printf").unwrap();
+    compiler.builder.build_call(func, &args[..], "lol").unwrap();
+    compiler.builder.build_return(None).unwrap();
+
+
+    compiler.builder.position_at_end(current_bb);
+
+}
+
+
+
+
+
 
 mod tests {
     use inkwell::types::{BasicType, BasicTypeEnum};
