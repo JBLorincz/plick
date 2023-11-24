@@ -1,8 +1,7 @@
 use std::error::Error;
 
-use inkwell::values::{BasicValue, BasicValueEnum, AnyValue};
-
-use crate::{codegen::{codegen::{CodeGenable, Compiler}, named_value_store::NamedValueStore, named_value::NamedValue}, ast::{self, Expr}, types::{character::{CharValue, generate_character_code_for_size}, Type}};
+use inkwell::values::{BasicValue, BasicValueEnum, AnyValue, PointerValue};
+use crate::{codegen::{codegen::{CodeGenable, Compiler}, named_value_store::NamedValueStore, named_value::NamedValue, utils}, ast::{self, Expr}, types::{character::{CharValue, generate_character_code_for_size}, Type}};
 
 impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Assignment
 {
@@ -14,79 +13,94 @@ impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Assignment
 
 impl<'a, 'ctx> ast::Assignment
 {
+    #[allow(warnings)]
   unsafe fn codegen_with_error_info(
             &self,
             compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>
         ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>,Box<dyn Error>> {
 
             let variable_in_map = compiler.named_values.try_get(&self.var_name);
-            log::debug!("Assigning variable {:#?}",variable_in_map);
-            if &self.var_name == "MYLOL"
+
+            log::debug!("generating assignment code for variable {:#?}",variable_in_map);
+
+            let var_ptr: PointerValue<'ctx>; //= _named_value.pointer;
+                                             
+            let _type = match variable_in_map.clone()
             {
-                //panic!("WHY?");
-            }
-            match variable_in_map {
+                Some(val) => val._type,
+                None => self.value.get_type(compiler)
+            }; 
+                                             
+            let current_func = utils::get_current_function(compiler);
 
-                Some(_named_value) => {
-                    //Problem with chars that aren't the right size?
+            var_ptr = match variable_in_map.clone()
+            {
+                Some(val) => val.pointer,
+                None => 
+                {
+                    let ptr = compiler.create_entry_block_alloca(&self.var_name, &current_func, &_type);
+                    let named_value = NamedValue { name: self.var_name.clone(), _type, pointer: ptr };
+                    compiler.named_values.insert(named_value);
+                    ptr
+                }
+            };
 
-                    let value_to_store: Box<dyn AnyValue>;
-                    //TODO CLEAN ALL THIS UP USE A TRAIT FOR GENNING VALUES MAYBE?
-                    if let Expr::Char { value } = self.value.clone()
-                    {
-                        let mut siz = 0;
-                        if let Type::Char(size) = _named_value._type
-                        {
-                            siz = size;
-                        }
-                        let char_val: CharValue = generate_character_code_for_size(compiler.context, &value, siz);
-                        value_to_store = Box::new(char_val.value.as_any_value_enum());
-                        
-                    }
-                    else
-                    {
-                        value_to_store = self.value.clone().codegen(compiler);
-                    }
-                    
+
+              let value_to_store: Box<dyn AnyValue> = 
+                  expr_assignment_gen::codegen_expr_assignment(self.value.clone(), &_type, compiler);
 
                     let initial_value: BasicValueEnum<'ctx> =
                         compiler.convert_anyvalue_to_basicvalue(value_to_store);
 
                     let _store_result = compiler
                         .builder
-                        .build_store(_named_value.pointer, initial_value).unwrap();
+                        .build_store(var_ptr, initial_value).unwrap();
 
                     return Ok(Box::new(initial_value));
-                }
-
-                None => {
-                    let new_variable = compiler.create_variable_from_assignment(self.clone());
-                    Ok(Box::new(new_variable.as_any_value_enum()))
-                }
-            }
         }
 }
 
-
-impl<'a,'ctx> Compiler<'a,'ctx>
+mod expr_assignment_gen
 {
-        unsafe fn create_variable_from_assignment(
-            &self,
-            assignment: ast::Assignment,
-        ) -> Box<dyn BasicValue<'ctx> + 'ctx> {
-            let _type = assignment.value.get_type(self);
-            dbg!(&_type);
-            let name = assignment.var_name.clone();
+    use inkwell::values::AnyValue;
 
-            dbg!(&assignment);
+    use crate::{ast::Expr, types::{Type, character::{CharValue, generate_character_code_for_size}}, codegen::{named_value::NamedValue, codegen::{Compiler, CodeGenable}}};
 
-            let variable_ptr = self.allocate_variable(&assignment);
+    pub unsafe fn codegen_expr_assignment<'a, 'ctx>(value: Expr, _type: &Type, compiler: &Compiler<'a,'ctx>)
+        -> Box<dyn AnyValue<'ctx> + 'ctx>
+    {
+                    let value_to_store: Box<dyn AnyValue>;
 
-            dbg!(&variable_ptr);
-            let value_of_variable = self.assign_variable(assignment, variable_ptr);
-            self.named_values
-                .insert(NamedValue::new(name, _type, variable_ptr));
+                    value_to_store = match value.clone()
+                    {
+                        Expr::Char { value } => codegen_char_assignment(&value, *_type, compiler),
+                        _other => codegen_default_assignment(value, compiler),
+                    };
 
-            Box::new(value_of_variable)
-        }
+                    value_to_store
+    }
+
+
+    unsafe fn codegen_char_assignment<'a, 'ctx>(value: &str, _type: Type, compiler: &Compiler<'a,'ctx>)
+        -> Box<dyn AnyValue<'ctx> + 'ctx>
+    {                   
+                        let mut siz = 0;
+                        if let Type::Char(size) = _type
+                        {
+                            siz = size;
+                        }
+                        else
+                        {
+                            log::error!("Trying to generate a char but the type of the variable was {:#?} instead!", _type);
+                        }
+                        let char_val: CharValue<'ctx> = generate_character_code_for_size(compiler.context, &value, siz);
+                        Box::new(char_val.value.as_any_value_enum())
+    }
+
+
+    unsafe fn codegen_default_assignment<'a, 'ctx>(value: Expr, compiler: &Compiler<'a,'ctx>)
+        -> Box<dyn AnyValue<'ctx> + 'ctx>
+    {
+        value.clone().codegen(compiler)
+    }
 }

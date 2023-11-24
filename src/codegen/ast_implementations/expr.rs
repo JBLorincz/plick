@@ -173,7 +173,6 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
         {
             Type::FixedDecimal => 
             {
-
                 let fixed_value = FixedValue::create_mathable(&x, compiler);
                 let fd_as_struct: StructValue<'ctx> = fixed_value.value;
                 return Ok(Box::new(fd_as_struct));
