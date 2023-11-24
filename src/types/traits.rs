@@ -1,15 +1,37 @@
-use inkwell::values::{FloatValue, AnyValue, StructValue, PointerValue};
+use inkwell::values::{FloatValue, AnyValue, StructValue, PointerValue, ArrayValue};
 
 use crate::codegen::codegen::Compiler;
 
-use super::{Type, fixed_decimal::FixedValue};
+use super::{Type, fixed_decimal::FixedValue, character::CharValue};
 
 pub trait Puttable<'a, 'ctx>
 {
     fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx>;
+    unsafe fn print_object(&self, compiler: &'a Compiler<'a, 'ctx>);
 }
 
+pub fn get_puttable_type<'a,'ctx>(value: Box<dyn AnyValue<'ctx> +'ctx>, _type: Type) -> Result<Box<dyn Puttable<'a,'ctx> +'ctx>, String>
+{
 
+    let result: Box<dyn Puttable> = match _type
+    {
+        Type::FixedDecimal =>
+        {
+            let struc: StructValue<'ctx> = value.as_any_value_enum().into_struct_value();
+            let fd: FixedValue<'ctx> = FixedValue::new(struc);
+            Box::new(fd)
+        }
+        Type::Char(_size) =>
+        {
+            let char_array: ArrayValue<'ctx> = value.as_any_value_enum().into_array_value();
+            let char_value: CharValue<'ctx> = CharValue::new(char_array);
+            Box::new(char_value)
+        }
+        other => panic!("Cant make puttable type {}",other)
+    };
+
+    Ok(result)
+}
 
 pub trait Mathable<'a, 'ctx>
 {

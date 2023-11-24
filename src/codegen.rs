@@ -1,5 +1,5 @@
 mod ast_implementations;
-mod named_value_store;
+pub mod named_value_store;
 pub mod utils;
 pub mod prelude;
 pub mod named_value;
@@ -29,7 +29,6 @@ pub mod codegen {
     use crate::types::Type;
     use crate::types::TypeModule;
     use crate::types::traits::Puttable;
-    use crate::types::traits::get_mathable_type;
     use inkwell::basic_block::BasicBlock;
     use inkwell::builder::Builder;
     use inkwell::context::Context;
@@ -241,7 +240,7 @@ pub mod codegen {
         pub unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx> {
 
             let current_function = get_current_function(self);
-            let _type = assignment.value.get_type();
+            let _type = assignment.value.get_type(self);
 
             self.create_entry_block_alloca(&assignment.var_name, &current_function, &_type)
         }
@@ -251,7 +250,7 @@ pub mod codegen {
             assignment: ast::Assignment,
             new_variable: PointerValue<'ctx>,
         ) -> BasicValueEnum<'ctx> {
-            let _type = assignment.value.get_type();
+            let _type = assignment.value.get_type(self);
             let value_to_store = assignment.value.codegen(self);
 
             let initial_value: BasicValueEnum<'ctx> =
@@ -283,14 +282,13 @@ pub mod codegen {
         }
 
 
-
         
 
         pub fn get_format_string_for_type(_type: &Type) -> String
         {
             match _type
             {
-                Type::FixedDecimal => "%d".to_string(),
+                Type::FixedDecimal => "%f".to_string(),
                 Type::Float => "%f".to_string(),
                 Type::Char(string_length) => " \'%[^\']\'".to_string(),
                 Type::Void => panic!("Can't get format string for type Void!"),

@@ -63,8 +63,8 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             right,
         } = binary_expr
         {
-            let lhstype = left.get_type();
-            let rhstype = right.get_type();
+            let lhstype = left.get_type(self);
+            let rhstype = right.get_type(self);
 
             let lhs_codegen = left.codegen(self);
             let rhs_codegen = right.codegen(self);

@@ -1,11 +1,16 @@
 use std::fmt::Display;
 use std::string;
 
+use crate::codegen::codegen::Compiler;
+use crate::codegen::named_value_store::NamedValueStore;
 use crate::lexer;
 use crate::types;
 use crate::types::resolve_types;
 use crate::types::BaseAttributes;
 use crate::types::Type;
+use crate::codegen::named_value;
+
+use crate::codegen::named_value_store::NamedValueHashmapStore;
 ///Holds all definition for AST nodes
 
 #[derive(Debug, Clone)]
@@ -45,12 +50,21 @@ impl Expr {
             _type: Type::FixedDecimal,
         }
     }
-    pub fn get_type(&self) -> types::Type {
+    pub fn get_type<'a,'ctx>(&self, compiler: &'a Compiler<'a,'ctx>) -> types::Type {
+        log::info!("Trying to resove type {:#?}",self);
         match self {
             Expr::Variable {
                 ref _type,
                 ref name,
-            } => return *_type,
+            } => 
+            {
+                let named_values_result = compiler.named_values.try_get(name);
+                if let Some(named_value) = named_values_result
+                {
+                    return named_value._type;
+                }
+                return *_type
+            },
             Expr::NumVal {
                 ref _type,
                 ref value,
@@ -64,7 +78,7 @@ impl Expr {
                 ref operator,
                 ref left,
                 ref right,
-            } => resolve_types(&left.get_type(), &right.get_type()).unwrap(),
+            } => resolve_types(&left.get_type(compiler), &right.get_type(compiler)).unwrap(),
             Expr::Assignment {
                 ref variable_name,
                 ref value,
