@@ -338,10 +338,12 @@ mod should_fails
 
 mod lexer_and_parser_integration_tests
 {
+    use plick::ast::Expr;
     use plick::parser;
     use plick::lexer;
     use plick::ast;
     use super::common::initialize_test_logger;
+    #[test]
     fn test_binaries()
     {
         initialize_test_logger();
@@ -421,6 +423,26 @@ mod lexer_and_parser_integration_tests
         {
             panic!("Expression was not a binary, was a {:?}", result);
         }
+    }
+
+
+    #[test]
+    fn parse_negative_numbers()
+    {
+        let input = "-234";
+        let mut tok_man = lexer::TokenManager::new(input);
+        
+        let result = parser::parse_constant_numeric(&mut tok_man);
+        let mut resulting_num = -0;
+        match result
+        {
+            Expr::NumVal{value , _type}=> { resulting_num = value;},
+            other => {panic!("Expected numval, found {:#?}", other);}
+        };
+
+
+
+        assert_eq!(resulting_num, -234);
     }
 }
 

@@ -46,10 +46,18 @@ pub fn parse_token(
 }
 
 pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+    let minus_result = parse_token(token_manager, Token::MINUS);
+
+    let mut is_negative = 1;
+    match minus_result {
+       Ok(thing) =>{ is_negative = -1;},
+       _ => ()
+    };
+
     if let Some(Token::NumVal(value)) = token_manager.current_token {
         token_manager.next_token(); //loads the next token into the token manager.
         return Expr::NumVal {
-            value,
+            value: value * is_negative,
             _type: Type::FixedDecimal,
         };
     } else {
