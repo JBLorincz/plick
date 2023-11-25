@@ -1,0 +1,8 @@
+
+HELLO:   PROCEDURE OPTIONS (MAIN);
+
+	VAR = 0;
+	VAR = VAR - 1;
+	VAR = VAR - 1;
+	PUT VAR;
+	END;
