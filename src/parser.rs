@@ -362,7 +362,7 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
         { 
             operator: Token::MINUS, 
             left: Box::new(Expr::NumVal{value: 0, _type: Type::FixedDecimal}), 
-            right: Box::new(parse_expression(token_manager))
+            right: Box::new(parse_primary_expression(token_manager))
         };
         return expression_value;
 
