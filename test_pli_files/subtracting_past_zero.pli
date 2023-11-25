@@ -1,8 +1,24 @@
 
 HELLO:   PROCEDURE OPTIONS (MAIN);
 
+	VAR = 5;
+	PUT VAR;
+	VAR = 3;
+	PUT VAR;
+	VAR = 1;
+	PUT VAR;
 	VAR = 0;
+	PUT VAR;
 	VAR = VAR - 1;
+	PUT VAR;
 	VAR = VAR - 1;
+	PUT VAR;
+	VAR = VAR - 1;
+	PUT VAR;
+	VAR = VAR - 1;
+	PUT VAR;
+	VAR = VAR - 1;
+	PUT VAR;
+	VAR = VAR - 12;
 	PUT VAR;
 	END;
