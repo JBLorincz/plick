@@ -104,7 +104,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             
             let sign_ptr = self.builder.build_struct_gep(allocd_fd, 0, "get_sign_bit_ptr").unwrap();
             self.builder.build_store(sign_ptr, self.context.bool_type().const_int(1, false)).unwrap();
-            self.print_const_string("RUNNING NEGGY!");
             let rhs = float_value.get_type().const_float(-1.0);
             let float_value_neg_to_pos = self.builder.build_float_mul(float_value, rhs, "turn_negative_float_into_positive").unwrap();
             self.builder.build_unconditional_branch(cont_block).unwrap();
