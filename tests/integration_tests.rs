@@ -67,6 +67,20 @@ mod full_compile_tests
             Ok(())
     }
      #[test]
+    fn create_and_print_negative() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                VARIABLE = -23;
+                PUT VARIABLE;
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("-(3200000000000000)", output.stdout);
+        Ok(())
+
+        
+    }
+     #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
     {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);

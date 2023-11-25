@@ -355,6 +355,18 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
         Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
         Token::Identifier(_) => parse_identifier(token_manager),
         Token::NumVal(_) => parse_constant_numeric(token_manager),
+        Token::MINUS =>
+        {
+        token_manager.next_token();
+        let expression_value = Expr::Binary 
+        { 
+            operator: Token::MINUS, 
+            left: Box::new(Expr::NumVal{value: 0, _type: Type::FixedDecimal}), 
+            right: Box::new(parse_expression(token_manager))
+        };
+        return expression_value;
+
+        },
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
