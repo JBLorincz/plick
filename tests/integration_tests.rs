@@ -72,10 +72,20 @@ mod full_compile_tests
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 VARIABLE = -23;
                 PUT VARIABLE;
+                VARIABLE = -VARIABLE;
+                PUT VARIABLE;
+                VARIABLE = 0 - VARIABLE;
+                PUT VARIABLE;
+                VARIABLE = VARIABLE + 23;
+                PUT VARIABLE;
+                VARIABLE =  -VARIABLE;
+                PUT VARIABLE;
+                VARIABLE =  -23 + 41;
+                PUT VARIABLE;
                 END;";
 
         let output = run_new_test(input)?;
-        assert_eq!("-(3200000000000000)", output.stdout);
+        assert_eq!("-(3200000000000000)+(3200000000000000)-(3200000000000000)+(0000000000000000)+(0000000000000000)+(8100000000000000)", output.stdout);
         Ok(())
 
         
