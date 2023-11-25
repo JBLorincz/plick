@@ -1,15 +1,20 @@
 use inkwell::{
     types::{ArrayType, BasicType, BasicTypeEnum, StructType, FunctionType, BasicMetadataTypeEnum},
-    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue, BasicMetadataValueEnum}, AddressSpace, module::Linkage,
+    values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue, BasicMetadataValueEnum, BasicValue}, AddressSpace, module::Linkage,
 };
 
-use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_int_value, build_pow, print_float_value}};
+use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_int_value, build_pow, print_float_value, get_current_function}};
 
 use super::{traits::{Puttable, Mathable}, Type};
+
+mod float_to_fixed;
+
 
 const BEFORE_DIGIT_COUNT: u32 = 16;
 const AFTER_DIGIT_COUNT: u32 = 15;
 
+const PLUS_ASCII_CODE: u64 = 43;
+const MINUS_ASCII_CODE: u64 = 45;
 ///Represents a Fixed PL/1 value.
 ///Currently can only represent a fixed decimal with
 ///16 digits before the decimal, 15 after.
@@ -57,12 +62,12 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
 
     fn get_pointer_to_printable_string(&self, compiler: &'a Compiler<'a, 'ctx>) -> PointerValue<'ctx> {
 
-         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(compiler,&self.value);
          let const_int_zero = compiler.context.i8_type().const_zero();
-        fd_to_float_converter.alloca_struct_value();
 
-        fd_to_float_converter.get_sign_bit_value();
-        
+         let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(compiler,&self.value);
+
+         fd_to_float_converter.alloca_struct_value();
+        let sign_bit_value = fd_to_float_converter.get_sign_bit_ascii_value();
         let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
 
         dbg!(ptr_to_before_array);
@@ -95,7 +100,7 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
         before_int_values.push(compiler.context.i8_type().const_int(41,false));
         before_int_values.push(compiler.context.i8_type().const_zero());
 
-        before_int_values.splice(0..0, [compiler.context.i8_type().const_int(40,false)]);
+        before_int_values.splice(0..0, [sign_bit_value,compiler.context.i8_type().const_int(40,false)]);
         
         //HARD DECK
         let _typ = compiler.context.i8_type().array_type(before_int_values.len() as u32);
@@ -236,117 +241,7 @@ pub fn generate_fixed_decimal_code<'ctx>(
     new_fixed_value
 }
 
-impl<'a, 'ctx> Compiler<'a, 'ctx> {
-    pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
-        log::info!("Converting fixed value {:?} into a decimal!", fixed_value);
 
-        let fixed_value_as_struct_value: StructValue<'ctx> = fixed_value.value;
-
-        let mut fd_to_float_converter = FixedDecimalToFloatBuilder::new(self,&fixed_value_as_struct_value);
-
-        fd_to_float_converter.alloca_struct_value();
-
-        fd_to_float_converter.get_sign_bit_value();
-        
-        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
-
-        dbg!(ptr_to_before_array);
-        let before_arr = fd_to_float_converter.get_before_array();
-        dbg!(before_arr);
-
-        let zero_intval = self.context.i8_type().const_zero();
-        let mut before_int_values: Vec<IntValue<'ctx>> =
-            vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
-
-        for i in 0..BEFORE_DIGIT_COUNT as usize {
-            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
-        
-            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
-
-            //now we take the array value, build a GEP for the inner array
-            before_int_values[i] = digit_int_val;
-        }
-
-        let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values);
-
-        result_floatval
-    }
-
-
-    pub unsafe fn float_value_to_fixed_decimal(&'a self, float_value: FloatValue<'ctx>) -> FixedValue<'ctx>
-    {
-        let zero_intval = self.context.i8_type().const_zero();
-        let fixed_value: StructValue<'ctx> = create_empty_fixed(self.context, &self.type_module.fixed_type);
-        let allocd_fd: PointerValue<'ctx> = self.builder.build_alloca(fixed_value.get_type(), "allocate_fd_for_fixed_conv").unwrap();
-        self.builder.build_store(allocd_fd, fixed_value).unwrap();
-        self.builder.build_alloca(float_value.get_type(), "allocate_float_for_fixed_conv").unwrap();
-
-
-        let rhs: FloatValue<'ctx> = float_value.get_type().const_zero();
-
-
-            let conditional = self
-            .builder
-            .build_float_compare(
-                inkwell::FloatPredicate::OLT,
-                float_value,
-                rhs,
-                "is_float_neg")
-            .unwrap();
-
-            //start of sign bit loading
-            let current_func = utils::get_current_function(self);
-            let then_block = self.context.append_basic_block(current_func, "then_block");
-            let else_block = self.context.append_basic_block(current_func, "else_block");
-            let cont_block = self.context.append_basic_block(current_func, "cont_block");
-                self.
-                builder.
-                build_conditional_branch(conditional, then_block, else_block)
-                .expect("This should be fine!");
-
-            self.builder.position_at_end(then_block);
-            
-            let sign_ptr = self.builder.build_struct_gep(allocd_fd, 0, "get_sign_bit_ptr").unwrap();
-            self.builder.build_store(sign_ptr, self.context.bool_type().const_int(1, false)).unwrap();
-            self.builder.build_unconditional_branch(cont_block).unwrap();
-                      
-            self.builder.position_at_end(else_block);
-            self.builder.build_unconditional_branch(cont_block).unwrap();
-
-            self.builder.position_at_end(cont_block);
-            //end of sign bit loading
-
-            //start of calculating fv digits
-            let bdcl = self.context.append_basic_block(current_func, "before_digits_calculation_loop");
-            self.builder.build_unconditional_branch(bdcl).unwrap();
-            self.builder.position_at_end(bdcl);
-
-            //counter 
-
-            let before_array_ptr = self.builder.build_struct_gep(allocd_fd, 1, "get_before_array_ptr").unwrap();
-            for i in 0..16
-            {
-                let index_as_intval = self.context.i8_type().const_int(i, false);
-                let digit_to_load_up = get_nth_digit_of_a_float(self, &float_value, index_as_intval);
-                let digi_as_i8 = self.builder.build_int_cast(digit_to_load_up, self.context.i8_type(), "turn_i64_into_i8").unwrap();
-
-                let current_digit_ptr = self.builder.build_gep(before_array_ptr,&[zero_intval,index_as_intval],"getdigiforconv")
-                    .unwrap();
-
-                self.builder.build_store(current_digit_ptr, digi_as_i8).unwrap();
-            }
-            
-
-            let after_before_loop = self.context.append_basic_block(current_func, "after_digits_loop");
-            self.builder.build_unconditional_branch(after_before_loop).unwrap();
-            self.builder.position_at_end(after_before_loop);
-            //end of calculating fv digits
-
-        
-        let fd_struct: StructValue<'ctx> = self.builder.build_load(allocd_fd, "loading_final_fd").unwrap().into_struct_value(); 
-        FixedValue::new(fd_struct)
-    }
-}
 
 struct FixedDecimalToFloatBuilder<'a, 'b, 'ctx>
 {
@@ -378,6 +273,43 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
 
         pointer_to_struct_value
     }
+    fn get_sign_bit_ascii_value(&self) -> IntValue<'ctx>
+   {
+       let sign_bit_value = self.get_sign_bit_value();
+       let builder = self.compiler.builder;
+       let function = get_current_function(self.compiler);
+
+        let then_block = self.compiler.context.append_basic_block(function, "if_negative");
+        let else_block = self.compiler.context.append_basic_block(function, "if_positive");
+        let merge_block = self.compiler.context.append_basic_block(function, "merge");
+
+        let rhs = self.compiler.context.bool_type().const_int(1, false);
+        let comparison =
+            builder
+            .build_int_compare(inkwell::IntPredicate::EQ, sign_bit_value, rhs, "is_negative")
+            .unwrap();
+
+
+            builder.build_conditional_branch(comparison, then_block, else_block).unwrap(); 
+
+            builder.position_at_end(then_block);
+            let negative_value = self.compiler.context.i8_type().const_int(MINUS_ASCII_CODE, false);
+            builder.build_unconditional_branch(merge_block).unwrap();
+
+            builder.position_at_end(else_block);
+            let positive_value = self.compiler.context.i8_type().const_int(PLUS_ASCII_CODE, false);
+            builder.build_unconditional_branch(merge_block).unwrap();
+
+            builder.position_at_end(merge_block);
+
+            let x = 
+                builder.build_phi(self.compiler.context.i8_type(), "sign_character").unwrap();
+
+                x.add_incoming(&[(&negative_value.as_basic_value_enum(), then_block)]);
+                x.add_incoming(&[(&positive_value.as_basic_value_enum(), else_block)]);
+
+                x.as_basic_value().into_int_value()
+   }
    fn get_sign_bit_value(&self) -> IntValue<'ctx>
    {
         let sign_bit_ptr = self.compiler
@@ -477,9 +409,13 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
         }
 
         result_float = self.compiler.builder.build_load(result_float_alloca,"load_result").unwrap().into_float_value();
+
         result_float
 
     }
+
+
+
 
 }
 
@@ -522,11 +458,13 @@ pub fn add_fd_print_function<'a,'ctx>(compiler: &mut Compiler<'a,'ctx>)
     let current_bb = compiler.builder.get_insert_block().unwrap();
 
     let func_bb = compiler.context.append_basic_block(print_fd_func, "entry");
-    //let func_bb = print_fd_func.get_last_basic_block().unwrap();
 
     compiler.builder.position_at_end(func_bb);
+
     let fixedvalue_param = func_bb.get_parent().unwrap().get_first_param().unwrap();
+
     let alloca_value = compiler.builder.build_alloca(fixedvalue_param.get_type(), "num_to_print").unwrap();
+
     compiler.builder.build_store(alloca_value, fixedvalue_param.into_struct_value()).unwrap();
 
     let mut args: Vec<BasicMetadataValueEnum> = vec![];

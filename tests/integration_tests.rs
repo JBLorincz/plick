@@ -1,13 +1,11 @@
     use std::error::Error;
-    
     use common::test_normal_compile;
-    use log::{debug, error, warn, trace, log_enabled, info, Level};
 
     mod common;
 
 mod full_compile_tests
 {
-    use crate::common::{initialize_test_logger, run_new_test};
+    use crate::common::run_new_test;
 
     use super::*;
    #[test]
@@ -40,7 +38,7 @@ mod full_compile_tests
                 PUT 'Fourth';
                 END;";
 
-            let output = run_new_test(input)?;
+            let _output = run_new_test(input)?;
             Ok(())
 
 
@@ -67,6 +65,30 @@ mod full_compile_tests
             let output = run_new_test(input)?;
             assert_eq!("HELLO BOL  BOL HELLOHELLO", output.stdout);
             Ok(())
+    }
+     #[test]
+    fn create_and_print_negative() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                VARIABLE = -23;
+                PUT VARIABLE;
+                VARIABLE = -VARIABLE;
+                PUT VARIABLE;
+                VARIABLE = 0 - VARIABLE;
+                PUT VARIABLE;
+                VARIABLE = VARIABLE + 23;
+                PUT VARIABLE;
+                VARIABLE =  -VARIABLE;
+                PUT VARIABLE;
+                VARIABLE =  -23 + 41;
+                PUT VARIABLE;
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("-(3200000000000000)+(3200000000000000)-(3200000000000000)+(0000000000000000)+(0000000000000000)+(8100000000000000)", output.stdout);
+        Ok(())
+
+        
     }
      #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
@@ -136,7 +158,7 @@ end;
 
         
         let output = run_new_test(input)?;
-        assert_eq!("(3000000000000000)(0000000000000000)(3000000000000000)(4000000000000000)(5000000000000000)FINAL VALUETesty", output.stdout);
+        assert_eq!("+(3000000000000000)+(0000000000000000)+(3000000000000000)+(4000000000000000)+(5000000000000000)FINAL VALUETesty", output.stdout);
         Ok(())
 
     }
@@ -292,7 +314,7 @@ mod should_fails
                 END;";
         
 
-        test_normal_compile(input);
+        test_normal_compile(input).unwrap();
     }
 
     #[test]
@@ -302,7 +324,7 @@ mod should_fails
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         LIST(3,4,5) END;";
         
-        let output = run_new_test(input);
+        let _output = run_new_test(input);
 
     }
     #[test]
@@ -318,7 +340,7 @@ mod should_fails
                 IF 'HELLO' THEN LOL;
                 END;";
         
-        test_normal_compile(input);
+        test_normal_compile(input).unwrap();
     }
      #[test]
      #[should_panic]
@@ -330,7 +352,7 @@ mod should_fails
                 LOLOLOLOL();
                 END;";
         
-        test_normal_compile(input);
+        test_normal_compile(input).unwrap();
     }
 
 
@@ -338,10 +360,12 @@ mod should_fails
 
 mod lexer_and_parser_integration_tests
 {
+    use plick::ast::Expr;
     use plick::parser;
     use plick::lexer;
     use plick::ast;
     use super::common::initialize_test_logger;
+    #[test]
     fn test_binaries()
     {
         initialize_test_logger();
@@ -421,6 +445,24 @@ mod lexer_and_parser_integration_tests
         {
             panic!("Expression was not a binary, was a {:?}", result);
         }
+    }
+
+
+    #[test]
+    fn parse_const_negative_number()
+    {
+        let input = "-234";
+        let mut tok_man = lexer::TokenManager::new(input);
+        
+        let result = parser::parse_constant_numeric(&mut tok_man);
+        let resulting_num;
+        match result
+        {
+            Expr::NumVal{value , _type}=> { resulting_num = value;},
+            other => {panic!("Expected numval, found {:#?}", other);}
+        };
+
+        assert_eq!(resulting_num, -234);
     }
 }
 

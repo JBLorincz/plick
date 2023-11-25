@@ -46,10 +46,18 @@ pub fn parse_token(
 }
 
 pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+    let minus_result = parse_token(token_manager, Token::MINUS);
+
+    let mut is_negative = 1;
+    match minus_result {
+       Ok(thing) =>{ is_negative = -1;},
+       _ => ()
+    };
+
     if let Some(Token::NumVal(value)) = token_manager.current_token {
         token_manager.next_token(); //loads the next token into the token manager.
         return Expr::NumVal {
-            value,
+            value: value * is_negative,
             _type: Type::FixedDecimal,
         };
     } else {
@@ -347,6 +355,18 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
         Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
         Token::Identifier(_) => parse_identifier(token_manager),
         Token::NumVal(_) => parse_constant_numeric(token_manager),
+        Token::MINUS =>
+        {
+        token_manager.next_token();
+        let expression_value = Expr::Binary 
+        { 
+            operator: Token::MINUS, 
+            left: Box::new(Expr::NumVal{value: 0, _type: Type::FixedDecimal}), 
+            right: Box::new(parse_primary_expression(token_manager))
+        };
+        return expression_value;
+
+        },
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
