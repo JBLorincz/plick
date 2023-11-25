@@ -1,13 +1,11 @@
     use std::error::Error;
-    
     use common::test_normal_compile;
-    use log::{debug, error, warn, trace, log_enabled, info, Level};
 
     mod common;
 
 mod full_compile_tests
 {
-    use crate::common::{initialize_test_logger, run_new_test};
+    use crate::common::run_new_test;
 
     use super::*;
    #[test]
@@ -40,7 +38,7 @@ mod full_compile_tests
                 PUT 'Fourth';
                 END;";
 
-            let output = run_new_test(input)?;
+            let _output = run_new_test(input)?;
             Ok(())
 
 
@@ -292,7 +290,7 @@ mod should_fails
                 END;";
         
 
-        test_normal_compile(input);
+        test_normal_compile(input).unwrap();
     }
 
     #[test]
@@ -302,7 +300,7 @@ mod should_fails
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         LIST(3,4,5) END;";
         
-        let output = run_new_test(input);
+        let _output = run_new_test(input);
 
     }
     #[test]
@@ -318,7 +316,7 @@ mod should_fails
                 IF 'HELLO' THEN LOL;
                 END;";
         
-        test_normal_compile(input);
+        test_normal_compile(input).unwrap();
     }
      #[test]
      #[should_panic]
@@ -330,7 +328,7 @@ mod should_fails
                 LOLOLOLOL();
                 END;";
         
-        test_normal_compile(input);
+        test_normal_compile(input).unwrap();
     }
 
 
@@ -427,20 +425,18 @@ mod lexer_and_parser_integration_tests
 
 
     #[test]
-    fn parse_negative_numbers()
+    fn parse_const_negative_number()
     {
         let input = "-234";
         let mut tok_man = lexer::TokenManager::new(input);
         
         let result = parser::parse_constant_numeric(&mut tok_man);
-        let mut resulting_num = -0;
+        let resulting_num;
         match result
         {
             Expr::NumVal{value , _type}=> { resulting_num = value;},
             other => {panic!("Expected numval, found {:#?}", other);}
         };
-
-
 
         assert_eq!(resulting_num, -234);
     }
