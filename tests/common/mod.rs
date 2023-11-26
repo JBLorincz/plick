@@ -139,8 +139,27 @@ fn run_file(&self) -> Result<Output, Box<dyn Error>>
 
 fn cleanup(&self)
 {
-    let mut delete_command = "rm";
+
+    #[cfg(target_env="msvc")]
+    return self.cleanup_msvc();
+
+    return self.cleanup_gnu();
+}
+
+fn cleanup_gnu(&self)
+{
        Command::new("rm")
+            .arg(&self.path_to_exe)
+            .arg(&self.path_to_object_file)
+           .spawn()
+           .expect("Failed to run the test command!")
+           .wait()
+           .expect("Trouble running file!");
+}
+
+fn cleanup_msvc(&self)
+{
+       Command::new("del")
             .arg(&self.path_to_exe)
             .arg(&self.path_to_object_file)
            .spawn()
