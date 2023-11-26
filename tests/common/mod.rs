@@ -1,4 +1,4 @@
-use std::{error::Error, env, mem, process::{Command, Output}, time::UNIX_EPOCH};
+use std::{error::Error, env, mem, process::{Command, Output}, time::UNIX_EPOCH, path::Path};
 
 use plick::{Config, compile_input};
 use uuid::Uuid;
@@ -126,6 +126,15 @@ fn link_file_msvc(&self) -> Result<(), Box<dyn Error>>
 
 fn run_file(&self) -> Result<Output, Box<dyn Error>>
 {
+
+    #[cfg(target_env="msvc")]
+    return self.run_file_msvc();
+
+    return self.run_file_gnu();
+}
+
+fn run_file_gnu(&self) -> Result<Output, Box<dyn Error>>
+{
         dbg!(&self.path_to_exe);
        let program_output = Command::new(&self.path_to_exe)
            .output()
@@ -137,6 +146,19 @@ fn run_file(&self) -> Result<Output, Box<dyn Error>>
 
 }
 
+#[cfg(target_env="msvc")]
+fn run_file_msvc(&self) -> Result<Output, Box<dyn Error>>
+{
+    let file_name = Path::new(&self.path_to_exe).file_name().unwrap();
+    dbg!(&self.path_to_exe);
+       let program_output = Command::new(file_name)
+           .output()
+           .expect("Failed to run the test command!")
+           ;
+
+
+       Ok(program_output)
+}
 fn cleanup(&self)
 {
 
@@ -157,6 +179,7 @@ fn cleanup_gnu(&self)
            .expect("Trouble running file!");
 }
 
+#[cfg(target_env="msvc")]
 fn cleanup_msvc(&self)
 {
        Command::new("del")
