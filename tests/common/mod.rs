@@ -84,11 +84,14 @@ pub fn new(exe: &str, obj: &str) -> Self
 
 fn link_file(&self) -> Result<(), Box<dyn Error>>
 {
-    #[cfg(target_env="msvc")]
+    if cfg!(target_env="msvc")
+    {
     return self.link_file_msvc();
-
-    
+    }
+    else
+    {
     return self.link_file_gnu();
+    }
 }
 
 fn link_file_gnu(&self) -> Result<(), Box<dyn Error>>
@@ -106,7 +109,6 @@ fn link_file_gnu(&self) -> Result<(), Box<dyn Error>>
 }
 
 
-#[cfg(target_env="msvc")]
 fn link_file_msvc(&self) -> Result<(), Box<dyn Error>>
 {
        Command::new("cl")
@@ -127,13 +129,17 @@ fn link_file_msvc(&self) -> Result<(), Box<dyn Error>>
 fn run_file(&self) -> Result<Output, Box<dyn Error>>
 {
 
-    #[cfg(target_env="msvc")]
-    return self.run_file_msvc();
-
-    return self.run_file_gnu();
+    if cfg!(target_env="msvc")
+    {
+    return self.run_file_windows();
+    }
+    else
+    {
+    return self.run_file_unix();
+    }
 }
 
-fn run_file_gnu(&self) -> Result<Output, Box<dyn Error>>
+fn run_file_unix(&self) -> Result<Output, Box<dyn Error>>
 {
         dbg!(&self.path_to_exe);
        let program_output = Command::new(&self.path_to_exe)
@@ -146,8 +152,7 @@ fn run_file_gnu(&self) -> Result<Output, Box<dyn Error>>
 
 }
 
-#[cfg(target_env="msvc")]
-fn run_file_msvc(&self) -> Result<Output, Box<dyn Error>>
+fn run_file_windows(&self) -> Result<Output, Box<dyn Error>>
 {
     let file_name = Path::new(&self.path_to_exe).file_name().unwrap();
 
@@ -164,13 +169,17 @@ fn run_file_msvc(&self) -> Result<Output, Box<dyn Error>>
 fn cleanup(&self)
 {
 
-    #[cfg(target_env="msvc")]
-    return self.cleanup_msvc();
-
-    return self.cleanup_gnu();
+    if cfg!(target_os = "windows")
+    {
+    return self.cleanup_windows();
+    }
+    else
+    {
+    return self.cleanup_unix();
+    }
 }
 
-fn cleanup_gnu(&self)
+fn cleanup_unix(&self)
 {
        Command::new("rm")
             .arg(&self.path_to_exe)
@@ -181,8 +190,7 @@ fn cleanup_gnu(&self)
            .expect("Trouble running file!");
 }
 
-#[cfg(target_env="msvc")]
-fn cleanup_msvc(&self)
+fn cleanup_windows(&self)
 {
        Command::new("cmd")
             .arg("/C")
