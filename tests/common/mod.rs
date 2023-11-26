@@ -150,8 +150,10 @@ fn run_file_gnu(&self) -> Result<Output, Box<dyn Error>>
 fn run_file_msvc(&self) -> Result<Output, Box<dyn Error>>
 {
     let file_name = Path::new(&self.path_to_exe).file_name().unwrap();
-    dbg!(&self.path_to_exe);
-       let program_output = Command::new(file_name)
+
+       let program_output = Command::new("cmd")
+           .arg("/C")
+           .arg(file_name)
            .output()
            .expect("Failed to run the test command!")
            ;
@@ -182,7 +184,9 @@ fn cleanup_gnu(&self)
 #[cfg(target_env="msvc")]
 fn cleanup_msvc(&self)
 {
-       Command::new("del")
+       Command::new("cmd")
+            .arg("/C")
+            .arg("del")
             .arg(&self.path_to_exe)
             .arg(&self.path_to_object_file)
            .spawn()
