@@ -1,4 +1,4 @@
-use std::{error::Error, env, mem, process::{Command, Output}, time::UNIX_EPOCH};
+use std::{error::Error, env, process::{Command, Output}, path::Path};
 
 use plick::{Config, compile_input};
 use uuid::Uuid;
@@ -81,7 +81,20 @@ pub fn new(exe: &str, obj: &str) -> Self
 {
     TestFile { path_to_exe: exe.to_string(), path_to_object_file: obj.to_string() }
 }
+
 fn link_file(&self) -> Result<(), Box<dyn Error>>
+{
+    if cfg!(target_env="msvc")
+    {
+    return self.link_file_msvc();
+    }
+    else
+    {
+    return self.link_file_gnu();
+    }
+}
+
+fn link_file_gnu(&self) -> Result<(), Box<dyn Error>>
 {
        Command::new("cc")
         .arg(&self.path_to_object_file)
@@ -95,7 +108,38 @@ fn link_file(&self) -> Result<(), Box<dyn Error>>
        Ok(())
 }
 
+
+fn link_file_msvc(&self) -> Result<(), Box<dyn Error>>
+{
+       Command::new("cl")
+        .arg(&self.path_to_object_file)
+        .arg("/Fe".to_owned()+&self.path_to_exe)
+        .arg("/link")
+        .arg("msvcrt.lib")
+        .arg("legacy_stdio_definitions.lib")
+        .spawn()
+        .expect("cc command failed to start")
+        .wait()?;
+
+        Ok(())
+}
+
+
+
 fn run_file(&self) -> Result<Output, Box<dyn Error>>
+{
+
+    if cfg!(target_env="msvc")
+    {
+    return self.run_file_windows();
+    }
+    else
+    {
+    return self.run_file_unix();
+    }
+}
+
+fn run_file_unix(&self) -> Result<Output, Box<dyn Error>>
 {
         dbg!(&self.path_to_exe);
        let program_output = Command::new(&self.path_to_exe)
@@ -108,11 +152,53 @@ fn run_file(&self) -> Result<Output, Box<dyn Error>>
 
 }
 
+fn run_file_windows(&self) -> Result<Output, Box<dyn Error>>
+{
+    let file_name = Path::new(&self.path_to_exe).file_name().unwrap();
+
+       let program_output = Command::new("cmd")
+           .arg("/C")
+           .arg(file_name)
+           .output()
+           .expect("Failed to run the test command!")
+           ;
+
+
+       Ok(program_output)
+}
 fn cleanup(&self)
+{
+
+    if cfg!(target_os = "windows")
+    {
+    return self.cleanup_windows();
+    }
+    else
+    {
+    return self.cleanup_unix();
+    }
+}
+
+fn cleanup_unix(&self)
 {
        Command::new("rm")
             .arg(&self.path_to_exe)
             .arg(&self.path_to_object_file)
+           .spawn()
+           .expect("Failed to run the test command!")
+           .wait()
+           .expect("Trouble running file!");
+}
+
+fn cleanup_windows(&self)
+{
+    let exe_filename = Path::new(&self.path_to_exe).file_name().unwrap();
+    let obj_filename = Path::new(&self.path_to_object_file).file_name().unwrap();
+       Command::new("cmd")
+            .arg("/C")
+            .arg("del")
+            .arg(exe_filename)
+            .arg(obj_filename)
            .spawn()
            .expect("Failed to run the test command!")
            .wait()
