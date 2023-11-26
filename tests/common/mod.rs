@@ -1,4 +1,4 @@
-use std::{error::Error, env, mem, process::{Command, Output}, time::UNIX_EPOCH, path::Path};
+use std::{error::Error, env, process::{Command, Output}, path::Path};
 
 use plick::{Config, compile_input};
 use uuid::Uuid;
@@ -192,11 +192,13 @@ fn cleanup_unix(&self)
 
 fn cleanup_windows(&self)
 {
+    let exe_filename = Path::new(&self.path_to_exe).file_name().unwrap();
+    let obj_filename = Path::new(&self.path_to_object_file).file_name().unwrap();
        Command::new("cmd")
             .arg("/C")
             .arg("del")
-            .arg(&self.path_to_exe)
-            .arg(&self.path_to_object_file)
+            .arg(exe_filename)
+            .arg(obj_filename)
            .spawn()
            .expect("Failed to run the test command!")
            .wait()
