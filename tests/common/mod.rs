@@ -81,7 +81,17 @@ pub fn new(exe: &str, obj: &str) -> Self
 {
     TestFile { path_to_exe: exe.to_string(), path_to_object_file: obj.to_string() }
 }
+
 fn link_file(&self) -> Result<(), Box<dyn Error>>
+{
+    #[cfg(target_env="msvc")]
+    return self.link_file_msvc();
+
+    
+    return self.link_file_gnu();
+}
+
+fn link_file_gnu(&self) -> Result<(), Box<dyn Error>>
 {
        Command::new("cc")
         .arg(&self.path_to_object_file)
@@ -94,6 +104,25 @@ fn link_file(&self) -> Result<(), Box<dyn Error>>
 
        Ok(())
 }
+
+
+#[cfg(target_env="msvc")]
+fn link_file_msvc(&self) -> Result<(), Box<dyn Error>>
+{
+       Command::new("cl")
+        .arg(&self.path_to_object_file)
+        .arg("/Fe".to_owned()+&self.path_to_exe)
+        .arg("/link")
+        .arg("msvcrt.lib")
+        .arg("legacy_stdio_definitions.lib")
+        .spawn()
+        .expect("cc command failed to start")
+        .wait()?;
+
+        Ok(())
+}
+
+
 
 fn run_file(&self) -> Result<Output, Box<dyn Error>>
 {
@@ -110,6 +139,7 @@ fn run_file(&self) -> Result<Output, Box<dyn Error>>
 
 fn cleanup(&self)
 {
+    let mut delete_command = "rm";
        Command::new("rm")
             .arg(&self.path_to_exe)
             .arg(&self.path_to_object_file)
