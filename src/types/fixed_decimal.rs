@@ -503,13 +503,18 @@ pub fn add_fd_print_function<'a,'ctx>(compiler: &mut Compiler<'a,'ctx>)
 
 fn num_digits_after_point_in_f64(num: f64) -> usize
 {
-    let mut result = 0;
 
     let as_str = num.to_string();
     let parts: Vec<&str> = as_str.split(".").collect();
 
-
-    parts[1].len()
+    if parts.len() ==2
+    {
+        parts[1].len()
+    }
+    else
+    {
+        0
+    }
 }
 
 
