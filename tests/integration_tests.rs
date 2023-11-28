@@ -1,8 +1,11 @@
     use std::error::Error;
     use common::test_normal_compile;
-
     mod common;
 
+#[cfg(windows)]
+const LINE_ENDING: &'static str = "\r\n";
+#[cfg(not(windows))]
+const LINE_ENDING: &'static str = "\n";
 mod full_compile_tests
 {
     use crate::common::run_new_test;
@@ -185,7 +188,7 @@ end;
                 IF FLAG THEN PUT 'INLINE IF IS TRUE\n'; ELSE PUT 'FALSE\n'; END;";
         
         let output = run_new_test(input)?;
-        assert_eq!("FALSE\n", output.stdout);
+        assert_eq!("FALSE".to_owned()+LINE_ENDING, output.stdout);
         Ok(())
 
     }
@@ -199,7 +202,7 @@ end;
                 IF FLAG THEN PUT 'TRUE\n'; ELSE PUT 'FALSE\n'; END;";
         
         let output = run_new_test(input)?;
-        assert_eq!("TRUE\n", output.stdout);
+        assert_eq!("TRUE".to_owned() + LINE_ENDING, output.stdout);
         Ok(())
 
     }
@@ -211,7 +214,7 @@ end;
                 IF 1234567 THEN PUT 'INLINE IF IS TRUE\n'; END;";
         
         let output = run_new_test(input)?;
-        assert_eq!("INLINE IF IS TRUE\n", output.stdout);
+        assert_eq!("INLINE IF IS TRUE".to_owned() + LINE_ENDING, output.stdout);
         Ok(())
 
     }
@@ -223,7 +226,7 @@ end;
                 IF 0 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
 
         let output = run_new_test(input)?;
-        assert_eq!("HELLOHELLOHELLOHELLO\n", output.stdout);
+        assert_eq!("HELLOHELLOHELLOHELLO".to_owned() + LINE_ENDING, output.stdout);
         Ok(())
 
     }
@@ -234,7 +237,7 @@ end;
                 IF 1 THEN DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; ELSE DO; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO'; PUT 'HELLO\n'; END; END;";
 
         let output = run_new_test(input)?;
-        assert_eq!("HELLOHELLOHELLO\n", output.stdout);
+        assert_eq!("HELLOHELLOHELLO".to_owned() + LINE_ENDING, output.stdout);
         Ok(())
 
     }
