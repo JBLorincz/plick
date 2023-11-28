@@ -3,6 +3,7 @@ use inkwell::{
     values::{ArrayValue, BasicValueEnum, FloatValue, IntValue, StructValue, PointerValue, AnyValue, BasicMetadataValueEnum, BasicValue}, AddressSpace, module::Linkage,
 };
 
+use regex;
 use crate::codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_int_value, build_pow, print_float_value, get_current_function}};
 
 use super::{traits::{Puttable, Mathable}, Type};
@@ -198,15 +199,16 @@ pub fn generate_fixed_decimal_code<'ctx>(
     value: f64,
 ) -> FixedValue<'ctx> {
     let mut values: Vec<BasicValueEnum> = vec![];
-    let negative_value_switch = match value < 0.0 {
+    let is_float_negative = match value < 0.0 {
         true => 1,
         false => 0,
     };
 
-    let is_negative_value = ctx.bool_type().const_int(negative_value_switch, false);
+    let is_negative_value = ctx.bool_type().const_int(is_float_negative, false);
 
     //now we gotta extract the number before the decimal as a positive integer
     let before_decimal_side = value as u64;
+
     let mut before_decimal_digits: Vec<IntValue> = convert_num_to_arr(before_decimal_side as i64)
         .iter()
         .map(|w| -> IntValue<'ctx> { ctx.i8_type().const_int(*w as u64, false) })
@@ -214,12 +216,21 @@ pub fn generate_fixed_decimal_code<'ctx>(
 
 
     before_decimal_digits.resize(
-        BEFORE_DIGIT_COUNT as usize,
-        ctx.i8_type().const_int(0, false),
+        BEFORE_DIGIT_COUNT as usize, ctx.i8_type().const_int(0, false),
     );
-    //now we gotta extract the number after the decimal as a positive integer
+
+
+    let before_dec_side = before_decimal_side as f64;
+
+
+    let length_of_after_decimal_side = num_digits_after_point_in_f64(value);
+
+
     let after_decimal_side =
-        (value - before_decimal_side as f64) * 10_f64.powf(before_decimal_digits.len() as f64);
+        (value - before_decimal_side as f64) * 10_f64.powf(length_of_after_decimal_side as f64);
+    
+
+    let after_decimal_side = after_decimal_side.round();
     let mut after_decimal_digits: Vec<IntValue> = convert_num_to_arr(after_decimal_side as i64)
         .iter()
         .map(|w| -> IntValue<'ctx> { ctx.i8_type().const_int(*w as u64, false) })
@@ -330,6 +341,12 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
     {
             self.compiler.builder
             .build_struct_gep(self.pointer_to_struct_value.unwrap(), 1, "get_before")
+            .unwrap()
+    }
+   fn get_after_ptr(&self) -> PointerValue<'ctx>
+    {
+            self.compiler.builder
+            .build_struct_gep(self.pointer_to_struct_value.unwrap(), 2, "get_after")
             .unwrap()
     }
    fn get_before_array(&self) -> ArrayValue<'ctx>
@@ -484,11 +501,21 @@ pub fn add_fd_print_function<'a,'ctx>(compiler: &mut Compiler<'a,'ctx>)
 
 
 
+fn num_digits_after_point_in_f64(num: f64) -> usize
+{
+    let mut result = 0;
 
+    let as_str = num.to_string();
+    let parts: Vec<&str> = as_str.split(".").collect();
+
+
+    parts[1].len()
+}
 
 
 mod tests {
     use inkwell::types::{BasicType, BasicTypeEnum};
+    use regex::Regex;
 
     use crate::types::fixed_decimal::create_empty_fixed;
 
@@ -513,5 +540,31 @@ mod tests {
         let myval = generate_fixed_decimal_code(&ctx, _type, 421.88888);
 
         dbg!(myval);
+    }
+    #[test]
+    fn fixed_decimal_point_num() {
+        let ctx = inkwell::context::Context::create();
+
+        let _type = get_fixed_type(&ctx);
+        let const_fixedvalue = generate_fixed_decimal_code(&ctx, _type, 421.52);
+        
+        let debug_message = format!("{:?}", dbg!(const_fixedvalue.value));
+
+        let reg = Regex::new(r"c\\.*?,").unwrap();
+
+        let iter = reg.find_iter(&debug_message);
+
+        let mut digits_as_strings: Vec<&str> = vec![];
+
+        for mat in iter
+        {
+            digits_as_strings.push(mat.as_str());
+        }
+
+        assert_eq!(digits_as_strings[0],"c\\\"\\\\01\\\\02\\\\04\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\",",
+                   "Before decimal digits are not the expected value!");
+        assert_eq!(digits_as_strings[1],"c\\\"\\\\02\\\\05\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\" }\",",
+                   "After decimal digits are not the expected value!");
+
     }
 }

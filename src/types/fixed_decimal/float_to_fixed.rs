@@ -2,7 +2,7 @@ use inkwell::{values::{FloatValue, StructValue, IntValue, PointerValue, BasicVal
 
 use crate::{codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float}}, types::fixed_decimal::{FixedDecimalToFloatBuilder, BEFORE_DIGIT_COUNT}};
 
-use super::{FixedValue, create_empty_fixed};
+use super::{FixedValue, create_empty_fixed, AFTER_DIGIT_COUNT};
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
@@ -16,28 +16,13 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
         let sign_bit_value = fd_to_float_converter.get_sign_bit_value();
         
-        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
 
-        dbg!(ptr_to_before_array);
-        let before_arr = fd_to_float_converter.get_before_array();
-        dbg!(before_arr);
-
-        let zero_intval = self.context.i8_type().const_zero();
-        let mut before_int_values: Vec<IntValue<'ctx>> =
-            vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
-
-        for i in 0..BEFORE_DIGIT_COUNT as usize {
-            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
+        let before_int_values = self.get_before_digits_as_vec(&fd_to_float_converter);
+        let after_int_values = self.get_after_digits_as_vec(&fd_to_float_converter);
         
-            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
-
-            //now we take the array value, build a GEP for the inner array
-            before_int_values[i] = digit_int_val;
-        }
 
         let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values);
 
-        //TODO: if negative number, multiply by -1.0
         let conditional = sign_bit_value;
 
         let mut negative_float = result_floatval.get_type().const_float(0.0);
@@ -62,9 +47,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         phi.add_incoming(&[(&negative_float.as_basic_value_enum(),blocks.then_block)]);
         phi.add_incoming(&[(&positive_float.as_basic_value_enum(),blocks.else_block)]);
         
-
-
-
         phi.as_basic_value().into_float_value()
     }
 
@@ -158,8 +140,54 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         FixedValue::new(fd_struct)
     }
 
+unsafe fn get_after_digits_as_vec<'b>(&'a self, fd_to_float_converter: &FixedDecimalToFloatBuilder<'a,'b,'ctx>)
+        -> Vec<IntValue<'ctx>>
+    {
+
+        let ptr_to_after_array = fd_to_float_converter.get_after_ptr();
+        let zero_intval = self.context.i8_type().const_zero();
 
 
+        let mut after_int_values: Vec<IntValue<'ctx>> =
+            vec![zero_intval; AFTER_DIGIT_COUNT as usize];
+
+        for i in 0..AFTER_DIGIT_COUNT as usize {
+
+            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
+        
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_after_array);
+
+            after_int_values[i] = digit_int_val;
+        }
+
+
+        after_int_values
+    }
+
+    unsafe fn get_before_digits_as_vec<'b>(&'a self, fd_to_float_converter: &FixedDecimalToFloatBuilder<'a,'b,'ctx>)
+        -> Vec<IntValue<'ctx>>
+    {
+
+
+        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
+        let zero_intval = self.context.i8_type().const_zero();
+
+
+        let mut before_int_values: Vec<IntValue<'ctx>> =
+            vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
+
+        for i in 0..BEFORE_DIGIT_COUNT as usize {
+
+            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
+        
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
+
+            before_int_values[i] = digit_int_val;
+        }
+
+
+        before_int_values
+    }
 
 
     fn build_if_else_control_flow<T,Y>(&self, conditional: IntValue<'ctx>, mut then_block_gen: T, mut else_block_gen: Y) -> ThenElseBlocks<'ctx>

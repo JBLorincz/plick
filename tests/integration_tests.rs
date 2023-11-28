@@ -467,5 +467,22 @@ mod lexer_and_parser_integration_tests
 
         assert_eq!(resulting_num, -234.0);
     }
+
+    #[test]
+    fn parse_decimal_number()
+    {
+        let input = "86.231";
+        let mut tok_man = lexer::TokenManager::new(input);
+        
+        let result = parser::parse_constant_numeric(&mut tok_man);
+        let resulting_num;
+        match result
+        {
+            Expr::NumVal{value , _type}=> { resulting_num = value;},
+            other => {panic!("Expected numval, found {:#?}", other);}
+        };
+
+        assert_eq!(resulting_num, 86.231);
+    }
 }
 
