@@ -1,4 +1,4 @@
-#![allow(unused_imports, dead_code)]
+#![allow(unused_imports, dead_code, unreachable_code)]
 use cli::Arguments;
 use codegen::codegen::{CodeGenable, Compiler};
 use inkwell::builder::Builder;

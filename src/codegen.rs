@@ -640,7 +640,7 @@ mod tests {
         let b = c.create_builder();
         let compiler = get_test_compiler(&c, &m, &b);
 
-        let consta = Expr::new_numval(3);
+        let consta = Expr::new_numval(3.0);
 
         unsafe {
             let result = consta.codegen(&compiler);
@@ -661,9 +661,9 @@ mod tests {
         compiler.initalize_main_function();
         //finish creating a main function
 
-        let left = Box::new(Expr::new_numval(3));
+        let left = Box::new(Expr::new_numval(3.0));
 
-        let right = Box::new(Expr::new_numval(5));
+        let right = Box::new(Expr::new_numval(5.0));
 
         let my_binary = Expr::Binary {
             operator: Token::LESS_THAN,
@@ -691,7 +691,7 @@ mod tests {
                 name: String::from("APPLE"),
                 _type: Type::FixedDecimal,
             }),
-            right: Box::new(Expr::new_numval(5)),
+            right: Box::new(Expr::new_numval(5.0)),
         };
         let source_loc: SourceLocation = SourceLocation::default();
         let my_proto = Prototype {

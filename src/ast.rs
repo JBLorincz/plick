@@ -31,7 +31,7 @@ pub enum Expr {
         _type: types::Type,
     },
     NumVal {
-        value: i32,
+        value: f64,
         _type: types::Type,
     },
     Char {
@@ -44,7 +44,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn new_numval(value: i32) -> Expr {
+    pub fn new_numval(value: f64) -> Expr {
         Expr::NumVal {
             value,
             _type: Type::FixedDecimal,

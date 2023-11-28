@@ -382,7 +382,7 @@ mod lexer_and_parser_integration_tests
             let left_expr: ast::Expr = *left;
 
             if let ast::Expr::NumVal { value, _type } = left_expr{
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             }
             else
             {
@@ -391,7 +391,7 @@ mod lexer_and_parser_integration_tests
 
             let right_expr: ast::Expr = *right;
             if let ast::Expr::NumVal { value, _type } = right_expr{
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             }
             else
             {
@@ -415,7 +415,7 @@ mod lexer_and_parser_integration_tests
             let left_expr: ast::Expr = *left;
 
             if let ast::Expr::NumVal { value, _type } = left_expr{
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             }
             else
             {
@@ -426,7 +426,7 @@ mod lexer_and_parser_integration_tests
             if let ast::Expr::Binary { operator, left, right } = right_expr{
                 
                 if let ast::Expr::NumVal { value, _type } = *left{
-                    assert_eq!(3, value);
+                    assert_eq!(3.0, value);
                 }   
                 else { panic!("not a numval!")}
                 
@@ -435,7 +435,7 @@ mod lexer_and_parser_integration_tests
                 else { panic!("not a multiply!")}
                 
                 if let ast::Expr::NumVal { value, _type } = *right{
-                    assert_eq!(5, value);
+                    assert_eq!(5.0, value);
                 }   
                 else { panic!("not a numval!")}
             }
@@ -465,7 +465,7 @@ mod lexer_and_parser_integration_tests
             other => {panic!("Expected numval, found {:#?}", other);}
         };
 
-        assert_eq!(resulting_num, -234);
+        assert_eq!(resulting_num, -234.0);
     }
 }
 
