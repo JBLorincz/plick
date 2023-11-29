@@ -16,6 +16,12 @@ const AFTER_DIGIT_COUNT: u32 = 15;
 
 const PLUS_ASCII_CODE: u64 = 43;
 const MINUS_ASCII_CODE: u64 = 45;
+
+const CLOSE_PAREN_ASCII_CODE: u64 = 41;
+const OPEN_PAREN_ASCII_CODE: u64 = 40;
+const PERIOD_ASCII_CODE: u64 = 46;
+
+const ASCII_OFFSET: u64 = 48;
 ///Represents a Fixed PL/1 value.
 ///Currently can only represent a fixed decimal with
 ///16 digits before the decimal, 15 after.
@@ -71,15 +77,14 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
         let sign_bit_value = fd_to_float_converter.get_sign_bit_ascii_value();
         let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
 
-        dbg!(ptr_to_before_array);
-        let before_arr = fd_to_float_converter.get_before_array();
-        dbg!(before_arr);
+
 
         let zero_intval = compiler.context.i8_type().const_zero();
+
+
         let mut before_int_values: Vec<IntValue<'ctx>> =
             vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
 
-        //before_int_values.push(compiler.context.i8_type().const_int(40,false));
         for i in 0..BEFORE_DIGIT_COUNT as usize {
             let current_digit_index = compiler.context.i8_type().const_int(i as u64, false);
 
@@ -89,20 +94,43 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
             
 
             //now we take the array value, build a GEP for the inner array
-            //BECAUSE WE WANT ASCII WE ADD 48 TO EVERY DIGIT
-            let ascii_ofset =  compiler.context.i8_type().const_int(48, false);
+            let digit_as_ascii_offset =  compiler.context.i8_type().const_int(ASCII_OFFSET, false);
             before_int_values[i] =  compiler
                 .builder
-                .build_int_add(digit_int_val, ascii_ofset, "ascioffset")
+                .build_int_add(digit_int_val, digit_as_ascii_offset, "ascioffset")
                 .unwrap();
             }
         }
-        //null terminator
-        before_int_values.push(compiler.context.i8_type().const_int(41,false));
-        before_int_values.push(compiler.context.i8_type().const_zero());
 
-        before_int_values.splice(0..0, [sign_bit_value,compiler.context.i8_type().const_int(40,false)]);
+        before_int_values.splice(0..0, [sign_bit_value,compiler.context.i8_type().const_int(OPEN_PAREN_ASCII_CODE,false)]);
         
+
+        before_int_values.push(compiler.context.i8_type().const_int(PERIOD_ASCII_CODE, false));
+
+        let ptr_to_after_array = fd_to_float_converter.get_after_ptr();
+
+
+        for i in 0..AFTER_DIGIT_COUNT as usize {
+
+
+            let current_digit_index = compiler.context.i8_type().const_int(i as u64, false);
+            unsafe
+            {
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_after_array);
+            
+
+            //now we take the array value, build a GEP for the inner array
+            let digit_as_ascii_offset =  compiler.context.i8_type().const_int(ASCII_OFFSET, false);
+            before_int_values.push(  compiler
+                .builder
+                .build_int_add(digit_int_val, digit_as_ascii_offset, "ascioffset")
+                .unwrap());
+            }
+        }
+
+
+        before_int_values.push(compiler.context.i8_type().const_int(CLOSE_PAREN_ASCII_CODE,false));
+        before_int_values.push(compiler.context.i8_type().const_zero());
         //HARD DECK
         let _typ = compiler.context.i8_type().array_type(before_int_values.len() as u32);
         let aloca = compiler.builder.build_alloca(_typ, "fd_before_as_string").unwrap();
@@ -380,7 +408,7 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
             digit_int_val
    }
 
-    unsafe fn sum_up_before_digits_into_a_float(&self, before_int_values: Vec<IntValue<'ctx>>) -> FloatValue<'ctx>
+    unsafe fn sum_up_before_digits_into_a_float(&self, before_int_values: Vec<IntValue<'ctx>>,after_int_values: Vec<IntValue<'ctx>>) -> FloatValue<'ctx>
     {
         let f64_type = self.compiler.context.f64_type();
         let result_float: FloatValue<'ctx>;
@@ -423,6 +451,39 @@ impl <'a, 'b, 'ctx> FixedDecimalToFloatBuilder<'a,'b,'ctx> {
             let new_value = self.compiler.builder.build_float_add(old_value, digit_pure_value, "lol").unwrap();
 
             self.compiler.builder.build_store(result_float_alloca, new_value).unwrap();
+        }
+
+
+        for (index,digit_value) in after_int_values.iter().enumerate()
+        {
+             let index_as_float = (index as f64 + 1.0) * -1.0;
+
+            let index = f64_type.const_float(index_as_float);
+            let digit_log = build_pow(self.compiler, ten_float, index);
+
+            let digit_scoped: IntValue<'ctx> = *digit_value;
+
+            let digit_value_as_float = self.
+                compiler.
+                builder.
+                build_unsigned_int_to_float(digit_scoped, f64_type, "decimal_digit_as_float")
+                .unwrap();
+
+                let digit_pure_value = self.compiler.builder.build_float_mul(digit_value_as_float, digit_log, "calc_digit_value")
+                .unwrap();
+                
+
+                let old_value = self
+                .compiler
+                .builder
+                .build_load(result_float_alloca, "load_old_val")
+                .unwrap()
+                .into_float_value();
+            let new_value = self.compiler.builder.build_float_add(old_value, digit_pure_value, "lol").unwrap();
+
+            self.compiler.builder.build_store(result_float_alloca, new_value).unwrap();
+
+
         }
 
         result_float = self.compiler.builder.build_load(result_float_alloca,"load_result").unwrap().into_float_value();
@@ -499,8 +560,6 @@ pub fn add_fd_print_function<'a,'ctx>(compiler: &mut Compiler<'a,'ctx>)
 
 }
 
-
-
 fn num_digits_after_point_in_f64(num: f64) -> usize
 {
 
@@ -569,6 +628,32 @@ mod tests {
         assert_eq!(digits_as_strings[0],"c\\\"\\\\01\\\\02\\\\04\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\",",
                    "Before decimal digits are not the expected value!");
         assert_eq!(digits_as_strings[1],"c\\\"\\\\02\\\\05\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\" }\",",
+                   "After decimal digits are not the expected value!");
+
+    }
+
+    #[test]
+    fn fixed_decimal_point_num_small() {
+        let ctx = inkwell::context::Context::create();
+
+        let _type = get_fixed_type(&ctx);
+        let const_fixedvalue = generate_fixed_decimal_code(&ctx, _type, 0.3);
+        
+        let debug_message = format!("{:?}", dbg!(const_fixedvalue.value));
+
+        let reg = Regex::new(r"c\\.*?,").unwrap();
+
+        let iter = reg.find_iter(&debug_message);
+
+        let mut digits_as_strings: Vec<&str> = vec![];
+
+        for mat in iter
+        {
+            digits_as_strings.push(mat.as_str());
+        }
+
+        //only one element in the vec because of zeroinitializer
+        assert_eq!(digits_as_strings[0],"c\\\"\\\\03\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\" }\",",
                    "After decimal digits are not the expected value!");
 
     }

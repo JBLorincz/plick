@@ -21,7 +21,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         let after_int_values = self.get_after_digits_as_vec(&fd_to_float_converter);
         
 
-        let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values);
+        let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values, after_int_values);
 
         let conditional = sign_bit_value;
 
