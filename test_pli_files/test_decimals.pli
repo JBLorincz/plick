@@ -5,7 +5,7 @@ HELLO:   PROCEDURE OPTIONS (MAIN);
 	PUT FLAG;
 	PUT '\n';
 
-	BARS = 4.827;
+	BARS = 4.98;
 	PUT BARS;
 	PUT '\n';
 	BARS = BARS - 0.3;

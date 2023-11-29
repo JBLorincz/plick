@@ -1,4 +1,4 @@
-mod ast_implementations;
+pub mod ast_implementations;
 pub mod named_value_store;
 pub mod utils;
 pub mod prelude;

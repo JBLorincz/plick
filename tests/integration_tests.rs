@@ -83,15 +83,67 @@ mod full_compile_tests
                 PUT VARIABLE;
                 VARIABLE =  -VARIABLE;
                 PUT VARIABLE;
-                VARIABLE =  -23 + 41;
+                VARIABLE =  -23 + 22;
+                PUT VARIABLE;
+                VARIABLE =  22 - 23;
+                PUT VARIABLE;
+                VARIABLE =  VARIABLE + 1;
+                PUT VARIABLE;
+                VARIABLE =  1 - 1;
+                PUT VARIABLE;
+                VARIABLE =  1.0 - -1.0;
+                PUT VARIABLE;
+                VARIABLE =  1 + 0.0;
+                PUT VARIABLE;
+                VARIABLE =   22 - 22;
                 PUT VARIABLE;
                 END;";
 
         let output = run_new_test(input)?;
-        assert_eq!("-(3200000000000000)+(3200000000000000)-(3200000000000000)+(0000000000000000)+(0000000000000000)+(8100000000000000)", output.stdout);
+        assert_eq!("-(3200000000000000.000000000000000)+(3200000000000000.000000000000000)-(3200000000000000.000000000000000)+(0000000000000000.000000000000000)+(0000000000000000.000000000000000)+(1000000000000000.000000000000000)", output.stdout);
         Ok(())
 
         
+    }
+     #[test]
+    fn small_neg() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                VARIABLE = 22 - 21;
+                PUT VARIABLE;
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("-(3200000000000000.000000000000000)+(3200000000000000.000000000000000)-(3200000000000000.000000000000000)+(0000000000000000.000000000000000)+(0000000000000000.000000000000000)+(1000000000000000.000000000000000)", output.stdout);
+        Ok(())
+
+        
+    }
+     #[test]
+    fn decimal_tests() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+
+	FLAG = 6.2;
+	FLAG = FLAG - 0.7;
+	PUT FLAG;
+	PUT '\n';
+
+	BARS = 4.98;
+	PUT BARS;
+	PUT '\n';
+	BARS = BARS - 0.3;
+	PUT BARS;
+
+END;";
+        
+
+
+            let output = run_new_test(input)?;
+
+        assert_eq!("+(5000000000000000.500000000000000)\n+(4000000000000000.980000000000000)\n+(4000000000000000.680000000000000)", output.stdout);
+            
+            Ok(())
     }
      #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
@@ -161,7 +213,7 @@ end;
 
         
         let output = run_new_test(input)?;
-        assert_eq!("+(3000000000000000)+(0000000000000000)+(3000000000000000)+(4000000000000000)+(5000000000000000)FINAL VALUETesty", output.stdout);
+        assert_eq!("+(3000000000000000.000000000000000)+(0000000000000000.000000000000000)+(3000000000000000.000000000000000)+(4000000000000000.000000000000000)+(5000000000000000.000000000000000)FINAL VALUETesty", output.stdout);
         Ok(())
 
     }

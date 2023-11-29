@@ -264,6 +264,7 @@ pub fn generate_fixed_decimal_code<'ctx>(
         .map(|w| -> IntValue<'ctx> { ctx.i8_type().const_int(*w as u64, false) })
         .collect();
 
+    after_decimal_digits.reverse();
     after_decimal_digits.resize(
         AFTER_DIGIT_COUNT as usize,
         ctx.i8_type().const_int(0, false),
@@ -627,7 +628,7 @@ mod tests {
 
         assert_eq!(digits_as_strings[0],"c\\\"\\\\01\\\\02\\\\04\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\",",
                    "Before decimal digits are not the expected value!");
-        assert_eq!(digits_as_strings[1],"c\\\"\\\\02\\\\05\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\" }\",",
+        assert_eq!(digits_as_strings[1],"c\\\"\\\\05\\\\02\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\\00\\\" }\",",
                    "After decimal digits are not the expected value!");
 
     }

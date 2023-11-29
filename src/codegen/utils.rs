@@ -50,7 +50,34 @@ let index_as_float = compiler.builder.build_unsigned_int_to_float(index, compile
     digit.unwrap()
 
 }
+pub fn get_nth_digit_of_a_float_neg<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, float: &FloatValue<'ctx>, index: IntValue<'ctx>) -> IntValue<'ctx>
+{
+    let ten = compiler.context.i64_type().const_int(10, false);
+    let ten_float = compiler.context.f64_type().const_float(10.00);
 
+    let float_as_int = compiler.builder.build_float_to_unsigned_int(float.clone(), compiler.context.i64_type(), "float_as_int")
+        .unwrap();
+let index_as_float = compiler.builder.build_signed_int_to_float(index, compiler.context.f64_type(), "index_as_float")
+        .unwrap();
+
+
+
+    let divisor: FloatValue<'ctx> = build_pow(compiler,ten_float,index_as_float);
+    //let divisor = compiler.context.f64_type().const_float(10.0);
+    //let divisor_as_int = compiler.builder.build_float_to_unsigned_int(divisor, compiler.context.i64_type(), "div_as_int")
+    //    .unwrap();
+    //digit = (number // divisor) % 10
+    let float_clone = float.clone();
+    let num_to_operate_on  = compiler.builder.build_float_mul(float_clone,divisor.clone(), "find num to get digit off of")
+        .unwrap();
+
+    let num_to_operate_on = compiler.builder.build_float_to_unsigned_int(num_to_operate_on, compiler.context.i64_type(), "decimal_div_as_int")
+        .unwrap();
+
+    let digit = compiler.builder.build_int_unsigned_rem(num_to_operate_on, ten, "calc_digit");
+    digit.unwrap()
+
+}
 
 pub fn build_pow<'a,'ctx>(compiler: &'a Compiler<'a,'ctx>, lhs: FloatValue<'ctx>, rhs: FloatValue<'ctx>) -> FloatValue<'ctx>
 {
