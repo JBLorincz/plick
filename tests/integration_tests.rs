@@ -165,6 +165,20 @@ END;";
 
         
     }
+     #[test]
+    fn exponent_operator() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                A = 9 ** 2;
+                IF A = 81 THEN PUT 'GOOD';
+                END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("GOOD".to_owned(), output.stdout);
+        Ok(())
+
+    } 
     #[test]
     fn goto_loop_thrice() -> Result<(), Box<dyn Error>> 
     {

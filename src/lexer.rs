@@ -130,6 +130,17 @@ impl<'a, 'b> TokenIterator<'a, 'b> {
         }
         Some(())
     }
+
+fn process_mult(&mut self) -> Option<Token> {
+
+            let current_char = self.get_next_char()?;
+
+            if current_char == '*' {
+                self.get_next_char()?;
+                return Some(Token::EXPONENT);
+            } 
+            Some(Token::MULTIPLY)
+    }
 }
 impl Iterator for TokenIterator<'_, '_> {
     type Item = Token;
@@ -161,6 +172,10 @@ impl Iterator for TokenIterator<'_, '_> {
                     self.get_next_char();
                     return Some(Token::DIVIDE);
                 }
+            }
+            else if is_special && current_character == '*'
+            {
+                return Some(self.process_mult().unwrap());
             }
 
             //we have skipped over all the whitespace and are now building are buffer.
@@ -199,6 +214,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "PROCEDURE" | "PROC" => Token::PROCEDURE,
             ";" => Token::SEMICOLON,
             "," => Token::COMMA,
+            "**" => Token::EXPONENT,
             "*" => Token::MULTIPLY,
             "(" => Token::OPEN_PAREN,
             ")" => Token::CLOSED_PAREN,
@@ -250,6 +266,7 @@ pub enum Token {
     MINUS,
     MULTIPLY,
     DIVIDE,
+    EXPONENT,
     WHILE,
     END,
     PUT,
