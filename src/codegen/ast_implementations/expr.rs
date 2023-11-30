@@ -1,6 +1,7 @@
 use std::error::Error;
 
-use inkwell::values::{AnyValue, ArrayValue, FloatValue, StructValue};
+use inkwell::{values::{AnyValue, ArrayValue, FloatValue, StructValue}, FloatPredicate};
+use crate::codegen::named_value_store::NamedValueStore;
 use crate::{
     ast,
     codegen::{codegen::{CodeGenable, Compiler}, utils::print_float_value},
@@ -27,6 +28,17 @@ impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr {
                 });
                 let binary_value = bin_res.unwrap();
                 binary_value
+            }
+            ast::Expr::Assignment {variable_name, value} => {
+                let variable_type = compiler.named_values.try_get(&variable_name).unwrap()._type;
+                let comparison_operation = ast::Expr::Binary 
+                { 
+                    operator: lexer::Token::EQ,
+                    left: Box::new(ast::Expr::Variable { _type: variable_type, name: variable_name }),
+                    right: value
+                };
+
+                comparison_operation.codegen(compiler)
             }
             ast::Expr::NumVal { value, _type } => {
                 Box::new(compiler.gen_const_fixed_decimal(value as f64))
@@ -159,6 +171,9 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             lexer::Token::GREATER_THAN => {
                 Ok(self.gen_gt(compiler).unwrap())
             }
+            lexer::Token::EQ => {
+                Ok(self.gen_eq(compiler).unwrap())
+            }
             _ => {
                 return Err(format!(
                     "Binary operator had unexpected operator! {:?}",
@@ -177,7 +192,7 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
                 let fd_as_struct: StructValue<'ctx> = fixed_value.value;
                 return Ok(Box::new(fd_as_struct));
             },
-            other => {panic!("Can't convert math output into type");}
+            other => {panic!("Can't convert math output into type {}",other);}
         }; 
     }
 
@@ -206,9 +221,6 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
                     .build_float_sub(self.lhs_float, self.rhs_float, "tmpsub")
                     .unwrap();
 
-               // let fix: StructValue<'ctx> = compiler.float_value_to_fixed_decimal(floatval).into();
-
-               // Ok(Box::new(fix))
                Ok(floatval)
     }
    unsafe fn gen_mul<'a>(
@@ -243,24 +255,8 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
         compiler: &'a Compiler<'a, 'ctx>,
     ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
 
-                let val = compiler
-                    .builder
-                    .build_float_compare(
-                        inkwell::FloatPredicate::OLT,
-                        self.lhs_float,
-                        self.rhs_float,
-                        "tmplt",
-                    )
-                    .map_err(|builder_error| {
-                        format!("Unable to create less than situation: {}", builder_error)
-                    })?;
-
-                let cmp_as_float = compiler
-                    .builder
-                    .build_unsigned_int_to_float(val, compiler.context.f64_type(), "tmpbool")
-                    .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
-
-                Ok(cmp_as_float)
+        let pred = FloatPredicate::OLT;
+        self.gen_cmp_operation(compiler, pred, "tmplt")
     }
 
     unsafe fn gen_gt<'a>(
@@ -268,13 +264,33 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
         compiler: &'a Compiler<'a, 'ctx>,
     ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
 
+        let pred = FloatPredicate::OGT;
+        self.gen_cmp_operation(compiler, pred, "tmpgt")
+    }
+
+    unsafe fn gen_eq<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
+        let pred = FloatPredicate::OEQ;
+        self.gen_cmp_operation(compiler, pred, "tmpeq")
+    }
+
+
+unsafe fn gen_cmp_operation<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+        predicate: FloatPredicate,
+        name: &str
+    ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
+
                 let val = compiler
                     .builder
                     .build_float_compare(
-                        inkwell::FloatPredicate::OGT,
+                        predicate,
                         self.lhs_float,
                         self.rhs_float,
-                        "tmpgt",
+                        name,
                     )
                     .map_err(|builder_error| {
                         format!("Unable to create greater than situation: {}", builder_error)
