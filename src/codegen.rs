@@ -288,8 +288,8 @@ pub mod codegen {
         {
             match _type
             {
-                Type::FixedDecimal => "%f".to_string(),
-                Type::Float => "%f".to_string(),
+                Type::FixedDecimal => "%lf".to_string(),
+                Type::Float => "%lf".to_string(),
                 Type::Char(string_length) => " \'%[^\']\'".to_string(),
                 Type::Void => panic!("Can't get format string for type Void!"),
                 Type::TBD => panic!("Can't get format string for type TBD!"),

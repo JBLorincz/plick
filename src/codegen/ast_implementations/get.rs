@@ -1,10 +1,16 @@
 use std::error::Error;
 
+use inkwell::AddressSpace;
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::values::{IntValue, BasicMetadataValueEnum};
 
 use crate::codegen::codegen::{CodeGenable, Compiler};
 use crate::ast::{self, Expr};
 use crate::codegen::named_value_store::NamedValueStore;
+use crate::codegen::utils::print_float_value;
+use crate::types::Type;
+use crate::types::fixed_decimal::FixedValue;
+use crate::types::traits::MathableFactory;
 
 
 impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Get
@@ -51,14 +57,36 @@ pub unsafe fn generate_get_code(
                     
                     let scanf_func = self.get_function("scanf")?;
 
-                    let variable_ptr = self.create_or_load_variable(name, &real_type);
+                    let final_variable_ptr = self.create_or_load_variable(name, &real_type);
 
+                    let type_of_tmp_scan_var = self.determine_scanf_type_from_plick_type(real_type.clone());
+                    let tmp_scan_tr = self.builder.build_malloc(type_of_tmp_scan_var, "what").unwrap();
 
                     let mut args :Vec<BasicMetadataValueEnum> = vec![];
                     args.push(format_string_ptr.into());
-                    args.push(variable_ptr.into());
+                    args.push(tmp_scan_tr.into());
                     
                     let scanf_return_value  = self.builder.build_call(scanf_func, &args[..], "scanf")?;
+
+                    //now load variable_ptr with tmp_scan_tr
+
+                    match &real_type
+                    {
+                        Type::FixedDecimal => {
+                            let scanned_float_value = self.builder.build_load(tmp_scan_tr, "load scanned").unwrap().into_float_value();
+                            let x: Box<FixedValue<'ctx>> = FixedValue::create_mathable(&scanned_float_value, self);
+                            self.builder.build_store(final_variable_ptr, x.value).unwrap();
+                        }
+                        Type::Char(_size) => {
+                            let scanned_chars = self.builder.build_load(tmp_scan_tr, "load scanned").unwrap().into_array_value();
+                            self.builder.build_store(final_variable_ptr, scanned_chars).unwrap();
+                        }
+                        _ => {panic!("Don't know how to get this type!");}
+                    }
+
+                    //end
+
+                    //now we need 
                     result = scanf_return_value.try_as_basic_value().left().unwrap().into_int_value();
                 }
                 else
@@ -67,5 +95,17 @@ pub unsafe fn generate_get_code(
                 }
             }
             Ok(())
+        }
+
+
+
+        fn determine_scanf_type_from_plick_type(&self, _type: Type) -> BasicTypeEnum<'ctx>
+        {
+            match _type
+            {
+                Type::FixedDecimal => self.context.f64_type().into(),
+                Type::Char(_size) => self.get_character_type(_size).into(),
+                _ => panic!("Don't know how to scan this type!")
+            }
         }
 }

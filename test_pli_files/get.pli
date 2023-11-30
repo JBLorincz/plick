@@ -4,11 +4,12 @@ HELLO:   PROCEDURE OPTIONS (MAIN);
 				DECLARE Y CHAR(20);
 				DECLARE Z CHAR(20);
 				GET LIST(X,Y,Z);
-				PUT '\\n Printing X: ';
-				PUT X;
-				PUT '\n Printing Y: ';
-				PUT Y;
-				PUT '\n Printing Z: ';
-				PUT Z;
-				PUT '\nExiting...\n';
+				PUT LIST('\\n Printing X: ',
+				X,
+				'\n Printing Y: ',
+				Y,
+				'\n Printing Z: ',
+				Z,
+				'\nExiting...\n',
+				);
                 END;

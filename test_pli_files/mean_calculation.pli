@@ -1,13 +1,8 @@
 AVER:   PROCEDURE OPTIONS (MAIN);
 
-        DCL A;
-        DCL B;
-        DCL C;
-        DCL D;
-        DCL E;
-
 		GET LIST(A,B,C,D,E);
         MEAN = A+B+C+D+E;
+		MEAN = MEAN / 5;
 
         PUT LIST('AVERAGE IS: ', MEAN);
 end;
