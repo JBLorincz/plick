@@ -1,8 +1,8 @@
 use inkwell::{values::{FloatValue, StructValue, IntValue, PointerValue, BasicValue}, basic_block::BasicBlock};
 
-use crate::{codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float}}, types::fixed_decimal::{FixedDecimalToFloatBuilder, BEFORE_DIGIT_COUNT}};
+use crate::{codegen::{codegen::Compiler, utils::{self, get_nth_digit_of_a_float, print_float_value, get_nth_digit_of_a_float_neg}}, types::fixed_decimal::{FixedDecimalToFloatBuilder, BEFORE_DIGIT_COUNT}};
 
-use super::{FixedValue, create_empty_fixed};
+use super::{FixedValue, create_empty_fixed, AFTER_DIGIT_COUNT};
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn fixed_decimal_to_float(&self, fixed_value: &FixedValue<'ctx>) -> FloatValue<'ctx> {
@@ -16,28 +16,12 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
         let sign_bit_value = fd_to_float_converter.get_sign_bit_value();
         
-        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
 
-        dbg!(ptr_to_before_array);
-        let before_arr = fd_to_float_converter.get_before_array();
-        dbg!(before_arr);
-
-        let zero_intval = self.context.i8_type().const_zero();
-        let mut before_int_values: Vec<IntValue<'ctx>> =
-            vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
-
-        for i in 0..BEFORE_DIGIT_COUNT as usize {
-            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
+        let before_int_values = self.get_before_digits_as_vec(&fd_to_float_converter);
+        let after_int_values = self.get_after_digits_as_vec(&fd_to_float_converter);
         
-            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
 
-            //now we take the array value, build a GEP for the inner array
-            before_int_values[i] = digit_int_val;
-        }
-
-        let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values);
-
-        //TODO: if negative number, multiply by -1.0
+        let result_floatval = fd_to_float_converter.sum_up_before_digits_into_a_float(before_int_values, after_int_values);
         let conditional = sign_bit_value;
 
         let mut negative_float = result_floatval.get_type().const_float(0.0);
@@ -62,10 +46,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         phi.add_incoming(&[(&negative_float.as_basic_value_enum(),blocks.then_block)]);
         phi.add_incoming(&[(&positive_float.as_basic_value_enum(),blocks.else_block)]);
         
+        let result = phi.as_basic_value().into_float_value();
 
-
-
-        phi.as_basic_value().into_float_value()
+        result
     }
 
 
@@ -74,6 +57,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         let zero_intval = self.context.i8_type().const_zero();
         let fixed_value: StructValue<'ctx> = create_empty_fixed(self.context, &self.type_module.fixed_type);
         let allocd_fd: PointerValue<'ctx> = self.builder.build_alloca(fixed_value.get_type(), "allocate_fd_for_fixed_conv").unwrap();
+
         self.builder.build_store(allocd_fd, fixed_value).unwrap();
         self.builder.build_alloca(float_value.get_type(), "allocate_float_for_fixed_conv").unwrap();
 
@@ -135,6 +119,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             //counter 
 
             let before_array_ptr = self.builder.build_struct_gep(allocd_fd, 1, "get_before_array_ptr").unwrap();
+            let after_array_ptr = self.builder.build_struct_gep(allocd_fd, 2, "get_after_array_ptr").unwrap();
             for i in 0..BEFORE_DIGIT_COUNT
             {
                 let index_as_intval = self.context.i8_type().const_int(i as u64, false);
@@ -146,20 +131,80 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
                 self.builder.build_store(current_digit_ptr, digi_as_i8).unwrap();
             }
-            
 
+
+            for i in 0..AFTER_DIGIT_COUNT
+            {
+                let index_as_intval = self.context.i8_type().const_int(i as u64, false);
+
+                let negative_index = self.context.i8_type().const_int(i as u64 + 1, true);
+
+                let digit_to_load_up = get_nth_digit_of_a_float_neg(self, &float_value, negative_index);
+                let digi_as_i8 = self.builder.build_int_cast(digit_to_load_up, self.context.i8_type(), "turn_i64_into_i8").unwrap();
+
+                let current_digit_ptr = self.builder.build_gep(after_array_ptr,&[zero_intval,index_as_intval],"getdigiforconv")
+                    .unwrap();
+
+                self.builder.build_store(current_digit_ptr, digi_as_i8).unwrap();
+            }
+            
             let after_before_loop = self.context.append_basic_block(current_func, "after_digits_loop");
             self.builder.build_unconditional_branch(after_before_loop).unwrap();
             self.builder.position_at_end(after_before_loop);
             //end of calculating fv digits
 
-        
         let fd_struct: StructValue<'ctx> = self.builder.build_load(allocd_fd, "loading_final_fd").unwrap().into_struct_value(); 
         FixedValue::new(fd_struct)
     }
 
+unsafe fn get_after_digits_as_vec<'b>(&'a self, fd_to_float_converter: &FixedDecimalToFloatBuilder<'a,'b,'ctx>)
+        -> Vec<IntValue<'ctx>>
+    {
+
+        let ptr_to_after_array = fd_to_float_converter.get_after_ptr();
+        let zero_intval = self.context.i8_type().const_zero();
 
 
+        let mut after_int_values: Vec<IntValue<'ctx>> =
+            vec![zero_intval; AFTER_DIGIT_COUNT as usize];
+
+        for i in 0..AFTER_DIGIT_COUNT as usize {
+
+            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
+        
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_after_array);
+
+            after_int_values[i] = digit_int_val;
+        }
+
+
+        after_int_values
+    }
+
+    unsafe fn get_before_digits_as_vec<'b>(&'a self, fd_to_float_converter: &FixedDecimalToFloatBuilder<'a,'b,'ctx>)
+        -> Vec<IntValue<'ctx>>
+    {
+
+
+        let ptr_to_before_array = fd_to_float_converter.get_before_ptr();
+        let zero_intval = self.context.i8_type().const_zero();
+
+
+        let mut before_int_values: Vec<IntValue<'ctx>> =
+            vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
+
+        for i in 0..BEFORE_DIGIT_COUNT as usize {
+
+            let current_digit_index = self.context.i8_type().const_int(i as u64, false);
+        
+            let digit_int_val = fd_to_float_converter.load_digit_from_digit_array(current_digit_index, ptr_to_before_array);
+
+            before_int_values[i] = digit_int_val;
+        }
+
+
+        before_int_values
+    }
 
 
     fn build_if_else_control_flow<T,Y>(&self, conditional: IntValue<'ctx>, mut then_block_gen: T, mut else_block_gen: Y) -> ThenElseBlocks<'ctx>

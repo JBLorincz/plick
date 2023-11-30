@@ -48,14 +48,15 @@ pub fn parse_token(
 pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
     let minus_result = parse_token(token_manager, Token::MINUS);
 
-    let mut is_negative = 1;
+    let mut is_negative = 1.0;
     match minus_result {
-       Ok(thing) =>{ is_negative = -1;},
+       Ok(thing) =>{ is_negative = -1.0;},
        _ => ()
     };
 
     if let Some(Token::NumVal(value)) = token_manager.current_token {
-        token_manager.next_token(); //loads the next token into the token manager.
+        token_manager.next_token();
+
         return Expr::NumVal {
             value: value * is_negative,
             _type: Type::FixedDecimal,
@@ -65,9 +66,6 @@ pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) ->
     }
 }
 
-///parses an IF clause
-///So far, only supports IF *expr* THEN *statement*;
-///or IF *expr* THEN DO *statements*;
 pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, String> {
     //current token is IF
 
@@ -147,7 +145,7 @@ pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare,
                 other => panic!("Expected numval, received {:#?}", other)
             };
 
-            if string_size <= 0
+            if string_size <= 0.0
             {
                 panic!("character can't have a size below zero!");
             }
@@ -361,7 +359,7 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
         let expression_value = Expr::Binary 
         { 
             operator: Token::MINUS, 
-            left: Box::new(Expr::NumVal{value: 0, _type: Type::FixedDecimal}), 
+            left: Box::new(Expr::NumVal{value: 0.0, _type: Type::FixedDecimal}), 
             right: Box::new(parse_primary_expression(token_manager))
         };
         return expression_value;
@@ -676,7 +674,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 let token_after_return = &token_manager.current_token.clone().unwrap().clone();
                 if let Token::SEMICOLON = token_after_return {
                     match command {
-                        Command::Empty => command = Command::RETURN(Expr::new_numval(-1)),
+                        Command::Empty => command = Command::RETURN(Expr::new_numval(-1.0)),
                         other_command => {
                             return Err(get_error(&["4", "RETURN", &other_command.to_string()]));
                         }
@@ -814,8 +812,8 @@ mod tests {
 
     #[test]
     fn construct_binary() {
-        let lhs = Expr::new_numval(4);
-        let rhs = Expr::new_numval(6);
+        let lhs = Expr::new_numval(4.0);
+        let rhs = Expr::new_numval(6.0);
 
         let _test = Expr::Binary {
             operator: Token::PLUS,
@@ -861,7 +859,7 @@ mod tests {
         let result: Expr = parse_constant_numeric(&mut tok_man);
 
         if let Expr::NumVal { value, _type } = result {
-            assert_eq!(4, value);
+            assert_eq!(4.0, value);
         } else {
             panic!("Result of parse numeric was not a numeric expression!");
         }
@@ -909,7 +907,7 @@ mod tests {
             assert_eq!(args.len(), 2);
 
             if let Expr::NumVal { value, _type } = args[0] {
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             } else {
                 panic!("args[0] was not type numval");
             }
@@ -926,7 +924,7 @@ mod tests {
         let result: Expr = parse_parenthesis_expression(&mut tok_man);
 
         if let Expr::NumVal { value, _type } = result {
-            assert_eq!(25665, value);
+            assert_eq!(25665.0, value);
         } else {
             panic!("NOT A NUMVAL!");
         }
@@ -947,7 +945,7 @@ mod tests {
         let result = parse_expression(&mut tok_man);
         tok_man.next_token();
         if let Expr::NumVal { value, _type } = result {
-            assert_eq!(value, 2);
+            assert_eq!(value, 2.0);
         } else {
             panic!("Not a numval 2!");
         }
@@ -977,7 +975,7 @@ mod tests {
         tok_man.next_token();
 
         if let Expr::NumVal { value, _type } = result {
-            assert_eq!(4, value);
+            assert_eq!(4.0, value);
         } else {
             panic!("Not a numval of value 4!");
         }

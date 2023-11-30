@@ -3,7 +3,7 @@ use std::error::Error;
 use inkwell::values::{AnyValue, ArrayValue, FloatValue, StructValue};
 use crate::{
     ast,
-    codegen::codegen::{CodeGenable, Compiler},
+    codegen::{codegen::{CodeGenable, Compiler}, utils::print_float_value},
     lexer,
     types::{character, traits::MathableFactory , traits::get_mathable_type, Type, resolve_types, fixed_decimal::FixedValue},
 };

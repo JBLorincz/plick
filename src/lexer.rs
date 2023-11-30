@@ -268,7 +268,7 @@ pub enum Token {
     OPTIONS,
     LIST,
     CHARACTER,
-    NumVal(i32),        // integer
+    NumVal(f64),        // integer
     Identifier(String), //an identifier / variable name
 }
 
@@ -291,7 +291,7 @@ mod tests {
         let output: Vec<Token> = vec![
             Token::Identifier("FLAG".to_string()),
             Token::EQ,
-            Token::NumVal(0),
+            Token::NumVal(0.0),
             Token::SEMICOLON,
         ];
 
@@ -318,7 +318,7 @@ mod tests {
             SEMICOLON,
             Identifier(String::from("FLAG")),
             EQ,
-            NumVal(0),
+            NumVal(0.0),
             SEMICOLON,
             LABEL(String::from("LOOP")),
             DO,
@@ -326,7 +326,7 @@ mod tests {
             OPEN_PAREN,
             Identifier(String::from("FLAG")),
             EQ,
-            NumVal(0),
+            NumVal(0.0),
             CLOSED_PAREN,
             SEMICOLON,
             PUT,
@@ -363,7 +363,7 @@ mod tests {
             SEMICOLON,
             Identifier(String::from("FLAG")),
             EQ,
-            NumVal(0),
+            NumVal(0.0),
             SEMICOLON,
             LABEL(String::from("LOOP")),
             DO,
@@ -371,7 +371,7 @@ mod tests {
             OPEN_PAREN,
             Identifier(String::from("FLAG")),
             EQ,
-            NumVal(0),
+            NumVal(0.0),
             CLOSED_PAREN,
             SEMICOLON,
             PUT,
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn eq_with_statement() {
         let input = "/*A program to assign a variable*/A = 4;";
-        let output = vec![Identifier(String::from("A")), EQ, NumVal(4), SEMICOLON];
+        let output = vec![Identifier(String::from("A")), EQ, NumVal(4.0), SEMICOLON];
 
         assert_eq!(get_token_list(input), output);
     }
@@ -406,9 +406,9 @@ mod tests {
         let output = vec![
             Identifier(String::from("MIN")),
             OPEN_PAREN,
-            NumVal(2),
+            NumVal(2.0),
             COMMA,
-            NumVal(3),
+            NumVal(3.0),
             CLOSED_PAREN,
             SEMICOLON,
         ];
@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn test_touching_binary_lexing() {
         let input = "2+2";
-        let output = vec![NumVal(2), PLUS, NumVal(2)];
+        let output = vec![NumVal(2.0), PLUS, NumVal(2.0)];
 
         assert_eq!(get_token_list(input), output);
     }

@@ -108,19 +108,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub fn gen_const_fixed_decimal(&self, value: f64) -> StructValue<'ctx> {
         let struc: StructValue<'ctx> = generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into();
 
-        let fd = FixedValue::new(struc.clone());
-        unsafe
-        {
-        let my_str = "the constant we are trying to gen is: ".to_string() + value.to_string().as_str();
-
-        }
-
         struc
     }
 
-    fn gen_float_decimal(&self, value: f64) -> FloatValue<'ctx> {
-        todo!("fill this out!")
-    }
     pub fn convert_plick_type_to_llvm_basic_type(&'a self, _type: Type) -> BasicTypeEnum<'ctx> {
         let result = match _type {
             Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),

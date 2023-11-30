@@ -83,15 +83,67 @@ mod full_compile_tests
                 PUT VARIABLE;
                 VARIABLE =  -VARIABLE;
                 PUT VARIABLE;
-                VARIABLE =  -23 + 41;
+                VARIABLE =  -23 + 22;
+                PUT VARIABLE;
+                VARIABLE =  22 - 23;
+                PUT VARIABLE;
+                VARIABLE =  VARIABLE + 1;
+                PUT VARIABLE;
+                VARIABLE =  1 - 1;
+                PUT VARIABLE;
+                VARIABLE =  1.0 - -1.0;
+                PUT VARIABLE;
+                VARIABLE =  1 + 0.0;
+                PUT VARIABLE;
+                VARIABLE =   22 - 22;
                 PUT VARIABLE;
                 END;";
 
         let output = run_new_test(input)?;
-        assert_eq!("-(3200000000000000)+(3200000000000000)-(3200000000000000)+(0000000000000000)+(0000000000000000)+(8100000000000000)", output.stdout);
+        assert_eq!("-(3200000000000000.000000000000000)+(3200000000000000.000000000000000)-(3200000000000000.000000000000000)+(0000000000000000.000000000000000)+(0000000000000000.000000000000000)+(1000000000000000.000000000000000)", output.stdout);
         Ok(())
 
         
+    }
+     #[test]
+    fn small_neg() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                VARIABLE = 22 - 21;
+                PUT VARIABLE;
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("-(3200000000000000.000000000000000)+(3200000000000000.000000000000000)-(3200000000000000.000000000000000)+(0000000000000000.000000000000000)+(0000000000000000.000000000000000)+(1000000000000000.000000000000000)", output.stdout);
+        Ok(())
+
+        
+    }
+     #[test]
+    fn decimal_tests() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+
+	FLAG = 6.2;
+	FLAG = FLAG - 0.7;
+	PUT FLAG;
+	PUT '\n';
+
+	BARS = 4.98;
+	PUT BARS;
+	PUT '\n';
+	BARS = BARS - 0.3;
+	PUT BARS;
+
+END;";
+        
+
+
+            let output = run_new_test(input)?;
+
+        assert_eq!("+(5000000000000000.500000000000000)\n+(4000000000000000.980000000000000)\n+(4000000000000000.680000000000000)", output.stdout);
+            
+            Ok(())
     }
      #[test]
     fn test_func_with_param() -> Result<(), Box<dyn Error>> 
@@ -161,7 +213,7 @@ end;
 
         
         let output = run_new_test(input)?;
-        assert_eq!("+(3000000000000000)+(0000000000000000)+(3000000000000000)+(4000000000000000)+(5000000000000000)FINAL VALUETesty", output.stdout);
+        assert_eq!("+(3000000000000000.000000000000000)+(0000000000000000.000000000000000)+(3000000000000000.000000000000000)+(4000000000000000.000000000000000)+(5000000000000000.000000000000000)FINAL VALUETesty", output.stdout);
         Ok(())
 
     }
@@ -382,7 +434,7 @@ mod lexer_and_parser_integration_tests
             let left_expr: ast::Expr = *left;
 
             if let ast::Expr::NumVal { value, _type } = left_expr{
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             }
             else
             {
@@ -391,7 +443,7 @@ mod lexer_and_parser_integration_tests
 
             let right_expr: ast::Expr = *right;
             if let ast::Expr::NumVal { value, _type } = right_expr{
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             }
             else
             {
@@ -415,7 +467,7 @@ mod lexer_and_parser_integration_tests
             let left_expr: ast::Expr = *left;
 
             if let ast::Expr::NumVal { value, _type } = left_expr{
-                assert_eq!(value, 2);
+                assert_eq!(value, 2.0);
             }
             else
             {
@@ -426,7 +478,7 @@ mod lexer_and_parser_integration_tests
             if let ast::Expr::Binary { operator, left, right } = right_expr{
                 
                 if let ast::Expr::NumVal { value, _type } = *left{
-                    assert_eq!(3, value);
+                    assert_eq!(3.0, value);
                 }   
                 else { panic!("not a numval!")}
                 
@@ -435,7 +487,7 @@ mod lexer_and_parser_integration_tests
                 else { panic!("not a multiply!")}
                 
                 if let ast::Expr::NumVal { value, _type } = *right{
-                    assert_eq!(5, value);
+                    assert_eq!(5.0, value);
                 }   
                 else { panic!("not a numval!")}
             }
@@ -465,7 +517,24 @@ mod lexer_and_parser_integration_tests
             other => {panic!("Expected numval, found {:#?}", other);}
         };
 
-        assert_eq!(resulting_num, -234);
+        assert_eq!(resulting_num, -234.0);
+    }
+
+    #[test]
+    fn parse_decimal_number()
+    {
+        let input = "86.231";
+        let mut tok_man = lexer::TokenManager::new(input);
+        
+        let result = parser::parse_constant_numeric(&mut tok_man);
+        let resulting_num;
+        match result
+        {
+            Expr::NumVal{value , _type}=> { resulting_num = value;},
+            other => {panic!("Expected numval, found {:#?}", other);}
+        };
+
+        assert_eq!(resulting_num, 86.231);
     }
 }
 

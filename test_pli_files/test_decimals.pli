@@ -1,0 +1,14 @@
+HELLO:   PROCEDURE OPTIONS (MAIN);
+
+	FLAG = 6.2;
+	FLAG = FLAG - 0.7;
+	PUT FLAG;
+	PUT '\n';
+
+	BARS = 4.98;
+	PUT BARS;
+	PUT '\n';
+	BARS = BARS - 0.3;
+	PUT BARS;
+
+END;
