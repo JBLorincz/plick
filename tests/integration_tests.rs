@@ -244,7 +244,30 @@ end;
         Ok(())
 
     }
-    
+     #[test]
+    fn and_logic() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                A = 2 AND 1;
+                IF A = 1 THEN PUT 'GOOD';
+                A = 0 AND 0;
+                IF A = 1 THEN PUT 'BAD!';
+                A = 0 AND 1;
+                IF A = 1 THEN PUT 'BAD!';
+                A = 1 AND 0;
+                IF A = 1 THEN PUT 'BAD!';
+                A = 1 AND 1;
+                IF A = 1 THEN PUT 'GOOD';
+                A = 1 AND 1;
+                IF A AND 1 THEN PUT 'GOOD';
+                END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("GOODGOODGOOD".to_owned(), output.stdout);
+        Ok(())
+
+    }   
     #[test]
     fn if_statement_equality_op_var() -> Result<(), Box<dyn Error>> 
     {
