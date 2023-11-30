@@ -174,6 +174,9 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             lexer::Token::EQ => {
                 Ok(self.gen_eq(compiler).unwrap())
             }
+            lexer::Token::AND => {
+                Ok(self.gen_and(compiler).unwrap())
+            }
             _ => {
                 return Err(format!(
                     "Binary operator had unexpected operator! {:?}",
@@ -275,6 +278,50 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
         let pred = FloatPredicate::OEQ;
         self.gen_cmp_operation(compiler, pred, "tmpeq")
     }
+ unsafe fn gen_and<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
+
+            let zero_intval = compiler.context.f64_type().const_zero();
+            let left_true_or_false = compiler
+                    .builder
+                    .build_float_compare(
+                        FloatPredicate::ONE,
+                        self.lhs_float,
+                        zero_intval,
+                        "left_and",
+                    )
+                    .map_err(|builder_error| {
+                        format!("Unable to create greater than situation: {}", builder_error)
+                    })?;
+
+
+                let right_true_or_false = compiler
+                    .builder
+                    .build_float_compare(
+                        FloatPredicate::ONE,
+                        self.rhs_float,
+                        zero_intval,
+                        "right_and",
+                    )
+                    .map_err(|builder_error| {
+                        format!("Unable to create greater than situation: {}", builder_error)
+                    })?;
+
+                let cmp_for_and = 
+                    compiler
+                    .builder
+                    .build_and(left_true_or_false, right_true_or_false, "and").unwrap();
+
+                let cmp_as_float = compiler
+                    .builder
+                    .build_unsigned_int_to_float(cmp_for_and, compiler.context.f64_type(), "tmpbool")
+                    .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
+                Ok(cmp_as_float)
+    }
+
+
 
 
 unsafe fn gen_cmp_operation<'a>(

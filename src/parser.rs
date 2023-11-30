@@ -274,6 +274,7 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
         Some(Token::PLUS)
         | Some(Token::MINUS)
         | Some(Token::DIVIDE)
+        | Some(Token::AND)
         | Some(Token::MULTIPLY)
         | Some(Token::GREATER_THAN)
         | Some(Token::LESS_THAN) => {
@@ -377,9 +378,10 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32 {
         Token::PLUS => 20,
         Token::MINUS => 20,
         Token::MULTIPLY => 40,
+        Token::AND => 4,
         Token::DIVIDE => 40,
-        Token::LESS_THAN => 10,
-        Token::GREATER_THAN => 10,
+        Token::LESS_THAN => 8,
+        Token::GREATER_THAN => 8,
         _ => -1,
     }
 }

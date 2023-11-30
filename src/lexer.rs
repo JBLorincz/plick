@@ -227,6 +227,7 @@ impl Iterator for TokenIterator<'_, '_> {
             "DECLARE" | "DCL" => Token::DECLARE,
             "CHARACTER" | "CHAR" => Token::CHARACTER,
             "OPTIONS" => Token::OPTIONS,
+            "AND" | "&" => Token::AND,
             _ => Token::Identifier(current_word_buffer),
         })
     }
@@ -266,6 +267,7 @@ pub enum Token {
     GET,
     GO,
     OPTIONS,
+    AND,
     LIST,
     CHARACTER,
     NumVal(f64),        // integer
