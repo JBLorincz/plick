@@ -189,7 +189,7 @@ pub struct Declare {
 
 #[derive(Debug, Clone)]
 pub struct Put {
-    pub message_to_print: Expr,
+    pub messages_to_print: IOList,
 }
 
 #[derive(Debug, Clone)]

@@ -510,10 +510,12 @@ pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Res
 
 pub fn parse_put(token_manager: &mut lexer::TokenManager) -> Result<Put, String> {
     parse_token(token_manager, Token::PUT)?;
-    let expr_to_print = parse_expression(token_manager);
+
+    let messages_to_print = *IOList::parse_from_tokens(token_manager).unwrap();
+
 
     Ok(Put {
-        message_to_print: expr_to_print,
+        messages_to_print,
     })
 }
 
@@ -1028,7 +1030,7 @@ mod tests {
 
     #[test]
     fn test_parsing_if() {
-        let mut token_manager = TokenManager::new("IF 1 THEN PUT 'One Was Set!'; END;");
+        let mut token_manager = TokenManager::new("IF 1 THEN PUT LIST('One Was Set!'); END;");
         let res = parse_if(&mut token_manager);
         let end = parse_statement(&mut token_manager);
         dbg!(&res);
@@ -1065,7 +1067,7 @@ mod tests {
     #[test]
     fn test_parsing_declare() -> Result<(), String> {
         let mut token_manager =
-            TokenManager::new("DECLARE x FIXED; PUT 'HELLO'; PUT 'TWO'; PUT 'MESSAGE';");
+            TokenManager::new("DECLARE x FIXED; PUT LIST('HELLO', 'TWO', 'MESSAGE');");
 
         let decl = parse_declare(&mut token_manager)?;
 

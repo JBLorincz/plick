@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_binary_operator_lexing() {
-        let input = "+ / / + + - *";
+        let input = "+ / / + + - *  ";
         let output = vec![PLUS, DIVIDE, DIVIDE, PLUS, PLUS, MINUS, MULTIPLY];
 
         assert_eq!(get_token_list(input), output);

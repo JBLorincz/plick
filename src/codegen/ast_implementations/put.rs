@@ -17,8 +17,10 @@ impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Put
                 -> Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx> {
         
                     //Box::new(compiler.print_string(self.message_to_print))
-                    compiler.print_from_put(self.message_to_print);
-
+                    for expression in self.messages_to_print.items
+                    {
+                        compiler.print_from_put(expression);
+                    }
                     let return_type = compiler.context.i8_type().const_zero();
                     Box::new(return_type)
     }
