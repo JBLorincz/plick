@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use inkwell::{values::{AnyValue, ArrayValue, FloatValue, StructValue}, FloatPredicate};
-use crate::codegen::named_value_store::NamedValueStore;
+use inkwell::{values::{AnyValue, ArrayValue, FloatValue, StructValue, BasicMetadataValueEnum}, FloatPredicate};
+use crate::codegen::{named_value_store::NamedValueStore, utils::build_pow};
 use crate::{
     ast,
     codegen::{codegen::{CodeGenable, Compiler}, utils::print_float_value},
@@ -162,6 +162,9 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             lexer::Token::MULTIPLY => {
                 Ok(self.gen_mul(compiler).unwrap())
             }
+            lexer::Token::EXPONENT => {
+                Ok(self.gen_exp(compiler).unwrap())
+            }
             lexer::Token::DIVIDE => {
                 Ok(self.gen_div(compiler).unwrap())
             }
@@ -252,7 +255,14 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
                 Ok(var)
 
     }
+   unsafe fn gen_exp<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
 
+       Ok(build_pow(compiler, self.lhs_float, self.rhs_float))
+
+    }
     unsafe fn gen_lt<'a>(
         &self,
         compiler: &'a Compiler<'a, 'ctx>,

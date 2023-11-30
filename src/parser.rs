@@ -46,7 +46,9 @@ pub fn parse_token(
 }
 
 pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+    log::debug!("before trying to find minus!");
     let minus_result = parse_token(token_manager, Token::MINUS);
+    log::debug!("after trying to find minus!");
 
     let mut is_negative = 1.0;
     match minus_result {
@@ -55,7 +57,9 @@ pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) ->
     };
 
     if let Some(Token::NumVal(value)) = token_manager.current_token {
+    log::debug!("before numval next");
         token_manager.next_token();
+    log::debug!("after numval next");
 
         return Expr::NumVal {
             value: value * is_negative,
@@ -275,6 +279,7 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
         | Some(Token::MINUS)
         | Some(Token::DIVIDE)
         | Some(Token::AND)
+        | Some(Token::EXPONENT)
         | Some(Token::MULTIPLY)
         | Some(Token::GREATER_THAN)
         | Some(Token::LESS_THAN) => {
@@ -350,6 +355,8 @@ pub fn build_recursive_binary_tree(
     }
 }
 pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr {
+    log::debug!("parsing primary expression!");
+    log::debug!("{:#?}",token_manager.current_token.as_ref().unwrap());
     match token_manager.current_token.as_ref().unwrap() {
         Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
         Token::Identifier(_) => parse_identifier(token_manager),
@@ -378,6 +385,7 @@ pub fn get_binary_operator_precedence(token: &lexer::Token) -> i32 {
         Token::PLUS => 20,
         Token::MINUS => 20,
         Token::MULTIPLY => 40,
+        Token::EXPONENT => 80,
         Token::AND => 4,
         Token::DIVIDE => 40,
         Token::LESS_THAN => 8,
