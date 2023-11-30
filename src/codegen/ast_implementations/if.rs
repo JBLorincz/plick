@@ -33,7 +33,6 @@ impl<'a,'ctx> ast::If
             log::trace!("Conditional in if statement: {:#?}",&self.conditional);
 
             let conditional_code = self.conditional.codegen(compiler);
-
             let conditional_as_float: FloatValue;
 
             match conditional_type {

@@ -82,7 +82,11 @@ impl Expr {
             Expr::Assignment {
                 ref variable_name,
                 ref value,
-            } => Type::Void,
+            } => {
+
+                Type::FixedDecimal
+
+            },
             Expr::Char { value } => Type::Char(value.len() as u32),
         }
     }

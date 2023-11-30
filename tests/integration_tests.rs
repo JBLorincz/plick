@@ -230,6 +230,55 @@ end;
         Ok(())
 
     }
+
+    #[test]
+    fn if_statement_equality_op() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                FLAG = 4;
+                IF FLAG = 4 THEN PUT 'INLINE IF IS TRUE\n'; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("INLINE IF IS TRUE".to_owned()+LINE_ENDING, output.stdout);
+        Ok(())
+
+    }
+    
+    #[test]
+    fn if_statement_equality_op_var() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                A = 3;
+                B = 2;
+                C = 3;
+                A = B = C;
+                IF A = 0 THEN PUT 'INLINE IF IS TRUE\n'; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("INLINE IF IS TRUE".to_owned()+LINE_ENDING, output.stdout);
+        Ok(())
+
+    }
+
+#[test]
+    fn if_statement_equality_op_var_false() -> Result<(), Box<dyn Error>> 
+    {
+
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                A = 3;
+                B = 2;
+                C = 2;
+                A = B = C;
+                PUT A; END;";
+        
+        let output = run_new_test(input)?;
+        assert_eq!("+(1000000000000000.000000000000000)".to_owned(), output.stdout);
+        Ok(())
+
+    }
+
      #[test]
     fn if_statement_dynamic_false() -> Result<(), Box<dyn Error>> 
     {
