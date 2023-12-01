@@ -248,21 +248,27 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
 
 ///the current token is a '(' / Token::OPEN_PAREN
 pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> Expr {
-    token_manager.next_token();
+    log::trace!("Calling parse_paren_expression");
+    parse_token(token_manager,Token::OPEN_PAREN).expect("This is only called when found an open paren");
+
     let result: Expr = parse_expression(token_manager);
 
-    if token_manager.current_token != Some(Token::CLOSED_PAREN) {
-        panic!("Missing closed parenthesis on parenthesis expression!");
-    }
+    parse_token(token_manager, Token::CLOSED_PAREN).expect("TODO: Fill error when parenthesis expression is not complete!");
 
+    log::trace!("Exiting parse_paren_expression");
     return result;
 }
 
 pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr {
+    log::trace!("starting a parse_expression() ");
+
     let left_handed_side = parse_primary_expression(token_manager);
+    log::trace!("left side: {:#?}", left_handed_side);
+
     if let Expr::Variable { name, _type } = left_handed_side.clone() {
         if let Some(Token::EQ) = token_manager.current_token {
-            token_manager.next_token(); // eat the equal token
+        log::trace!("EQUAL expression");
+            parse_token(token_manager,Token::EQ).expect("always true"); // eat the equal token
             let expression_value = parse_expression(token_manager);
             //return Expr::Assignment(name, expression_value);
             return Expr::Assignment {
@@ -271,6 +277,7 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
             };
         }
     } else if let Expr::Char { value } = left_handed_side.clone() {
+        log::trace!("parsing a CHAR expression");
         token_manager.next_token(); //eat the string token
         return left_handed_side;
     }
@@ -286,6 +293,7 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
             let token_precedence =
                 get_binary_operator_precedence(token_manager.current_token.as_ref().unwrap());
 
+        log::trace!("building recursive binary tree!: LHS = {:#?} CURRENT_TOKEN: {:#?}", left_handed_side, token_manager.current_token);
             build_recursive_binary_tree(token_manager, left_handed_side, token_precedence)
         }
         _ => left_handed_side,
@@ -299,7 +307,9 @@ pub fn build_recursive_binary_tree(
 ) -> Expr {
     //LHS has to be a binary node.
     let operator_token: Token = token_manager.current_token.as_ref().unwrap().clone();
-    token_manager.next_token();
+    trace!("Operator in this: {:#?}", operator_token);
+    let tok = token_manager.next_token();
+    trace!("Skipped {:#?}", tok);
     //if the current precedence is GREATER than the lhs precendence,
     if let Expr::Binary {
         operator,
@@ -355,9 +365,10 @@ pub fn build_recursive_binary_tree(
     }
 }
 pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr {
-    log::debug!("parsing primary expression!");
-    log::debug!("{:#?}",token_manager.current_token.as_ref().unwrap());
+    log::debug!("parsing primary expression! Token found: {:#?}",token_manager.current_token.as_ref().unwrap());
+
     match token_manager.current_token.as_ref().unwrap() {
+
         Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
         Token::Identifier(_) => parse_identifier(token_manager),
         Token::NumVal(_) => parse_constant_numeric(token_manager),
@@ -569,7 +580,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
         dbg!(&token);
         match token {
             Token::SEMICOLON => {
-                token_manager.next_token(); //eat the semicolon
+                parse_token(token_manager, Token::SEMICOLON)?;
                 break; //statement is now over since semicolon has been found.
             }
             Token::LABEL(label_string) => {
@@ -667,7 +678,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "DECLARE", &other_command.to_string()]));
                     }
                 }
-                token_manager.next_token();
+                parse_token(token_manager,Token::DECLARE)?;
                 break;
             }
             Token::IF => {
@@ -700,6 +711,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "RETURN", &other_command.to_string()]));
                     }
                 }
+                trace!("Eating Token {:#?}", token_manager.current_token);
                 token_manager.next_token();
                 break;
             }
@@ -818,7 +830,7 @@ impl Parseable for ast::Go
 
 mod tests {
 
-    use crate::lexer::TokenManager;
+    use crate::{lexer::TokenManager, initialize_test_logger};
 
     use super::*;
 
@@ -931,6 +943,8 @@ mod tests {
 
     #[test]
     fn test_parse_parenthesis_expression() {
+
+        initialize_test_logger();
         let mut tok_man = TokenManager::new("(25665)");
 
         let result: Expr = parse_parenthesis_expression(&mut tok_man);
@@ -1063,6 +1077,13 @@ mod tests {
         let mut token_manager = TokenManager::new("PROCEDURE (A,B,C); A + B + C; END;");
 
         let _my_function = parse_function(&mut token_manager, "TESTFUNC".to_string());
+    }
+
+    #[test]
+    fn parse_binary_with_parenthesis() {
+        let mut token_manager = TokenManager::new("VARIABLE = (1+2+3) /4;");
+
+        let _my_function = parse_statement(&mut token_manager);
     }
     #[test]
     fn test_parsing_declare() -> Result<(), String> {
