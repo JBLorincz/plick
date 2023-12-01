@@ -1,6 +1,6 @@
     use std::error::Error;
     use common::test_normal_compile;
-    mod common;
+    pub mod common;
 
 #[cfg(windows)]
 const LINE_ENDING: &'static str = "\r\n";

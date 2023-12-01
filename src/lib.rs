@@ -263,6 +263,15 @@ impl From<Arguments> for Config {
 }
 
 
+const RUST_LOG_CONFIG_STRING: &str = "trace";
+pub fn initialize_test_logger()
+{
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", RUST_LOG_CONFIG_STRING)
+    }
+
+    let _ = env_logger::builder().is_test(true).try_init();
+}
 
 fn get_output_filename(arguments: &Arguments) -> String
 {

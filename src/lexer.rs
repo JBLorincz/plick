@@ -158,10 +158,14 @@ impl Iterator for TokenIterator<'_, '_> {
             let is_special = TokenIterator::is_character_special(current_character);
 
             if is_special && current_character == '\'' {
+
                 current_word_buffer = self.process_string(current_word_buffer);
                 return Some(Token::STRING(current_word_buffer));
+
             } else if is_special && current_character == '/' {
+
                 trace!("/ character found in lexing");
+
                 let next_lext_char = self.get_next_char();
                 let ch = next_lext_char?;
 
@@ -169,7 +173,7 @@ impl Iterator for TokenIterator<'_, '_> {
                     self.process_comment()?;
                     continue;
                 } else {
-                    self.get_next_char();
+
                     return Some(Token::DIVIDE);
                 }
             }

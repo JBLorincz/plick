@@ -1,8 +1,7 @@
 AVER:   PROCEDURE OPTIONS (MAIN);
 
 		GET LIST(A,B,C,D,E);
-        MEAN = A+B+C+D+E;
-		MEAN = MEAN / 5;
+        MEAN = (A+B+C+D+E)/5;
 
         PUT LIST('AVERAGE IS: ', MEAN);
 end;
