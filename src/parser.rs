@@ -117,7 +117,7 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, St
 
 pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare, String> {
     log::info!("Parsing the declare!");
-    parse_token(token_manager, Token::DECLARE)?;
+    token_manager.next_token();
     let new_variable_name;
     let mut variable_type = Type::FixedDecimal;
 
@@ -678,7 +678,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "DECLARE", &other_command.to_string()]));
                     }
                 }
-                parse_token(token_manager,Token::DECLARE)?;
+                parse_token(token_manager,Token::SEMICOLON)?;
                 break;
             }
             Token::IF => {
@@ -1081,6 +1081,8 @@ mod tests {
 
     #[test]
     fn parse_binary_with_parenthesis() {
+        initialize_test_logger();
+
         let mut token_manager = TokenManager::new("VARIABLE = (1+2+3) /4;");
 
         let _my_function = parse_statement(&mut token_manager);
