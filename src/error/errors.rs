@@ -13,6 +13,20 @@ macro_rules! create_errors
 
 }
 
+#[derive(Debug)]
+pub struct ErrorModule
+{
+    compile_errors: Vec<Box<dyn Error>>
+}
+impl ErrorModule
+{
+    pub fn new() -> Self
+    {
+        ErrorModule { compile_errors: vec![] }
+    }
+}
+
+
 
 #[derive(Debug)]
 pub struct CodegenError

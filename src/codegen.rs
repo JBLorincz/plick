@@ -19,6 +19,7 @@ pub mod codegen {
     use crate::codegen::utils::print_float_value;
     use crate::debugger::DebugController;
     use crate::error::errors::CodegenError;
+    use crate::error::errors::ErrorModule;
     use crate::error::get_error;
     use crate::lexer;
     use crate::types::character;
@@ -65,6 +66,7 @@ pub mod codegen {
         pub builder: &'a builder::Builder<'ctx>,
         pub module: &'a module::Module<'ctx>,
         pub type_module: TypeModule<'ctx>,
+        pub error_module: ErrorModule,
         pub function_properties: RefCell<FunctionProperties<'ctx>>,
         pub debug_controller: Option<&'a DebugController<'ctx>>,
 
@@ -205,12 +207,14 @@ pub mod codegen {
         ) -> Compiler<'a, 'ctx> {
 
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
+            let error_module: ErrorModule = ErrorModule::new();
             let function_properties  = RefCell::new(FunctionProperties::new()); 
             Compiler {
                 context: c,
                 builder: b,
                 module: m,
                 named_values,
+                error_module,
                 function_properties,
                 debug_controller: d,
                 type_module: TypeModule::new(&c),
@@ -591,6 +595,7 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 }
 
 mod tests {
+    use crate::error::errors::ErrorModule;
     use crate::types::{infer_pli_type_via_name, Type};
     use crate::{ast::SourceLocation, types::TypeModule};
     use inkwell::{
@@ -621,11 +626,13 @@ mod tests {
         let builder = b;
         let named_values = NamedValueHashmapStore::new();
         let debug_controller = None;
+        let error_module = ErrorModule::new();
         let function_properties = RefCell::new(FunctionProperties::new());
         let compiler = Compiler {
             context,
             module,
             builder,
+            error_module,
             named_values,
             function_properties,
             debug_controller,
