@@ -157,7 +157,11 @@ impl Iterator for TokenIterator<'_, '_> {
             }
             let is_special = TokenIterator::is_character_special(current_character);
 
-            if is_special && current_character == '\'' {
+            if is_special && !current_word_buffer.is_empty()
+            {
+                return convert_string_to_token(&current_word_buffer);
+            }
+            else if is_special && current_character == '\'' {
 
                 current_word_buffer = self.process_string(current_word_buffer);
                 return Some(Token::STRING(current_word_buffer));
@@ -207,14 +211,20 @@ impl Iterator for TokenIterator<'_, '_> {
             self.get_next_char();
         }
 
-        if let Ok(number) = current_word_buffer.parse() {
+        convert_string_to_token(&current_word_buffer)
+    }
+}
+
+
+pub fn convert_string_to_token(input: &str) -> Option<Token>
+{
+        if let Ok(number) = input.parse() {
             return Some(Token::NumVal(number));
         }
-        if current_word_buffer.len() == 0 {
+        if input.len() == 0 {
             return None;
         }
-
-        Some(match current_word_buffer.to_uppercase().as_str() {
+        Some(match input.to_uppercase().as_str() {
             "PROCEDURE" | "PROC" => Token::PROCEDURE,
             ";" => Token::SEMICOLON,
             "," => Token::COMMA,
@@ -248,10 +258,10 @@ impl Iterator for TokenIterator<'_, '_> {
             "CHARACTER" | "CHAR" => Token::CHARACTER,
             "OPTIONS" => Token::OPTIONS,
             "AND" | "&" => Token::AND,
-            _ => Token::Identifier(current_word_buffer),
+            _ => Token::Identifier(input.to_owned()),
         })
-    }
 }
+
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(non_camel_case_types)]
@@ -304,6 +314,8 @@ impl Token {
 mod tests {
     use std::fs;
 
+    use crate::initialize_test_logger;
+
     use super::Token::*;
     use super::*;
 
@@ -321,12 +333,12 @@ mod tests {
         assert_eq!(output, get_token_list(input));
     }
     #[test]
-    fn special_char_good() {
-        assert_eq!(TokenIterator::is_character_special('('), true);
-    }
-    #[test]
-    fn special_char_bad() {
-        assert_eq!(TokenIterator::is_character_special(' '), false);
+    fn lex_touching_multiply() {
+        initialize_test_logger();
+        let input = "5*5;";
+        let token_list: Vec<Token> = 
+            vec![Token::NumVal(5.0),Token::MULTIPLY,Token::NumVal(5.0),Token::SEMICOLON];
+        assert_eq!(get_token_list(input),token_list);
     }
     #[test]
     fn hello_world_parse() {

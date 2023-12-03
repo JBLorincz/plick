@@ -166,6 +166,21 @@ END;";
         
     }
      #[test]
+    fn test_no_space_between_multiply_and_divide() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                VARIABLE = 5*5;
+                VARIABLE = 5/5;
+                PUT LIST('RAN');
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("RAN", output.stdout);
+        Ok(())
+
+        
+    }
+     #[test]
     fn exponent_operator() -> Result<(), Box<dyn Error>> 
     {
 
