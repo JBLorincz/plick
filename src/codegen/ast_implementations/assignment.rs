@@ -1,13 +1,13 @@
 use std::error::Error;
 
 use inkwell::values::{BasicValue, BasicValueEnum, AnyValue, PointerValue};
-use crate::{codegen::{codegen::{CodeGenable, Compiler}, named_value_store::NamedValueStore, named_value::NamedValue, utils}, ast::{self, Expr}, types::{character::{CharValue, generate_character_code_for_size}, Type}};
+use crate::{codegen::{codegen::{CodeGenable, Compiler}, named_value_store::NamedValueStore, named_value::NamedValue, utils}, ast::{self, Expr}, types::{character::{CharValue, generate_character_code_for_size}, Type, do_types_match}, error::{errors::CodegenError, get_error}};
 
 impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Assignment
 {
     unsafe fn codegen(self, compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>)
                 -> Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx> {
-            self.codegen_with_error_info(compiler).expect("Error generating ASSIGNMENT")
+            self.codegen_with_error_info(compiler).unwrap()
     }
 }
 
@@ -31,6 +31,23 @@ impl<'a, 'ctx> ast::Assignment
                 None => self.value.get_type(compiler)
             }; 
                                              
+            log::debug!("Resolved type of {:?} to be {:?}", variable_in_map, _type);
+
+            let type_of_assigned_value = self.value.get_type(compiler);
+            
+            if !do_types_match(&type_of_assigned_value, &_type)
+            {
+                let lhs: String = _type.into();
+                let rhs: String = type_of_assigned_value.into();
+                let msg = CodegenError
+                    {
+                        message: get_error(&["9", &lhs, &rhs])
+                    };
+                compiler.error_module.store_msg_from_number(&["9", &lhs, &rhs]);
+
+                return Ok(compiler.ret_zero());
+            }
+
             let current_func = utils::get_current_function(compiler);
 
             var_ptr = match variable_in_map.clone()
@@ -48,6 +65,8 @@ impl<'a, 'ctx> ast::Assignment
 
               let value_to_store: Box<dyn AnyValue> = 
                   expr_assignment_gen::codegen_expr_assignment(self.value.clone(), &_type, compiler);
+
+
 
                     let initial_value: BasicValueEnum<'ctx> =
                         compiler.convert_anyvalue_to_basicvalue(value_to_store);

@@ -230,6 +230,21 @@ pub fn generate_test_config() -> Config
          Config
          {
             dry_run: false,
+            verify: true,
+            ..Config::default()
+         };
+
+
+    config
+}
+pub fn generate_error_test_config() -> Config
+{
+    let config = 
+         Config
+         {
+            dry_run: true,
+            verify: true,
+            error_test: true,
             ..Config::default()
          };
 

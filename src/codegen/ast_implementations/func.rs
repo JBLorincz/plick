@@ -36,6 +36,8 @@ impl<'a, 'ctx> ast::Function
                     let generated_code_result =
                         Box::new(compiler.generate_function_code(self));
     
+                    // check if theres any placeholder blocks
+                    compiler.verify_no_placeholder_blocks_exist();
                     //reapply the old function data
                     compiler.function_properties.borrow_mut().reset(&old_function_info);
 

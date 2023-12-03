@@ -120,7 +120,10 @@ pub mod codegen {
             let result = self.labeled_blocks.insert(name.to_string(), block);
             match result
             {
-                Some(val) => Err(Box::new(CodegenError{message: format!("Used the label {} more than once!",name)})),
+                Some(_old_value) => {
+                    let message = get_error(&["11", name]);
+                    Err(Box::new(CodegenError{message}))
+                },
                 None => Ok(())
             }
 
@@ -137,6 +140,17 @@ pub mod codegen {
         pub fn remove_label(&mut self, name: &str)
         {
             self.future_jump_blocks.remove(name);
+        }
+
+        pub fn are_there_any_placeholder_blocks(&self) -> bool
+        {
+            self.future_jump_blocks.len() > 0
+        }
+
+        pub fn get_all_missing_labels(&self) -> Vec<String>
+        {
+            let x: Vec<String> = self.future_jump_blocks.clone().into_keys().map(|item| item.clone()).collect();
+            x
         }
     }
     
@@ -191,7 +205,11 @@ pub mod codegen {
                     func.codegen(compiler)
                 }
 
-                Command::END => panic!("found END"),
+                Command::END => 
+                {
+                    compiler.error_module.store_error_msg("found END");
+                    compiler.ret_zero()
+                },
                 Command::RETURN(_expr) => todo!("Handle top level return"),
                 Command::Empty => panic!("found EMPTY"),
             }
@@ -204,10 +222,11 @@ pub mod codegen {
             b: &'a Builder<'ctx>,
             m: &'a Module<'ctx>,
             d: Option<&'a DebugController<'ctx>>,
+            error_test: bool,
         ) -> Compiler<'a, 'ctx> {
 
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
-            let error_module: ErrorModule = ErrorModule::new();
+            let error_module: ErrorModule = ErrorModule::new(error_test);
             let function_properties  = RefCell::new(FunctionProperties::new()); 
             Compiler {
                 context: c,
@@ -222,48 +241,28 @@ pub mod codegen {
         }
 
 
+        pub unsafe fn ret_zero(&self) -> Box<dyn AnyValue<'ctx> +'ctx>
+        {
+            Box::new(self.context.i64_type().const_zero())
+        }
 
         ///NOTE: does not assign anything to variables
         unsafe fn create_empty_variable_and_return_ptr(&self, name: &str, _type: &Type) -> PointerValue<'ctx>
         {
-            dbg!(&_type);
+            log::debug!("Creating an new empty variable of type {:#?}",&_type);
 
             let function = &get_current_function(self);
 
             let variable_ptr = self.create_entry_block_alloca(name, function, _type);
 
 
-            dbg!(&variable_ptr);
+            log::trace!("creating a new variable: {:#?}",&variable_ptr);
 
             self.named_values
                 .insert(NamedValue::new(name.to_string(), _type.clone(), variable_ptr));
 
             variable_ptr
         }
-
-        pub unsafe fn allocate_variable(&self, assignment: &ast::Assignment) -> PointerValue<'ctx> {
-
-            let current_function = get_current_function(self);
-            let _type = assignment.value.get_type(self);
-
-            self.create_entry_block_alloca(&assignment.var_name, &current_function, &_type)
-        }
-
-        pub unsafe fn assign_variable(
-            &self,
-            assignment: ast::Assignment,
-            new_variable: PointerValue<'ctx>,
-        ) -> BasicValueEnum<'ctx> {
-            let _type = assignment.value.get_type(self);
-            let value_to_store = assignment.value.codegen(self);
-
-            let initial_value: BasicValueEnum<'ctx> =
-                self.convert_anyvalue_to_basicvalue(value_to_store);
-            let _store_result = self.builder.build_store(new_variable, initial_value);
-
-            initial_value
-        }
-
 
         pub unsafe fn create_or_load_variable(&self, variable_name: &str, _type: &Type) -> PointerValue<'ctx>
         {
@@ -284,9 +283,6 @@ pub mod codegen {
                 }
             }
         }
-
-
-        
 
         pub fn get_format_string_for_type(_type: &Type) -> String
         {
@@ -327,15 +323,7 @@ pub mod codegen {
             fn_name: &String,
             args: &mut Vec<ast::Expr>,
         ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
-            //let get_func_result: Result<FunctionValue<'ctx>> = self.get_function(&fn_name);
-            //if let None = get_func_result {
-            //    return Err(format!(
-            //        "Could not find a function named {}",
-            //        fn_name.to_string()
-            //    ));
-            //}
 
-            //let function_to_call: FunctionValue<'ctx> = get_func_result.unwrap();
             let function_to_call: FunctionValue<'ctx> = self.get_function(&fn_name).map_err(|_err| "lol".to_string())?;
 
             //handle argument checks here
@@ -427,7 +415,7 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             let named_value: NamedValue<'ctx> = self.named_values.try_get(variable_name).unwrap();
 
             let variable_type = named_value._type;
-            dbg!(format!("Type is: {}", variable_type));
+            log::trace!("Type is: {}", variable_type);
             let var_ptr: PointerValue<'ctx> = named_value.pointer;
             let result_value: BasicValueEnum<'ctx> = self
                 .builder
@@ -567,7 +555,10 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
 
             let x = branch_only_if_no_terminator(self,label_block);
 
-            self.function_properties.borrow_mut().store_labeled_block(label_name, label_block.clone())?;
+            if let Err(_store_label_err) = self.function_properties.borrow_mut().store_labeled_block(label_name, label_block.clone())
+            {
+                self.error_module.store_msg_from_number(&["11",label_name]);
+            }
 
             let myblo = self.function_properties.borrow().future_jump_blocks.clone();
             let substitute_block = myblo.get(label_name).clone();
@@ -591,7 +582,24 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             
             Ok(())
         }
+
+
+    pub fn verify_no_placeholder_blocks_exist(&self)
+    {
+
+                if self.function_properties.borrow().are_there_any_placeholder_blocks()
+                {
+                        for item in self.function_properties.borrow().get_all_missing_labels()
+                        {
+                            self.error_module.store_msg_from_number(&["10",&item]);
+                        }
+                }
     }
+
+    }
+
+
+
 }
 
 mod tests {
@@ -626,7 +634,7 @@ mod tests {
         let builder = b;
         let named_values = NamedValueHashmapStore::new();
         let debug_controller = None;
-        let error_module = ErrorModule::new();
+        let error_module = ErrorModule::new(false);
         let function_properties = RefCell::new(FunctionProperties::new());
         let compiler = Compiler {
             context,

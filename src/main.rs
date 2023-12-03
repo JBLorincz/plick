@@ -8,13 +8,19 @@ fn main() {
     initialize_logger();
     
     let cli_arguments = parse_cli_arguments();
-    dbg!(&cli_arguments);
+    log::info!("CLI arguments: {:#?}", &cli_arguments);
 
 
     let file_to_compile_as_string = read_file_to_string(&cli_arguments.path_to_file);
 
     let config = Config::from(cli_arguments);
-    compile_input(&file_to_compile_as_string,config);
+    let results = compile_input(&file_to_compile_as_string,config);
+
+    if !results.was_successful
+    {
+        println!("Compilation failed!");
+        process::exit(1);
+    }
 }
 
 

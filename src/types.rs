@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, mem::{discriminant, Discriminant}, };
 
 use inkwell::{
     context::Context,
@@ -56,6 +56,13 @@ impl Display for Type {
     }
 }
 
+impl Into<String> for Type
+{
+    fn into(self) -> String {
+        format!("{}",self)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum FixedRadix {
     Decimal,
@@ -89,6 +96,15 @@ pub fn resolve_types(type_one: &Type, type_two: &Type) -> Result<Type, String> {
     //by this point we have one fixed decimal and one float.
     Ok(Type::FixedDecimal)
 }
+
+pub fn do_types_match(_type1: &Type, _type2: &Type) -> bool
+{
+    let lhs: Discriminant<Type> = discriminant(_type1);
+    let rhs: Discriminant<Type> = discriminant(_type2);
+
+    lhs == rhs
+}
+
 
 impl<'ctx> TypeModule<'ctx> {
     pub fn new(ctx: &'ctx Context) -> Self {
