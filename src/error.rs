@@ -45,5 +45,6 @@ create_errors! {
     E009: "Can't assign when type of variable '[0]' does not match type of value '[1]'",
     E010: "Cannot find a block named '[0]'",
     E011: "Cannot define a block more than once: '[0]'",
+    E012: "Variable '[0]' is undefined!",
                         
 }

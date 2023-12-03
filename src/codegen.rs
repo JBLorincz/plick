@@ -412,7 +412,7 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             variable_name: &str,
         ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
             log::info!("Generating variable code for variable named {}",variable_name);
-            let named_value: NamedValue<'ctx> = self.named_values.try_get(variable_name).unwrap();
+            let named_value: NamedValue<'ctx> = self.named_values.try_get(variable_name).ok_or("Unable to find named value!")?;
 
             let variable_type = named_value._type;
             log::trace!("Type is: {}", variable_type);
