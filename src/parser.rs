@@ -522,7 +522,7 @@ pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Res
 pub fn parse_put(token_manager: &mut lexer::TokenManager) -> Result<Put, String> {
     parse_token(token_manager, Token::PUT)?;
 
-    let messages_to_print = *IOList::parse_from_tokens(token_manager).unwrap();
+    let messages_to_print = *IOList::parse_from_tokens(token_manager).map_err(|err| err.to_string())?;
 
 
     Ok(Put {
