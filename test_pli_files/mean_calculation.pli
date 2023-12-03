@@ -1,8 +1,12 @@
 AVER:   PROCEDURE OPTIONS (MAIN);
 
 		GET LIST(A,B,C,D,E);
-        MEAN = (A+B+C+D+E)/5;
+		ABCDE = A+B+C+D+E;
+        PUT LIST('ABCDE IS: ', ABCDE);
+        MEAN =  (A+B+C+D+E) / 5;
+        PUT LIST('AVERAGE WITHOUT ABDCDE IS: ', MEAN);
 
-        PUT LIST('AVERAGE IS: ', MEAN);
+        MEAN_FROM_ABCDE =  ABCDE / 5;
+        PUT LIST('AVERAGE FROM ABCDE IS: ', MEAN_FROM_ABCDE);
 end;
 
