@@ -85,7 +85,13 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
         let mut before_int_values: Vec<IntValue<'ctx>> =
             vec![zero_intval; BEFORE_DIGIT_COUNT as usize];
 
-        for i in 0..BEFORE_DIGIT_COUNT as usize {
+        let mut before_int_values: Vec<IntValue<'ctx>> =
+            vec![];
+
+        for mut i in 0..BEFORE_DIGIT_COUNT as usize {
+            let old_i = i;
+            i = (BEFORE_DIGIT_COUNT as usize - 1) - i ;
+
             let current_digit_index = compiler.context.i8_type().const_int(i as u64, false);
 
             unsafe
@@ -94,11 +100,12 @@ impl<'a,'ctx> Puttable<'a,'ctx> for FixedValue<'ctx>
             
 
             //now we take the array value, build a GEP for the inner array
-            let digit_as_ascii_offset =  compiler.context.i8_type().const_int(ASCII_OFFSET, false);
-            before_int_values[i] =  compiler
+            let ascii_offset =  compiler.context.i8_type().const_int(ASCII_OFFSET, false);
+
+            before_int_values.push(compiler
                 .builder
-                .build_int_add(digit_int_val, digit_as_ascii_offset, "ascioffset")
-                .unwrap();
+                .build_int_add(digit_int_val, ascii_offset, "ascioffset")
+                .unwrap());
             }
         }
 
