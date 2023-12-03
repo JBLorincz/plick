@@ -1,6 +1,7 @@
     use std::error::Error;
     use common::test_normal_compile;
     pub mod common;
+    pub mod error_tests;
 
 #[cfg(windows)]
 const LINE_ENDING: &'static str = "\r\n";
@@ -435,26 +436,7 @@ mod should_fails
 
     use super::*;
     use super::common::initialize_test_logger;
-     #[test]
-     #[should_panic(expected = "after label")]
-    fn test_double_label_panic() -> ()
-    {
 
-        initialize_test_logger();
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-                    LOL: LOL: PROCEDURE (A);  A-4;
-                END;
-                BOL: PROCEDURE(); 4-7; END;
-                LOL(6);
-                LOL(8);
-                BOL();
-                BOL();
-                LOL(2);
-                END;";
-        
-
-        test_normal_compile(input).unwrap();
-    }
 
     #[test]
     #[should_panic(expected = "top level")]

@@ -99,14 +99,8 @@ impl<'a, 'ctx> Puttable<'a, 'ctx> for CharValue<'ctx>
             let print_func = compiler.get_function("printf").unwrap();
 
 
-            dbg!("WHAT");
-            //let struc = self.value;
-            //
-            //let x = compiler.builder.build_bitcast(val, ty, name)
-
-            //let name = "print_puttable";
             let mallocd_string = compiler.builder.build_malloc(self.value.get_type(), "storing_string").unwrap();
-            compiler.builder.build_store(mallocd_string, self.value);
+            compiler.builder.build_store(mallocd_string, self.value).unwrap();
             
             let bitc: BasicValueEnum<'ctx> = compiler
                     .builder

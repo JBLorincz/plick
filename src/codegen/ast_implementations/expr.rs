@@ -15,7 +15,19 @@ impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr {
         compiler: &'a Compiler<'a, 'ctx>,
     ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
         match self {
-            ast::Expr::Variable { name, _type } => compiler.generate_variable_code(&name).unwrap(),
+            ast::Expr::Variable { name, _type } => 
+            {
+                let variable_result = compiler.generate_variable_code(&name);
+                if let Err(_msg) = variable_result
+                {
+                    compiler.error_module.store_msg_from_number(&["12",&name]);
+                    compiler.ret_zero()
+                }
+                else
+                {
+                    variable_result.unwrap()
+                }
+            },
             ast::Expr::Binary {
                 operator,
                 left,

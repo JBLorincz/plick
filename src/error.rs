@@ -42,4 +42,9 @@ create_errors! {
     E006: "Duplicate return statements",
     E007: "Functions in PL/1 cannot return void! Use a subroutine instead!",
     E008: "Error building if statement: [0]",
+    E009: "Can't assign when type of variable '[0]' does not match type of value '[1]'",
+    E010: "Cannot find a block named '[0]'",
+    E011: "Cannot define a block more than once: '[0]'",
+    E012: "Variable '[0]' is undefined!",
+                        
 }

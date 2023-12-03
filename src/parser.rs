@@ -522,7 +522,7 @@ pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Res
 pub fn parse_put(token_manager: &mut lexer::TokenManager) -> Result<Put, String> {
     parse_token(token_manager, Token::PUT)?;
 
-    let messages_to_print = *IOList::parse_from_tokens(token_manager).unwrap();
+    let messages_to_print = *IOList::parse_from_tokens(token_manager).map_err(|err| err.to_string())?;
 
 
     Ok(Put {
@@ -577,7 +577,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
     let mut command: Command = Command::Empty;
     let mut label: Option<String> = None;
     while let Some(ref token) = token_manager.current_token {
-        dbg!(&token);
+        log::debug!("Token at beginning of statement: {:#?}", &token);
         match token {
             Token::SEMICOLON => {
                 parse_token(token_manager, Token::SEMICOLON)?;
@@ -604,7 +604,6 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "PUT", &other_command.to_string()]));
                     }
                 }
-                dbg!(&token_manager.current_token);
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
@@ -615,7 +614,6 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "PUT", &other_command.to_string()]));
                     }
                 }
-                dbg!(&token_manager.current_token);
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
@@ -626,7 +624,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "PUT", &other_command.to_string()]));
                     }
                 }
-                dbg!(&token_manager.current_token);
+
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
@@ -641,7 +639,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(get_error(&["4", "PUT", &other_command.to_string()]));
                     }
                 }
-                dbg!(&token_manager.current_token);
+
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
@@ -718,7 +716,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
 
             _ => {
                 let expr = parse_expression(token_manager);
-                dbg!(&expr);
+                log::debug!("Parsing an expression statement: {:#?}",&expr);
                 let new_command;
                 if let Expr::Assignment {
                     variable_name,
@@ -733,7 +731,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 } else {
                     new_command = Command::EXPR(expr)
                 }
-                dbg!(&command);
+                log::debug!("Assigning command {:#?}", &command);
                 match command {
                     Command::Empty => command = new_command,
                     other_command => {

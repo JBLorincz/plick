@@ -1,9 +1,11 @@
 #![allow(unused_imports, dead_code, unreachable_code)]
 use cli::Arguments;
 use codegen::codegen::{CodeGenable, Compiler};
+use error::errors::CodegenError;
 use inkwell::builder::Builder;
 use inkwell::context::{self, Context};
 use inkwell::memory_buffer;
+use inkwell::support::LLVMString;
 use inkwell::types::FloatType;
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -47,9 +49,22 @@ fn drive_compilation<'a, 'ctx>(
     compiler.initalize_main_function();
 
     prelude::add_extern_functions(compiler);
-
+    //prelude::add_standard_library_to_module(compiler.module);
+    
     unsafe {
-        perform_parse_pass(token_manager)?
+        
+        let resulty = perform_parse_pass(token_manager);
+
+        if let Err(ref list) = resulty
+        {
+            let clone_list = list.clone();
+            let string_list: Vec<String> = clone_list.iter().map(|mything| mything.message.clone()).collect();
+
+            let final_message = string_list.join("\n");
+            return Err(final_message);
+        }
+
+            resulty.unwrap()    
             .perform_type_pass()?
             .code_generation_pass(compiler)?;
     }
@@ -59,12 +74,13 @@ fn drive_compilation<'a, 'ctx>(
 pub fn initialize_logger() {
     env_logger::init();
 }
-pub fn compile_input(input: &str, config: Config) {
+pub fn compile_input(input: &str, config: Config) -> CompilationResults
+{
     execute_compilation_actions(input, &config, &mut |token_manager, compiler, target_machine| {
         let compilation_result = drive_compilation(token_manager, compiler);
 
-        if let Err(err_msg) = compilation_result {
-            panic!("{}", err_msg);
+        if let Err(_err_msg) = compilation_result {
+            return Err(_err_msg);
         }
 
         if let Some(dbg) = compiler.debug_controller {
@@ -82,7 +98,10 @@ pub fn compile_input(input: &str, config: Config) {
             output_module_as_ir_to_file(&compiler, target_machine,&config);
         }
 
-        verify_module(&compiler);
+        if config.verify
+        {
+            verify_module(&compiler).map_err(|llvm_str| llvm_str.to_string())?;
+        }
         if config.write_ir_to_file
         {
         }
@@ -91,14 +110,18 @@ pub fn compile_input(input: &str, config: Config) {
         } else {
             output_module_to_file(compiler, &config, target_machine);
         }
-    });
+
+        Ok(())
+    })
+
 }
 
-pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &TargetMachine)>(
+pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &TargetMachine) -> Result<(), String>>(
     input: &str,
     config: &Config,
     closure: &mut F,
-) {
+) -> CompilationResults
+{
     let filename = config.filename.clone();
 
     let target_machine = build_default_target_machine(&config);
@@ -115,14 +138,23 @@ pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &T
         optional_debugger = Some(&debugger);
     }
 
-    let mut compiler = codegen::codegen::Compiler::new(&c, &b, &m, optional_debugger);
+    let mut compiler = codegen::codegen::Compiler::new(&c, &b, &m, optional_debugger,config.error_test);
 
     let mut token_manager = lexer::TokenManager::new(input);
 
     if let Some(dbg) = optional_debugger {
         token_manager.attach_debugger(dbg);
     }
-    closure(&mut token_manager, &mut compiler, &target_machine);
+    let closure_result = closure(&mut token_manager, &mut compiler, &target_machine);
+    log::info!("number of errors: {}", compiler.error_module.get_number_of_errors());
+    
+    if let Err(msg) = closure_result
+    {
+        compiler.error_module.store_error_msg(&msg);
+    }
+
+
+    CompilationResults::new(compiler.error_module.get_number_of_errors() == 0, compiler.error_module.get_all_errors())
 }
 
 fn output_module_to_memory_buffer(compiler: &Compiler, target_machine: &TargetMachine)
@@ -155,20 +187,21 @@ fn output_module_as_ir_to_file(compiler: &Compiler, target_machine: &TargetMachi
         }
     };
         let file_name =  Path::new(&config.filename);
-        compiler.module.print_to_file(file_name);
+        compiler.module.print_to_file(file_name).unwrap();
 }
-fn verify_module(compiler: &Compiler) {
+fn verify_module(compiler: &Compiler)
+    -> Result<(), LLVMString>
+{
     let module_verification_result = compiler.module.verify();
 
-    match module_verification_result {
-        Ok(()) => println!("Module verified successfully!"),
-        Err(err_message) => {
+    let x = match module_verification_result {
+        Ok(()) => {println!("Module verified successfully!")}
+        Err(ref err_message) => {
             error!("Module verification failed:");
             error!("{}", err_message);
-            panic!("Failed Compilation!");
-            process::exit(1);
         }
-    }
+    };
+        module_verification_result
 }
 
 fn output_module_to_file(compiler: &Compiler, config: &Config, target_machine: &TargetMachine) 
@@ -230,10 +263,12 @@ fn build_default_target_machine(config: &Config) -> TargetMachine {
 pub struct Config {
     pub filename: String,
     pub optimize: bool,
+    pub verify: bool,
     pub debug_mode: bool,
     pub print_ir: bool,
     pub write_ir_to_file: bool,
     pub dry_run: bool, //if true, won't save the compiled output to the disk - enable during testing
+    pub error_test: bool, //if true, don't end the process after errors.
 }
 
 impl Default for Config {
@@ -242,9 +277,11 @@ impl Default for Config {
             filename: String::from("a.o"),
             optimize: true,
             debug_mode: true,
+            verify: true,
             print_ir: false,
             write_ir_to_file: false,
             dry_run: false,
+            error_test: false,
         }
     }
 }
@@ -261,6 +298,26 @@ impl From<Arguments> for Config {
         }
     }
 }
+
+pub struct CompilationResults
+{
+    pub was_successful: bool,
+    pub errors: Vec<CodegenError>
+}
+
+impl CompilationResults
+{
+    pub fn new(was_successful: bool, errors: Vec<CodegenError>) -> Self
+    {
+        CompilationResults 
+        { 
+            was_successful, 
+            errors 
+        }
+    }
+}
+
+
 
 
 const RUST_LOG_CONFIG_STRING: &str = "trace";

@@ -31,7 +31,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
     unsafe fn print_from_put(&'a self, message: Expr)
     {
         let expr_type = message.get_type(self);
-        dbg!(expr_type);
+        log::trace!("Putting {:#?},",message);
         let genned_result = message.codegen(self);
 
         let puttable_obj = get_puttable_type(genned_result, expr_type).unwrap();

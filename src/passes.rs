@@ -1,11 +1,11 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, process};
 
 use crate::{
     ast::{Command, Statement},
     codegen::{codegen::{CodeGenable, Compiler}, utils},
     lexer::{Token, TokenManager},
     parser::{self, parse_opening},
-    types::Type,
+    types::Type, error::errors::CodegenError,
 };
 
 pub struct PassResult {
@@ -14,12 +14,21 @@ pub struct PassResult {
 }
 
 ///Utilizes the Lexer's TokenManager to create the AST in the form of PassResult
-pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult, String> {
-    parse_opening(token_manager)?;
+pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult, Vec<CodegenError>> {
+    let result = parse_opening(token_manager);
+
 
     let mut found_top_level_end = false;
     let mut statements: Vec<Statement> = vec![];
     let mut function_return_types: HashMap<String, Type> = HashMap::new();
+    let mut parsing_errors: Vec<CodegenError> = vec![];
+
+        if let Err(err_msg) = result {
+            let msg = format!("{}", err_msg);
+            parsing_errors.push(CodegenError { message: msg });
+        }
+
+
 
     while let Some(ref token) = token_manager.current_token {
         if let Token::END = token {
@@ -29,13 +38,14 @@ pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult
 
         let parser_result = parser::parse_statement(token_manager);
 
-        if let Err(err_msg) = parser_result {
-            let msg = format!("Finished parsing: {}", err_msg);
-            return Err(msg);
+        if let Err(ref err_msg) = parser_result {
+            let msg = format!("{}", err_msg);
+            parsing_errors.push(CodegenError { message: msg });
         }
-        let parser_result = parser_result.unwrap();
-
-        // if the statement is a function declaration,
+        else
+        {
+            let parser_result = parser_result.unwrap();
+// if the statement is a function declaration,
         // then we store its return type.
         if let Command::FunctionDec(ref func) = parser_result.command {
             function_return_types.insert(func.prototype.fn_name.clone(), func.return_type);
@@ -43,22 +53,27 @@ pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult
         }
 
         statements.push(parser_result);
-        //  unsafe {
-        //      dbg!(&parser_result);
-        //    parser_result.codegen(compiler);
-        //    println!("Genned above stuff.");
-        //    println!("New token is: {:?}", token_manager.current_token);
-        //}
+
+        }
     }
 
     if !found_top_level_end {
-        return Err("Did not find an end to the program!".to_string());
+        let message = "Did not find an end to the program!".to_string();
+        let err = CodegenError {message};
+        parsing_errors.push(err);
     }
     let output = PassResult {
         statements,
         function_return_types,
     };
-    Ok(output)
+    if parsing_errors.len() > 0
+    {
+        Err(parsing_errors)
+    }
+    else
+    {
+        Ok(output)
+    }
 }
 
 impl PassResult {
@@ -90,6 +105,17 @@ impl PassResult {
             .build_return(None)
             .map_err(|_err| "Error in code generation pass")?;
         }
+
+
+        compiler.verify_no_placeholder_blocks_exist();
+        let num_of_errors = compiler.error_module.get_number_of_errors();
+         
+        if num_of_errors > 0
+        {
+            let message = format!("Halting compilation due to {} errors!", num_of_errors);
+            return Err(message);
+        }
+
         Ok(())
     }
 }
