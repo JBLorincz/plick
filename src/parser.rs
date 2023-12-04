@@ -263,25 +263,27 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
     log::trace!("starting a parse_expression() ");
 
     let left_handed_side = parse_primary_expression(token_manager);
-    log::trace!("left side: {:#?}", left_handed_side);
+    let lhs_expr = left_handed_side.expression.clone();
+    let was_lhs_in_paren = left_handed_side.in_parenthesis;
+    log::trace!("left side: {:#?}", lhs_expr);
 
-    if let Expr::Variable { name, _type } = left_handed_side.clone() {
+    if let Expr::Variable { ref name, _type } = lhs_expr {
         if let Some(Token::EQ) = token_manager.current_token {
         log::trace!("EQUAL expression");
             parse_token(token_manager,Token::EQ).expect("always true"); // eat the equal token
             let expression_value = parse_expression(token_manager);
             //return Expr::Assignment(name, expression_value);
             return Expr::Assignment {
-                variable_name: name,
+                variable_name: name.clone(),
                 value: Box::new(expression_value),
             };
         }
-    } else if let Expr::Char { value } = left_handed_side.clone() {
+    } else if let Expr::Char { value } = lhs_expr.clone() {
         log::trace!("parsing a CHAR expression");
         token_manager.next_token(); //eat the string token
-        return left_handed_side;
+        return lhs_expr;
     }
-    return match token_manager.current_token {
+    match token_manager.current_token {
         Some(Token::PLUS)
         | Some(Token::MINUS)
         | Some(Token::DIVIDE)
@@ -293,17 +295,18 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Expr 
             let token_precedence =
                 get_binary_operator_precedence(token_manager.current_token.as_ref().unwrap());
 
-        log::trace!("building recursive binary tree!: LHS = {:#?} CURRENT_TOKEN: {:#?}", left_handed_side, token_manager.current_token);
-            build_recursive_binary_tree(token_manager, left_handed_side, token_precedence)
+        log::trace!("building recursive binary tree!: LHS = {:#?} CURRENT_TOKEN: {:#?}", lhs_expr, token_manager.current_token);
+            build_recursive_binary_tree(token_manager, lhs_expr, token_precedence,was_lhs_in_paren)
         }
-        _ => left_handed_side,
-    };
+        _ => lhs_expr,
+    }
 }
 
 pub fn build_recursive_binary_tree(
     token_manager: &mut lexer::TokenManager,
     lhs: Expr,
     precendence: i32,
+    is_lhs_in_paren: bool,
 ) -> Expr {
     //LHS has to be a binary node.
     let operator_token: Token = token_manager.current_token.as_ref().unwrap().clone();
@@ -317,7 +320,7 @@ pub fn build_recursive_binary_tree(
         right,
     } = lhs
     {
-        if precendence > get_binary_operator_precedence(&operator) {
+        if precendence > get_binary_operator_precedence(&operator) && !is_lhs_in_paren {
             // meaning we have to make the RHS side of the LHS the LHS of our
             // new RHS
             let new_rhs = parse_expression(token_manager);
@@ -364,12 +367,14 @@ pub fn build_recursive_binary_tree(
         };
     }
 }
-pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr {
+pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> PrimaryExpressionParseResult {
     log::debug!("parsing primary expression! Token found: {:#?}",token_manager.current_token.as_ref().unwrap());
 
-    match token_manager.current_token.as_ref().unwrap() {
+    let mut was_in_parenthesis = false;
 
-        Token::OPEN_PAREN => parse_parenthesis_expression(token_manager),
+    let result_expr =  match token_manager.current_token.as_ref().unwrap() {
+
+        Token::OPEN_PAREN => {was_in_parenthesis = true; parse_parenthesis_expression(token_manager)},
         Token::Identifier(_) => parse_identifier(token_manager),
         Token::NumVal(_) => parse_constant_numeric(token_manager),
         Token::MINUS =>
@@ -379,15 +384,31 @@ pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Expr
         { 
             operator: Token::MINUS, 
             left: Box::new(Expr::NumVal{value: 0.0, _type: Type::FixedDecimal}), 
-            right: Box::new(parse_primary_expression(token_manager))
+            right: Box::new(parse_primary_expression(token_manager).expression)
         };
-        return expression_value;
+        return PrimaryExpressionParseResult::new(expression_value,true)
 
         },
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
         other => panic!("Can't parse top level token type {:?}", other),
+    };
+    
+    PrimaryExpressionParseResult::new(result_expr, was_in_parenthesis)
+}
+
+
+pub struct PrimaryExpressionParseResult
+{
+    pub expression: Expr,
+    pub in_parenthesis: bool
+}
+impl PrimaryExpressionParseResult
+{
+    fn new(expression: Expr, in_parenthesis: bool) -> Self
+    {
+        PrimaryExpressionParseResult { expression, in_parenthesis }
     }
 }
 
@@ -1099,6 +1120,32 @@ mod tests {
         parse_statement(&mut token_manager)?;
         parse_statement(&mut token_manager)?;
         parse_statement(&mut token_manager)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parsing_paren_and_divide() -> Result<(), String> {
+        let mut token_manager =
+            TokenManager::new("( 1 + 1 + 1 + 1 + 1 ) / 5");
+
+        let decl = parse_expression(&mut token_manager);
+
+        match decl
+        {
+            Expr::Binary { operator, left, right } =>
+            {
+                match operator
+                {
+                    Token::DIVIDE => 
+                    {
+                        
+                    },
+                    _ => {panic!("Wrong OP")}
+                }
+            }
+            _ => {panic!("Not a Binary!");}
+        };
+
         Ok(())
     }
 }

@@ -91,8 +91,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
             let lhs_codegen = left.codegen(self);
             let rhs_codegen = right.codegen(self);
-            dbg!(&lhs_codegen);
-            dbg!(&rhs_codegen);
+            
+            log::trace!("Binary expression codegens: {:?}, {:?}", &lhs_codegen, &rhs_codegen);
+
             let lhs_float: FloatValue<'ctx>;
             let rhs_float: FloatValue<'ctx>;
             //new mathable code
