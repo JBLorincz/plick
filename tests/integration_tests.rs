@@ -121,6 +121,20 @@ mod full_compile_tests
         
     }
      #[test]
+    fn binary_expression_precision() -> Result<(), Box<dyn Error>> 
+    {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                VARIABLE = ( 1 + 1 + 1 + 1 + 1 ) / 5 ;
+                PUT LIST(VARIABLE);
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("+(0000000000000001.000000000000000)", output.stdout);
+        Ok(())
+
+        
+    }
+     #[test]
     #[ignore = "very rightmost decimal digit gets set to 1 for some reason, find and fix please"]
     fn decimal_tests() -> Result<(), Box<dyn Error>> 
     {
