@@ -1,6 +1,14 @@
 use std::error::Error;
 
-use crate::{ast, codegen::{codegen::{CodeGenable, Compiler}, named_value::NamedValue, utils::get_current_function}, error::errors::CodegenError};
+use crate::{
+    ast,
+    codegen::{
+        codegen::{CodeGenable, Compiler},
+        named_value::NamedValue,
+        utils::get_current_function,
+    },
+    error::errors::CodegenError,
+};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -10,48 +18,44 @@ use inkwell::{
 
 use crate::{codegen::named_value_store::NamedValueStore, error::get_error, types::Type};
 
-
-impl<'a, 'ctx> CodeGenable<'a,'ctx> for ast::Function
-{
-    unsafe fn codegen(self, compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>)
-                -> Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx> {
-
-                    self.codegen_with_error_info(compiler).expect("Error codegenning a FUNCTION")
-        
+impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Function {
+    unsafe fn codegen(
+        self,
+        compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>,
+    ) -> Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx> {
+        self.codegen_with_error_info(compiler)
+            .expect("Error codegenning a FUNCTION")
     }
-    
 }
 
+impl<'a, 'ctx> ast::Function {
+    unsafe fn codegen_with_error_info(
+        self,
+        compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>,
+    ) -> Result<Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx>, Box<dyn Error>> {
+        let current_function = compiler.builder.get_insert_block().unwrap();
 
-impl<'a, 'ctx> ast::Function
-{
+        let old_function_info = compiler.function_properties.borrow().clone();
 
-    unsafe fn codegen_with_error_info(self, compiler: &'a crate::codegen::codegen::Compiler<'a, 'ctx>)
-                -> Result<Box<dyn inkwell::values::AnyValue<'ctx> + 'ctx>,Box<dyn Error>> {
+        let generated_code_result = Box::new(compiler.generate_function_code(self));
 
-                    let current_function = compiler.builder.get_insert_block().unwrap();
+        // check if theres any placeholder blocks
+        compiler.verify_no_placeholder_blocks_exist();
+        //reapply the old function data
+        compiler
+            .function_properties
+            .borrow_mut()
+            .reset(&old_function_info);
 
-                    let old_function_info = compiler.function_properties.borrow().clone();
+        let llvm_created_function =
+            generated_code_result.map_err(|message| CodegenError { message })?;
 
-                    let generated_code_result =
-                        Box::new(compiler.generate_function_code(self));
-    
-                    // check if theres any placeholder blocks
-                    compiler.verify_no_placeholder_blocks_exist();
-                    //reapply the old function data
-                    compiler.function_properties.borrow_mut().reset(&old_function_info);
-
-                    let llvm_created_function = generated_code_result.map_err(|message| CodegenError{message} )?;
-
-                    compiler.builder.position_at_end(current_function);
-                    Ok(Box::new(llvm_created_function))
-                }
+        compiler.builder.position_at_end(current_function);
+        Ok(Box::new(llvm_created_function))
+    }
 }
 
-
-
-impl<'a,'ctx> Compiler<'a,'ctx>
-{
+impl<'a, 'ctx> Compiler<'a, 'ctx> {
     pub unsafe fn generate_function_code(
         &self,
         function_ast: ast::Function,
@@ -90,8 +94,7 @@ impl<'a,'ctx> Compiler<'a,'ctx>
 
         self.check_if_function_has_a_return_value(&llvm_function, &function_ast)?;
 
-        if let None = self.builder.get_insert_block().unwrap().get_terminator()
-        {
+        if let None = self.builder.get_insert_block().unwrap().get_terminator() {
             self.build_return_value(&function_ast)?;
         }
         self.verify_function(llvm_function, &function_ast)?;

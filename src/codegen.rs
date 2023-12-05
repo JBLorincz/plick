@@ -1,8 +1,8 @@
 pub mod ast_implementations;
-pub mod named_value_store;
-pub mod utils;
-pub mod prelude;
 pub mod named_value;
+pub mod named_value_store;
+pub mod prelude;
+pub mod utils;
 pub mod codegen {
 
     use std::collections::HashMap;
@@ -27,9 +27,9 @@ pub mod codegen {
     use crate::types::fixed_decimal;
     use crate::types::fixed_decimal::FixedValue;
     use crate::types::infer_pli_type_via_name;
+    use crate::types::traits::Puttable;
     use crate::types::Type;
     use crate::types::TypeModule;
-    use crate::types::traits::Puttable;
     use inkwell::basic_block::BasicBlock;
     use inkwell::builder::Builder;
     use inkwell::context::Context;
@@ -73,89 +73,82 @@ pub mod codegen {
         pub named_values: NamedValueHashmapStore<'ctx>,
     }
 
-    #[derive(Debug,Clone)]
-    pub struct FunctionProperties<'ctx>
-    {
+    #[derive(Debug, Clone)]
+    pub struct FunctionProperties<'ctx> {
         labeled_blocks: HashMap<String, BasicBlock<'ctx>>,
         future_jump_blocks: HashMap<String, BasicBlock<'ctx>>,
     }
-    
-    impl<'ctx> FunctionProperties<'ctx>
-    {
-        pub fn new() -> Self
-        {
+
+    impl<'ctx> FunctionProperties<'ctx> {
+        pub fn new() -> Self {
             let labeled_blocks = HashMap::new();
             let future_jump_blocks = HashMap::new();
-            FunctionProperties 
-            {
+            FunctionProperties {
                 labeled_blocks,
-                future_jump_blocks
+                future_jump_blocks,
             }
         }
 
-        pub fn reset(&mut self, other: &FunctionProperties<'ctx>)
-        {
-            if !self.future_jump_blocks.is_empty()
-            {
+        pub fn reset(&mut self, other: &FunctionProperties<'ctx>) {
+            if !self.future_jump_blocks.is_empty() {
                 panic!("Trying to leave a function without having all blocks defined!");
             }
 
             self.labeled_blocks.clear();
-            
-            for kvp in other.labeled_blocks.iter()
-            {
+
+            for kvp in other.labeled_blocks.iter() {
                 self.labeled_blocks.insert(kvp.0.clone(), kvp.1.clone());
             }
-            for kvp in other.future_jump_blocks.iter()
-            {
+            for kvp in other.future_jump_blocks.iter() {
                 self.future_jump_blocks.insert(kvp.0.clone(), kvp.1.clone());
             }
         }
-        pub fn get_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>>
-        {
+        pub fn get_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>> {
             self.labeled_blocks.get(name).map(|bb| bb.clone())
         }
-        pub fn store_labeled_block(&mut self, name: &str, block: BasicBlock<'ctx>) -> Result<(), Box<dyn Error>>
-        {
+        pub fn store_labeled_block(
+            &mut self,
+            name: &str,
+            block: BasicBlock<'ctx>,
+        ) -> Result<(), Box<dyn Error>> {
             let result = self.labeled_blocks.insert(name.to_string(), block);
-            match result
-            {
+            match result {
                 Some(_old_value) => {
                     let message = get_error(&["11", name]);
-                    Err(Box::new(CodegenError{message}))
-                },
-                None => Ok(())
+                    Err(Box::new(CodegenError { message }))
+                }
+                None => Ok(()),
             }
-
-
         }
-        pub fn get_future_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>>
-        {
+        pub fn get_future_labeled_block(&self, name: &str) -> Option<BasicBlock<'ctx>> {
             self.future_jump_blocks.get(name).map(|bb| bb.clone())
         }
-        pub fn store_placeholder_block(&mut self,name: &str,location_of_placeholder: BasicBlock<'ctx>)
-        {
-            self.future_jump_blocks.insert(name.to_string(), location_of_placeholder);
+        pub fn store_placeholder_block(
+            &mut self,
+            name: &str,
+            location_of_placeholder: BasicBlock<'ctx>,
+        ) {
+            self.future_jump_blocks
+                .insert(name.to_string(), location_of_placeholder);
         }
-        pub fn remove_label(&mut self, name: &str)
-        {
+        pub fn remove_label(&mut self, name: &str) {
             self.future_jump_blocks.remove(name);
         }
 
-        pub fn are_there_any_placeholder_blocks(&self) -> bool
-        {
+        pub fn are_there_any_placeholder_blocks(&self) -> bool {
             self.future_jump_blocks.len() > 0
         }
 
-        pub fn get_all_missing_labels(&self) -> Vec<String>
-        {
-            let x: Vec<String> = self.future_jump_blocks.clone().into_keys().map(|item| item.clone()).collect();
+        pub fn get_all_missing_labels(&self) -> Vec<String> {
+            let x: Vec<String> = self
+                .future_jump_blocks
+                .clone()
+                .into_keys()
+                .map(|item| item.clone())
+                .collect();
             x
         }
     }
-    
-
-
 
     ///A trait which all provides an interface to compile a syntax element
     pub trait CodeGenable<'a, 'ctx> {
@@ -163,7 +156,6 @@ pub mod codegen {
             -> Box<dyn AnyValue<'ctx> + 'ctx>;
     }
 
-    
     /// This function runs for each line of the program, compiling it
     ///DON'T USE EXHAUSTIVE MATCHING, WE WANT IT TO NOT COMPILE
     ///IF NEW COMMANDS ARE ADDED.
@@ -172,44 +164,25 @@ pub mod codegen {
             self,
             compiler: &'a Compiler<'a, 'ctx>,
         ) -> Box<dyn AnyValue<'ctx> + 'ctx> {
-
-            match self.label
-            {
+            match self.label {
                 Some(label_name) => compiler.codegen_label(&label_name).unwrap(),
-                None => ()
+                None => (),
             };
 
             match self.command {
-                Command::Declare(dec) => {
-                    dec.codegen(compiler)
-                }
-                Command::PUT(put) => {
-                    put.codegen(compiler)
-                }
-                Command::GET(get) => {
-                    get.codegen(compiler)
-                }
-                Command::GO(go) => {
-                    go.codegen(compiler)
-                }
-                Command::EXPR(expr) => {
-                    expr.codegen(compiler)
-                }
-                Command::IF(if_statement) => {
-                    if_statement.codegen(compiler)
-                }
-                Command::Assignment(assn) => {
-                    assn.codegen(compiler)
-                }
-                Command::FunctionDec(func) => {
-                    func.codegen(compiler)
-                }
+                Command::Declare(dec) => dec.codegen(compiler),
+                Command::PUT(put) => put.codegen(compiler),
+                Command::GET(get) => get.codegen(compiler),
+                Command::GO(go) => go.codegen(compiler),
+                Command::EXPR(expr) => expr.codegen(compiler),
+                Command::IF(if_statement) => if_statement.codegen(compiler),
+                Command::Assignment(assn) => assn.codegen(compiler),
+                Command::FunctionDec(func) => func.codegen(compiler),
 
-                Command::END => 
-                {
+                Command::END => {
                     compiler.error_module.store_error_msg("found END");
                     compiler.ret_zero()
-                },
+                }
                 Command::RETURN(_expr) => todo!("Handle top level return"),
                 Command::Empty => panic!("found EMPTY"),
             }
@@ -224,10 +197,9 @@ pub mod codegen {
             d: Option<&'a DebugController<'ctx>>,
             error_test: bool,
         ) -> Compiler<'a, 'ctx> {
-
             let named_values: NamedValueHashmapStore = NamedValueHashmapStore::new();
             let error_module: ErrorModule = ErrorModule::new(error_test);
-            let function_properties  = RefCell::new(FunctionProperties::new()); 
+            let function_properties = RefCell::new(FunctionProperties::new());
             Compiler {
                 context: c,
                 builder: b,
@@ -240,54 +212,54 @@ pub mod codegen {
             }
         }
 
-
-        pub unsafe fn ret_zero(&self) -> Box<dyn AnyValue<'ctx> +'ctx>
-        {
+        pub unsafe fn ret_zero(&self) -> Box<dyn AnyValue<'ctx> + 'ctx> {
             Box::new(self.context.i64_type().const_zero())
         }
 
         ///NOTE: does not assign anything to variables
-        unsafe fn create_empty_variable_and_return_ptr(&self, name: &str, _type: &Type) -> PointerValue<'ctx>
-        {
-            log::debug!("Creating an new empty variable of type {:#?}",&_type);
+        unsafe fn create_empty_variable_and_return_ptr(
+            &self,
+            name: &str,
+            _type: &Type,
+        ) -> PointerValue<'ctx> {
+            log::debug!("Creating an new empty variable of type {:#?}", &_type);
 
             let function = &get_current_function(self);
 
             let variable_ptr = self.create_entry_block_alloca(name, function, _type);
 
+            log::trace!("creating a new variable: {:#?}", &variable_ptr);
 
-            log::trace!("creating a new variable: {:#?}",&variable_ptr);
-
-            self.named_values
-                .insert(NamedValue::new(name.to_string(), _type.clone(), variable_ptr));
+            self.named_values.insert(NamedValue::new(
+                name.to_string(),
+                _type.clone(),
+                variable_ptr,
+            ));
 
             variable_ptr
         }
 
-        pub unsafe fn create_or_load_variable(&self, variable_name: &str, _type: &Type) -> PointerValue<'ctx>
-        {
+        pub unsafe fn create_or_load_variable(
+            &self,
+            variable_name: &str,
+            _type: &Type,
+        ) -> PointerValue<'ctx> {
             let variable_in_map = self.named_values.try_get(variable_name);
 
             match variable_in_map {
-
                 Some(named_value) => {
-                    if named_value._type != *_type
-                    {
-                        panic!("{} vs {}",named_value._type, _type)
+                    if named_value._type != *_type {
+                        panic!("{} vs {}", named_value._type, _type)
                     }
                     return named_value.pointer;
                 }
 
-                None => {
-                    self.create_empty_variable_and_return_ptr(variable_name, _type)
-                }
+                None => self.create_empty_variable_and_return_ptr(variable_name, _type),
             }
         }
 
-        pub fn get_format_string_for_type(_type: &Type) -> String
-        {
-            match _type
-            {
+        pub fn get_format_string_for_type(_type: &Type) -> String {
+            match _type {
                 Type::FixedDecimal => "%lf".to_string(),
                 Type::Float => "%lf".to_string(),
                 Type::Char(string_length) => " \'%[^\']\'".to_string(),
@@ -312,10 +284,13 @@ pub mod codegen {
             bve
         }
 
-
-        pub unsafe fn get_function(&self, name: &str) -> Result<FunctionValue<'ctx>, Box<dyn Error>>
-        {
-            self.module.get_function(name).ok_or(Box::new(CodegenError{ message: "Function named ___ not found!".to_string()}))
+        pub unsafe fn get_function(
+            &self,
+            name: &str,
+        ) -> Result<FunctionValue<'ctx>, Box<dyn Error>> {
+            self.module.get_function(name).ok_or(Box::new(CodegenError {
+                message: "Function named ___ not found!".to_string(),
+            }))
         }
 
         pub unsafe fn generate_function_call_code(
@@ -323,8 +298,9 @@ pub mod codegen {
             fn_name: &String,
             args: &mut Vec<ast::Expr>,
         ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
-
-            let function_to_call: FunctionValue<'ctx> = self.get_function(&fn_name).map_err(|_err| "lol".to_string())?;
+            let function_to_call: FunctionValue<'ctx> = self
+                .get_function(&fn_name)
+                .map_err(|_err| "lol".to_string())?;
 
             //handle argument checks here
             if args.len() != function_to_call.get_params().len() {
@@ -376,17 +352,22 @@ pub mod codegen {
             }
         }
 
-pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSiteValue<'ctx> {
-                let string_ptr = item.get_pointer_to_printable_string(self);
+        pub unsafe fn print_puttable(
+            &'a self,
+            item: &impl Puttable<'a, 'ctx>,
+        ) -> CallSiteValue<'ctx> {
+            let string_ptr = item.get_pointer_to_printable_string(self);
 
-                let res = self.builder.build_call(
+            let res = self
+                .builder
+                .build_call(
                     self.get_function("printf").unwrap(),
                     &[BasicMetadataValueEnum::from(string_ptr)],
                     "printf",
-                ).unwrap();
+                )
+                .unwrap();
 
-                res
-
+            res
         }
 
         pub unsafe fn print_const_string(&'a self, const_string: &str) -> CallSiteValue<'ctx> {
@@ -411,15 +392,21 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             &'a self,
             variable_name: &str,
         ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
-            log::info!("Generating variable code for variable named {}",variable_name);
-            let named_value: NamedValue<'ctx> = self.named_values.try_get(variable_name).ok_or("Unable to find named value!")?;
+            log::info!(
+                "Generating variable code for variable named {}",
+                variable_name
+            );
+            let named_value: NamedValue<'ctx> = self
+                .named_values
+                .try_get(variable_name)
+                .ok_or("Unable to find named value!")?;
 
             let variable_type = named_value._type;
             log::trace!("Type is: {}", variable_type);
             let var_ptr: PointerValue<'ctx> = named_value.pointer;
             let result_value: BasicValueEnum<'ctx> = self
                 .builder
-                .build_load(var_ptr,variable_name)
+                .build_load(var_ptr, variable_name)
                 .map_err(|err| format!("error building a variable code: {}", err))?;
 
             match variable_type {
@@ -509,9 +496,7 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             function: &FunctionValue,
             variable_type: &Type,
         ) -> PointerValue<'ctx> {
-            
             log::info!("Generating declare code!");
-
 
             let builder = self.context.create_builder();
             let llvm_type_of_alloca =
@@ -544,62 +529,57 @@ pub unsafe fn print_puttable(&'a self, item: &impl Puttable<'a,'ctx>) -> CallSit
             main_func
         }
 
-
-
-        unsafe fn codegen_label(&self, label_name: &str) -> Result<(), Box<dyn Error>>
-        {
-            log::debug!("Generating a block named label {}",label_name);
+        unsafe fn codegen_label(&self, label_name: &str) -> Result<(), Box<dyn Error>> {
+            log::debug!("Generating a block named label {}", label_name);
             let old_block = self.builder.get_insert_block().unwrap();
 
             let label_block = self.context.insert_basic_block_after(old_block, label_name);
 
-            let x = branch_only_if_no_terminator(self,label_block);
+            let x = branch_only_if_no_terminator(self, label_block);
 
-            if let Err(_store_label_err) = self.function_properties.borrow_mut().store_labeled_block(label_name, label_block.clone())
+            if let Err(_store_label_err) = self
+                .function_properties
+                .borrow_mut()
+                .store_labeled_block(label_name, label_block.clone())
             {
-                self.error_module.store_msg_from_number(&["11",label_name]);
+                self.error_module.store_msg_from_number(&["11", label_name]);
             }
 
             let myblo = self.function_properties.borrow().future_jump_blocks.clone();
             let substitute_block = myblo.get(label_name).clone();
             //now go back and see if any future jump calls need to be rehydrated
-            match substitute_block
-            {
+            match substitute_block {
                 Some(blok) => {
                     log::warn!("BLOK HAS BEEN ENTERED!");
                     dbg!(blok);
                     dbg!(label_block);
-                    blok.replace_all_uses_with(&label_block); blok.remove_from_function().unwrap(); 
-
-                },
-                None => ()
+                    blok.replace_all_uses_with(&label_block);
+                    blok.remove_from_function().unwrap();
+                }
+                None => (),
             };
-            self.function_properties.borrow_mut().remove_label(label_name);
+            self.function_properties
+                .borrow_mut()
+                .remove_label(label_name);
             //end rehydration
 
-
             self.builder.position_at_end(label_block);
-            
+
             Ok(())
         }
 
-
-    pub fn verify_no_placeholder_blocks_exist(&self)
-    {
-
-                if self.function_properties.borrow().are_there_any_placeholder_blocks()
-                {
-                        for item in self.function_properties.borrow().get_all_missing_labels()
-                        {
-                            self.error_module.store_msg_from_number(&["10",&item]);
-                        }
+        pub fn verify_no_placeholder_blocks_exist(&self) {
+            if self
+                .function_properties
+                .borrow()
+                .are_there_any_placeholder_blocks()
+            {
+                for item in self.function_properties.borrow().get_all_missing_labels() {
+                    self.error_module.store_msg_from_number(&["10", &item]);
                 }
+            }
+        }
     }
-
-    }
-
-
-
 }
 
 mod tests {

@@ -32,7 +32,7 @@ pub fn parse_token(
     let current_tok_copy = current_tok_copy.unwrap();
 
     if std::mem::discriminant(&token_to_check_for) == std::mem::discriminant(&current_tok_copy) {
-        trace!("Found it!" );
+        trace!("Found it!");
         token_manager.next_token();
         Ok(())
     } else {
@@ -40,34 +40,40 @@ pub fn parse_token(
             "1",
             &token_to_check_for.to_string(),
             &current_tok_copy.to_string(),
-            format!("{}",token_manager.get_source_location()).as_str()
+            format!("{}", token_manager.get_source_location()).as_str(),
         ]);
         Err(ParseError { message })
     }
 }
 
-pub fn parse_constant_numeric<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<Expr, ParseError> {
+pub fn parse_constant_numeric<'a>(
+    token_manager: &'a mut lexer::TokenManager,
+) -> Result<Expr, ParseError> {
     log::debug!("before trying to find minus!");
     let minus_result = parse_token(token_manager, Token::MINUS);
     log::debug!("after trying to find minus!");
 
     let mut is_negative = 1.0;
     match minus_result {
-       Ok(thing) =>{ is_negative = -1.0;},
-       _ => ()
+        Ok(thing) => {
+            is_negative = -1.0;
+        }
+        _ => (),
     };
 
     if let Some(Token::NumVal(value)) = token_manager.current_token {
-    log::debug!("before numval next");
+        log::debug!("before numval next");
         token_manager.next_token();
-    log::debug!("after numval next");
+        log::debug!("after numval next");
 
         Ok(Expr::NumVal {
             value: value * is_negative,
             _type: Type::FixedDecimal,
         })
     } else {
-        Err(ParseError{ message: "Failed to parse numeric!".to_owned() })
+        Err(ParseError {
+            message: "Failed to parse numeric!".to_owned(),
+        })
     }
 }
 
@@ -145,23 +151,21 @@ pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare,
             let numval = parse_constant_numeric(token_manager)?;
             parse_token(token_manager, Token::CLOSED_PAREN)?;
 
-            let string_size = match numval            {
-                Expr::NumVal{value, _type: _} => value,
-                other => panic!("Expected numval, received {:#?}", other)
+            let string_size = match numval {
+                Expr::NumVal { value, _type: _ } => value,
+                other => panic!("Expected numval, received {:#?}", other),
             };
 
-            if string_size <= 0.0
-            {
+            if string_size <= 0.0 {
                 panic!("character can't have a size below zero!");
             }
             variable_type = Type::Char(string_size as u32);
         }
         Some(Token::SEMICOLON) => variable_type = variable_type,
-        ref other =>
-        {
+        ref other => {
             let message = format!("Could not parse declare statement {:#?}", other);
-            return Err(ParseError { message })
-        },
+            return Err(ParseError { message });
+        }
     };
 
     log::info!("Finish parsing declare");
@@ -171,7 +175,9 @@ pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare,
     })
 }
 //current token is the semicolon AFTER do
-pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Statement>, ParseError> {
+pub fn parse_do_block(
+    token_manager: &mut lexer::TokenManager,
+) -> Result<Vec<Statement>, ParseError> {
     let mut statements: Vec<Statement> = vec![];
 
     //parse_token(token_manager,Token::DO)?;
@@ -191,7 +197,9 @@ pub fn parse_do_block(token_manager: &mut lexer::TokenManager) -> Result<Vec<Sta
 }
 
 //parses identifiers like variable names but also function calls
-pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<Expr,ParseError> {
+pub fn parse_identifier<'a>(
+    token_manager: &'a mut lexer::TokenManager,
+) -> Result<Expr, ParseError> {
     trace!("Parsing Identifier");
     let identifier_string: String;
     if let Some(Token::Identifier(ref val)) = token_manager.current_token {
@@ -253,9 +261,11 @@ pub fn parse_identifier<'a>(token_manager: &'a mut lexer::TokenManager) -> Resul
 }
 
 ///the current token is a '(' / Token::OPEN_PAREN
-pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> Result<Expr,ParseError> {
+pub fn parse_parenthesis_expression(
+    token_manager: &mut lexer::TokenManager,
+) -> Result<Expr, ParseError> {
     log::trace!("Calling parse_paren_expression");
-    parse_token(token_manager,Token::OPEN_PAREN)?;
+    parse_token(token_manager, Token::OPEN_PAREN)?;
 
     let result: Expr = parse_expression(token_manager)?;
 
@@ -265,7 +275,9 @@ pub fn parse_parenthesis_expression(token_manager: &mut lexer::TokenManager) -> 
     return Ok(result);
 }
 
-pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<Expr, ParseError> {
+pub fn parse_expression<'a>(
+    token_manager: &'a mut lexer::TokenManager,
+) -> Result<Expr, ParseError> {
     log::trace!("starting a parse_expression() ");
 
     let left_handed_side = parse_primary_expression(token_manager)?;
@@ -275,8 +287,8 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Resul
 
     if let Expr::Variable { ref name, _type } = lhs_expr {
         if let Some(Token::EQ) = token_manager.current_token {
-        log::trace!("EQUAL expression");
-            parse_token(token_manager,Token::EQ).expect("always true"); // eat the equal token
+            log::trace!("EQUAL expression");
+            parse_token(token_manager, Token::EQ).expect("always true"); // eat the equal token
             let expression_value = parse_expression(token_manager);
             //return Expr::Assignment(name, expression_value);
             return Ok(Expr::Assignment {
@@ -301,8 +313,12 @@ pub fn parse_expression<'a>(token_manager: &'a mut lexer::TokenManager) -> Resul
             let token_precedence =
                 get_binary_operator_precedence(token_manager.current_token.as_ref().unwrap());
 
-        log::trace!("building recursive binary tree!: LHS = {:#?} CURRENT_TOKEN: {:#?}", lhs_expr, token_manager.current_token);
-            build_recursive_binary_tree(token_manager, lhs_expr, token_precedence,was_lhs_in_paren)
+            log::trace!(
+                "building recursive binary tree!: LHS = {:#?} CURRENT_TOKEN: {:#?}",
+                lhs_expr,
+                token_manager.current_token
+            );
+            build_recursive_binary_tree(token_manager, lhs_expr, token_precedence, was_lhs_in_paren)
         }
         _ => Ok(lhs_expr),
     }
@@ -313,7 +329,7 @@ pub fn build_recursive_binary_tree(
     lhs: Expr,
     precendence: i32,
     is_lhs_in_paren: bool,
-) -> Result<Expr,ParseError> {
+) -> Result<Expr, ParseError> {
     //LHS has to be a binary node.
     let operator_token: Token = token_manager.current_token.as_ref().unwrap().clone();
     trace!("Operator in this: {:#?}", operator_token);
@@ -374,50 +390,61 @@ pub fn build_recursive_binary_tree(
     }
 }
 
-pub fn parse_primary_expression(token_manager: &mut lexer::TokenManager) -> Result<PrimaryExpressionParseResult, ParseError> {
-    log::debug!("parsing primary expression! Token found: {:#?}",token_manager.current_token.as_ref().unwrap());
+pub fn parse_primary_expression(
+    token_manager: &mut lexer::TokenManager,
+) -> Result<PrimaryExpressionParseResult, ParseError> {
+    log::debug!(
+        "parsing primary expression! Token found: {:#?}",
+        token_manager.current_token.as_ref().unwrap()
+    );
 
     let mut was_in_parenthesis = false;
 
-    let result_expr =  match token_manager.current_token.as_ref().unwrap() {
-
-        Token::OPEN_PAREN => {was_in_parenthesis = true; parse_parenthesis_expression(token_manager)?},
+    let result_expr = match token_manager.current_token.as_ref().unwrap() {
+        Token::OPEN_PAREN => {
+            was_in_parenthesis = true;
+            parse_parenthesis_expression(token_manager)?
+        }
         Token::Identifier(_) => parse_identifier(token_manager)?,
         Token::NumVal(_) => parse_constant_numeric(token_manager)?,
-        Token::MINUS =>
-        {
-        token_manager.next_token();
-        let expression_value = Expr::Binary 
-        { 
-            operator: Token::MINUS, 
-            left: Box::new(Expr::NumVal{value: 0.0, _type: Type::FixedDecimal}), 
-            right: Box::new(parse_primary_expression(token_manager)?.expression)
-        };
-        return Ok(PrimaryExpressionParseResult::new(expression_value,true))
-
-        },
+        Token::MINUS => {
+            token_manager.next_token();
+            let expression_value = Expr::Binary {
+                operator: Token::MINUS,
+                left: Box::new(Expr::NumVal {
+                    value: 0.0,
+                    _type: Type::FixedDecimal,
+                }),
+                right: Box::new(parse_primary_expression(token_manager)?.expression),
+            };
+            return Ok(PrimaryExpressionParseResult::new(expression_value, true));
+        }
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
-        other => { 
-            return Err( ParseError{ message: format!("Can't parse top level token type {:?}", other)}); 
+        other => {
+            return Err(ParseError {
+                message: format!("Can't parse top level token type {:?}", other),
+            });
         }
     };
-    
-    Ok(PrimaryExpressionParseResult::new(result_expr, was_in_parenthesis))
+
+    Ok(PrimaryExpressionParseResult::new(
+        result_expr,
+        was_in_parenthesis,
+    ))
 }
 
-
-pub struct PrimaryExpressionParseResult
-{
+pub struct PrimaryExpressionParseResult {
     pub expression: Expr,
-    pub in_parenthesis: bool
+    pub in_parenthesis: bool,
 }
-impl PrimaryExpressionParseResult
-{
-    fn new(expression: Expr, in_parenthesis: bool) -> Self
-    {
-        PrimaryExpressionParseResult { expression, in_parenthesis }
+impl PrimaryExpressionParseResult {
+    fn new(expression: Expr, in_parenthesis: bool) -> Self {
+        PrimaryExpressionParseResult {
+            expression,
+            in_parenthesis,
+        }
     }
 }
 
@@ -463,7 +490,6 @@ pub fn parse_function_prototype(
                 expecting_comma = false;
                 parse_token(token_manager, Token::COMMA)?;
             } else {
-
                 let message = format!(
                     "Expected an expression, found a comma at {}:{}",
                     source_loc.line_number, source_loc.column_number
@@ -481,7 +507,8 @@ pub fn parse_function_prototype(
             if let Expr::Variable { name, _type } = parsed_arg {
                 arg_name = name.clone();
             } else {
-                let message = format!("Expected variable in function prototype, found _").to_string();
+                let message =
+                    format!("Expected variable in function prototype, found _").to_string();
                 return Err(ParseError { message });
             }
 
@@ -502,14 +529,13 @@ pub fn parse_function_prototype(
     })
 }
 
-pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Result<Vec<Expr>, ParseError>
-
-{
+pub fn parse_arguments_in_parens(
+    token_manager: &mut lexer::TokenManager,
+) -> Result<Vec<Expr>, ParseError> {
     parse_token(token_manager, Token::OPEN_PAREN)?;
     let mut expecting_comma = false;
     let mut args_list: Vec<Expr> = vec![];
     loop {
-
         let source_loc = token_manager.get_source_location();
         if let Some(Token::CLOSED_PAREN) = token_manager.current_token {
             parse_token(token_manager, Token::CLOSED_PAREN)?;
@@ -521,10 +547,7 @@ pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Res
                 expecting_comma = false;
                 parse_token(token_manager, Token::COMMA)?;
             } else {
-                let message = format!(
-                    "Expected an expression, found a comma at {}",
-                    source_loc
-                );
+                let message = format!("Expected an expression, found a comma at {}", source_loc);
 
                 return Err(ParseError { message });
             }
@@ -554,17 +577,12 @@ pub fn parse_arguments_in_parens(token_manager: &mut lexer::TokenManager) -> Res
     Ok(args_list)
 }
 
-
-
 pub fn parse_put(token_manager: &mut lexer::TokenManager) -> Result<Put, ParseError> {
     parse_token(token_manager, Token::PUT)?;
 
     let messages_to_print = *IOList::parse_from_tokens(token_manager)?;
 
-
-    Ok(Put {
-        messages_to_print,
-    })
+    Ok(Put { messages_to_print })
 }
 
 pub fn parse_function(
@@ -630,7 +648,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                     Command::Empty => (),
                     other_command => {
                         let message = get_error(&["4", "LABEL", &other_command.to_string()]);
-                        return Err(ParseError{message});
+                        return Err(ParseError { message });
                     }
                 }
 
@@ -650,7 +668,9 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
             }
             Token::GO => {
                 match command {
-                    Command::Empty => command = Command::GO(*(ast::Go::parse_from_tokens(token_manager).unwrap())),
+                    Command::Empty => {
+                        command = Command::GO(*(ast::Go::parse_from_tokens(token_manager).unwrap()))
+                    }
                     other_command => {
                         let message = get_error(&["4", "PUT", &other_command.to_string()]);
                         return Err(ParseError { message });
@@ -659,25 +679,25 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                 parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
-//            Token::PUT => {
-//                match command {
-//                    Command::Empty => command = Command::PUT(parse_put(token_manager)?),
-//                    other_command => {
-//                        let message = get_error(&["4", "PUT", &other_command.to_string()]);
-//                        return Err(ParseError { message });
-//                    }
-//                }
-//
-//                parse_token(token_manager, Token::SEMICOLON)?;
-//                break;
-//            }
+            //            Token::PUT => {
+            //                match command {
+            //                    Command::Empty => command = Command::PUT(parse_put(token_manager)?),
+            //                    other_command => {
+            //                        let message = get_error(&["4", "PUT", &other_command.to_string()]);
+            //                        return Err(ParseError { message });
+            //                    }
+            //                }
+            //
+            //                parse_token(token_manager, Token::SEMICOLON)?;
+            //                break;
+            //            }
             Token::GET => {
                 match command {
                     Command::Empty => {
                         parse_token(token_manager, Token::GET)?;
                         let list_to_get = *IOList::parse_from_tokens(token_manager).unwrap();
                         command = Command::GET(Get { list_to_get })
-                    },
+                    }
                     other_command => {
                         let message = get_error(&["4", "PUT", &other_command.to_string()]);
                         return Err(ParseError { message });
@@ -722,7 +742,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
                         return Err(ParseError { message });
                     }
                 }
-                parse_token(token_manager,Token::SEMICOLON)?;
+                parse_token(token_manager, Token::SEMICOLON)?;
                 break;
             }
             Token::IF => {
@@ -765,7 +785,7 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
 
             _ => {
                 let expr = parse_expression(token_manager)?;
-                log::debug!("Parsing an expression statement: {:#?}",&expr);
+                log::debug!("Parsing an expression statement: {:#?}", &expr);
                 let new_command;
                 if let Expr::Assignment {
                     variable_name,
@@ -838,47 +858,47 @@ pub fn parse_opening(token_manager: &mut lexer::TokenManager) -> Result<(), Pars
     Ok(())
 }
 
-
 // TRAITS ////////////////
 
 pub trait Parseable {
     fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>, ParseError>;
 }
 
-impl Parseable for ast::IOList
-{
-    fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>,  ParseError> {
-        
+impl Parseable for ast::IOList {
+    fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>, ParseError> {
         parse_token(token_manager, Token::LIST)?;
-        
+
         let items: Vec<Expr> = parse_arguments_in_parens(token_manager)?;
 
-        Ok(Box::new(IOList{ items}))
-
+        Ok(Box::new(IOList { items }))
     }
 }
 
-impl Parseable for ast::Go
-{
+impl Parseable for ast::Go {
     fn parse_from_tokens(token_manager: &mut lexer::TokenManager) -> Result<Box<Self>, ParseError> {
         parse_token(token_manager, Token::GO)?;
-        
+
         //TODO: Implement a "Parse Raw Word To String" function
         let exp = parse_identifier(token_manager)?;
-        if let Expr::Variable { _type: _, name: nam } = exp
+        if let Expr::Variable {
+            _type: _,
+            name: nam,
+        } = exp
         {
-            Ok(Box::new(Go{label_to_go_to: nam}))
-        }
-        else
-        {
-            panic!("Expected some string 'identifier' type after GO command, found something else!");
+            Ok(Box::new(Go {
+                label_to_go_to: nam,
+            }))
+        } else {
+            panic!(
+                "Expected some string 'identifier' type after GO command, found something else!"
+            );
         }
     }
 }
 
 mod tests {
 
-    use crate::{lexer::TokenManager, initialize_test_logger};
+    use crate::{initialize_test_logger, lexer::TokenManager};
 
     use super::*;
 
@@ -931,11 +951,9 @@ mod tests {
         let result: Expr = parse_constant_numeric(&mut tok_man)?;
 
         if let Expr::NumVal { value, _type } = result {
-
             assert_eq!(4.0, value);
 
             Ok(())
-
         } else {
             panic!("Result of parse numeric was not a numeric expression!");
         }
@@ -947,8 +965,8 @@ mod tests {
 
         let list: Box<IOList> = IOList::parse_from_tokens(&mut tok_man).unwrap();
 
-        assert_eq!(list.items.len(),3);
-        dbg!("{:#?}",&list);
+        assert_eq!(list.items.len(), 3);
+        dbg!("{:#?}", &list);
     }
 
     #[test]
@@ -957,17 +975,16 @@ mod tests {
 
         let statement = parse_statement(&mut tok_man).unwrap();
 
-        match statement.command
-        {
-              Command::GET(list) =>
-              {
-                  dbg!(list);
-              }
-              other => panic!("Expected GET LIST to parse into a GET command, but received a {:#?}",other)
+        match statement.command {
+            Command::GET(list) => {
+                dbg!(list);
+            }
+            other => panic!(
+                "Expected GET LIST to parse into a GET command, but received a {:#?}",
+                other
+            ),
         };
     }
-
-
 
     #[test]
     fn test_parsing_identifier() -> Result<(), ParseError> {
@@ -995,19 +1012,15 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_parenthesis_expression() -> Result<(), ParseError>
-    {
-
+    fn test_parse_parenthesis_expression() -> Result<(), ParseError> {
         initialize_test_logger();
         let mut tok_man = TokenManager::new("(25665)");
 
         let result: Expr = parse_parenthesis_expression(&mut tok_man)?;
 
         if let Expr::NumVal { value, _type } = result {
-
             assert_eq!(25665.0, value);
             Ok(())
-
         } else {
             panic!("NOT A NUMVAL!");
         }
@@ -1015,17 +1028,14 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_parse_paren_bad_syntax()
-    {
+    fn test_parse_paren_bad_syntax() {
         let mut tok_man = TokenManager::new("(2 min(2,3))");
 
         let _result: Expr = parse_parenthesis_expression(&mut tok_man).unwrap();
-
     }
 
     #[test]
-    fn test_parse_primaries() -> Result<(), ParseError>
-    {
+    fn test_parse_primaries() -> Result<(), ParseError> {
         let mut tok_man = TokenManager::new("2; MIN(9,254); FLAG; (4);");
 
         let result = parse_expression(&mut tok_man)?;
@@ -1064,7 +1074,6 @@ mod tests {
             assert_eq!(4.0, value);
 
             Ok(())
-
         } else {
             panic!("Not a numval of value 4!");
         }
@@ -1169,25 +1178,24 @@ mod tests {
 
     #[test]
     fn parsing_paren_and_divide() -> Result<(), ParseError> {
-        let mut token_manager =
-            TokenManager::new("( 1 + 1 + 1 + 1 + 1 ) / 5");
+        let mut token_manager = TokenManager::new("( 1 + 1 + 1 + 1 + 1 ) / 5");
 
         let decl = parse_expression(&mut token_manager)?;
 
-        match decl
-        {
-            Expr::Binary { operator, left, right } =>
-            {
-                match operator
-                {
-                    Token::DIVIDE => 
-                    {
-                        
-                    },
-                    _ => {panic!("Wrong OP")}
+        match decl {
+            Expr::Binary {
+                operator,
+                left,
+                right,
+            } => match operator {
+                Token::DIVIDE => {}
+                _ => {
+                    panic!("Wrong OP")
                 }
+            },
+            _ => {
+                panic!("Not a Binary!");
             }
-            _ => {panic!("Not a Binary!");}
         };
 
         Ok(())

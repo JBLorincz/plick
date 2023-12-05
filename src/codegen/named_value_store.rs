@@ -4,7 +4,6 @@ use inkwell::context::Context;
 
 use super::named_value::NamedValue;
 
-
 pub trait NamedValueStore<'ctx> {
     fn clear(&self);
     fn insert(&self, named_value: NamedValue<'ctx>);

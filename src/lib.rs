@@ -29,12 +29,12 @@ use std::{
     process,
 };
 
-use codegen::prelude;
 use crate::debugger::{setup_module_for_debugging, DebugController};
+use codegen::prelude;
 
 pub mod ast;
-mod codegen;
 pub mod cli;
+mod codegen;
 mod debugger;
 mod error;
 pub mod lexer;
@@ -50,95 +50,83 @@ fn drive_compilation<'a, 'ctx>(
 
     prelude::add_extern_functions(compiler);
     //prelude::add_standard_library_to_module(compiler.module);
-    
+
     unsafe {
-        
         let parse_result = perform_parse_pass(token_manager);
 
-      
-            let parse_result = parse_result
+        let parse_result = parse_result
             .perform_type_pass()?
             .code_generation_pass(compiler)?;
 
-
         check_for_errors(parse_result)
-
     }
 }
 
-pub fn check_for_errors(parse_result: PassResult) -> Result<(), String>
-{
-
+pub fn check_for_errors(parse_result: PassResult) -> Result<(), String> {
     let num_of_errors = parse_result.found_errors.len();
-    if num_of_errors > 0
-        {
-        
-            let string_list: Vec<String> = parse_result.get_errors_as_string();
+    if num_of_errors > 0 {
+        let string_list: Vec<String> = parse_result.get_errors_as_string();
 
+        let message = format!("Halting compilation due to {} errors! \n", num_of_errors);
+        let final_message = message.clone() + &string_list.join("\n");
 
-            let message = format!("Halting compilation due to {} errors! \n", num_of_errors);
-            let final_message = message.clone() + &string_list.join("\n");
-
-            for message in string_list
-            {
-                log::error!("{}",message);
-            }
-
-            return Err(message);
+        for message in string_list {
+            log::error!("{}", message);
         }
+
+        return Err(message);
+    }
     Ok(())
 }
 pub fn initialize_logger() {
     env_logger::init();
 }
-pub fn compile_input(input: &str, config: Config) -> CompilationResults
-{
-    execute_compilation_actions(input, &config, &mut |token_manager, compiler, target_machine| {
-        let compilation_result = drive_compilation(token_manager, compiler);
+pub fn compile_input(input: &str, config: Config) -> CompilationResults {
+    execute_compilation_actions(
+        input,
+        &config,
+        &mut |token_manager, compiler, target_machine| {
+            let compilation_result = drive_compilation(token_manager, compiler);
 
-        if let Err(_err_msg) = compilation_result {
-            return Err(_err_msg);
-        }
+            if let Err(_err_msg) = compilation_result {
+                return Err(_err_msg);
+            }
 
-        if let Some(dbg) = compiler.debug_controller {
-            dbg.builder.finalize();
-        }
+            if let Some(dbg) = compiler.debug_controller {
+                dbg.builder.finalize();
+            }
 
-        //comment for finalize says call before verification
-        if config.print_ir {
-            println!("{}", compiler.module.print_to_string());
-        }
+            //comment for finalize says call before verification
+            if config.print_ir {
+                println!("{}", compiler.module.print_to_string());
+            }
 
-      
-        if config.write_ir_to_file
-        {
-            output_module_as_ir_to_file(&compiler, target_machine,&config);
-        }
+            if config.write_ir_to_file {
+                output_module_as_ir_to_file(&compiler, target_machine, &config);
+            }
 
-        if config.verify
-        {
-            verify_module(&compiler).map_err(|llvm_str| llvm_str.to_string())?;
-        }
-        if config.write_ir_to_file
-        {
-        }
-        else if config.dry_run {
-            output_module_to_memory_buffer(&compiler, target_machine);
-        } else {
-            output_module_to_file(compiler, &config, target_machine);
-        }
+            if config.verify {
+                verify_module(&compiler).map_err(|llvm_str| llvm_str.to_string())?;
+            }
+            if config.write_ir_to_file {
+            } else if config.dry_run {
+                output_module_to_memory_buffer(&compiler, target_machine);
+            } else {
+                output_module_to_file(compiler, &config, target_machine);
+            }
 
-        Ok(())
-    })
-
+            Ok(())
+        },
+    )
 }
 
-pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &TargetMachine) -> Result<(), String>>(
+pub fn execute_compilation_actions<
+    F: FnMut(&mut TokenManager, &mut Compiler, &TargetMachine) -> Result<(), String>,
+>(
     input: &str,
     config: &Config,
     closure: &mut F,
-) -> CompilationResults
-{
+) -> CompilationResults {
     let filename = config.filename.clone();
 
     let target_machine = build_default_target_machine(&config);
@@ -155,7 +143,8 @@ pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &T
         optional_debugger = Some(&debugger);
     }
 
-    let mut compiler = codegen::codegen::Compiler::new(&c, &b, &m, optional_debugger,config.error_test);
+    let mut compiler =
+        codegen::codegen::Compiler::new(&c, &b, &m, optional_debugger, config.error_test);
 
     let mut token_manager = lexer::TokenManager::new(input);
 
@@ -163,20 +152,25 @@ pub fn execute_compilation_actions<F: FnMut(&mut TokenManager, &mut Compiler, &T
         token_manager.attach_debugger(dbg);
     }
     let closure_result = closure(&mut token_manager, &mut compiler, &target_machine);
-    log::info!("number of errors: {}", compiler.error_module.get_number_of_errors());
-    
-    if let Err(msg) = closure_result
-    {
+    log::info!(
+        "number of errors: {}",
+        compiler.error_module.get_number_of_errors()
+    );
+
+    if let Err(msg) = closure_result {
         compiler.error_module.store_error_msg(&msg);
     }
 
-
-    CompilationResults::new(compiler.error_module.get_number_of_errors() == 0, compiler.error_module.get_all_errors())
+    CompilationResults::new(
+        compiler.error_module.get_number_of_errors() == 0,
+        compiler.error_module.get_all_errors(),
+    )
 }
 
-fn output_module_to_memory_buffer(compiler: &Compiler, target_machine: &TargetMachine)
-    -> MemoryBuffer
-{
+fn output_module_to_memory_buffer(
+    compiler: &Compiler,
+    target_machine: &TargetMachine,
+) -> MemoryBuffer {
     let write_to_memory_result =
         target_machine.write_to_memory_buffer(&compiler.module, inkwell::targets::FileType::Object);
     match write_to_memory_result {
@@ -189,8 +183,11 @@ fn output_module_to_memory_buffer(compiler: &Compiler, target_machine: &TargetMa
         }
     }
 }
-fn output_module_as_ir_to_file(compiler: &Compiler, target_machine: &TargetMachine,config: &Config)
-{
+fn output_module_as_ir_to_file(
+    compiler: &Compiler,
+    target_machine: &TargetMachine,
+    config: &Config,
+) {
     let write_to_memory_result =
         target_machine.write_to_memory_buffer(&compiler.module, inkwell::targets::FileType::Object);
 
@@ -203,26 +200,25 @@ fn output_module_as_ir_to_file(compiler: &Compiler, target_machine: &TargetMachi
             process::exit(1);
         }
     };
-        let file_name =  Path::new(&config.filename);
-        compiler.module.print_to_file(file_name).unwrap();
+    let file_name = Path::new(&config.filename);
+    compiler.module.print_to_file(file_name).unwrap();
 }
-fn verify_module(compiler: &Compiler)
-    -> Result<(), LLVMString>
-{
+fn verify_module(compiler: &Compiler) -> Result<(), LLVMString> {
     let module_verification_result = compiler.module.verify();
 
     let x = match module_verification_result {
-        Ok(()) => {println!("Module verified successfully!")}
+        Ok(()) => {
+            println!("Module verified successfully!")
+        }
         Err(ref err_message) => {
             error!("Module verification failed:");
             error!("{}", err_message);
         }
     };
-        module_verification_result
+    module_verification_result
 }
 
-fn output_module_to_file(compiler: &Compiler, config: &Config, target_machine: &TargetMachine) 
-{
+fn output_module_to_file(compiler: &Compiler, config: &Config, target_machine: &TargetMachine) {
     let write_to_file_result = target_machine.write_to_file(
         &compiler.module,
         inkwell::targets::FileType::Object,
@@ -307,8 +303,7 @@ impl From<Arguments> for Config {
     fn from(value: Arguments) -> Self {
         let default = Config::default();
         let filename = get_output_filename(&value);
-        Config 
-        { 
+        Config {
             filename,
             write_ir_to_file: value.save_as_ir,
             ..default
@@ -316,30 +311,22 @@ impl From<Arguments> for Config {
     }
 }
 
-pub struct CompilationResults
-{
+pub struct CompilationResults {
     pub was_successful: bool,
-    pub errors: Vec<CodegenError>
+    pub errors: Vec<CodegenError>,
 }
 
-impl CompilationResults
-{
-    pub fn new(was_successful: bool, errors: Vec<CodegenError>) -> Self
-    {
-        CompilationResults 
-        { 
-            was_successful, 
-            errors 
+impl CompilationResults {
+    pub fn new(was_successful: bool, errors: Vec<CodegenError>) -> Self {
+        CompilationResults {
+            was_successful,
+            errors,
         }
     }
 }
 
-
-
-
 const RUST_LOG_CONFIG_STRING: &str = "trace";
-pub fn initialize_test_logger()
-{
+pub fn initialize_test_logger() {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", RUST_LOG_CONFIG_STRING)
     }
@@ -347,18 +334,15 @@ pub fn initialize_test_logger()
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-fn get_output_filename(arguments: &Arguments) -> String
-{
+fn get_output_filename(arguments: &Arguments) -> String {
     let path = Path::new(&arguments.path_to_file);
     let file_stem = path.file_stem().unwrap();
     let result = file_stem.to_str().unwrap().to_string();
-    result+&get_output_extension(&arguments)
+    result + &get_output_extension(&arguments)
 }
 
-fn get_output_extension(arguments: &Arguments) -> String
-{
-    if arguments.save_as_ir
-    {
+fn get_output_extension(arguments: &Arguments) -> String {
+    if arguments.save_as_ir {
         return ".ll".to_string();
     }
 

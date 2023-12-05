@@ -1,8 +1,8 @@
-pub mod r#if;
-pub mod declare;
 pub mod assignment;
-pub mod func;
+pub mod declare;
 pub mod expr;
+pub mod func;
 pub mod get;
-pub mod put;
 pub mod go;
+pub mod r#if;
+pub mod put;

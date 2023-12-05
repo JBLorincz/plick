@@ -2,13 +2,13 @@ use std::fmt::Display;
 use std::string;
 
 use crate::codegen::codegen::Compiler;
+use crate::codegen::named_value;
 use crate::codegen::named_value_store::NamedValueStore;
 use crate::lexer;
 use crate::types;
 use crate::types::resolve_types;
 use crate::types::BaseAttributes;
 use crate::types::Type;
-use crate::codegen::named_value;
 
 use crate::codegen::named_value_store::NamedValueHashmapStore;
 ///Holds all definition for AST nodes
@@ -50,21 +50,19 @@ impl Expr {
             _type: Type::FixedDecimal,
         }
     }
-    pub fn get_type<'a,'ctx>(&self, compiler: &'a Compiler<'a,'ctx>) -> types::Type {
-        log::info!("Trying to resove type {:#?}",self);
+    pub fn get_type<'a, 'ctx>(&self, compiler: &'a Compiler<'a, 'ctx>) -> types::Type {
+        log::info!("Trying to resove type {:#?}", self);
         match self {
             Expr::Variable {
                 ref _type,
                 ref name,
-            } => 
-            {
+            } => {
                 let named_values_result = compiler.named_values.try_get(name);
-                if let Some(named_value) = named_values_result
-                {
+                if let Some(named_value) = named_values_result {
                     return named_value._type;
                 }
-                return *_type
-            },
+                return *_type;
+            }
             Expr::NumVal {
                 ref _type,
                 ref value,
@@ -82,11 +80,7 @@ impl Expr {
             Expr::Assignment {
                 ref variable_name,
                 ref value,
-            } => {
-
-                Type::FixedDecimal
-
-            },
+            } => Type::FixedDecimal,
             Expr::Char { value } => Type::Char(value.len() as u32),
         }
     }
@@ -122,10 +116,9 @@ impl Default for SourceLocation {
 }
 impl Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}",self.line_number,self.column_number);
+        write!(f, "{}:{}", self.line_number, self.column_number);
         Ok(())
     }
-    
 }
 
 ///Represents a user-deined function.
@@ -199,15 +192,10 @@ pub struct Get {
 
 #[derive(Debug, Clone)]
 pub struct IOList {
-    pub items: Vec<Expr>
+    pub items: Vec<Expr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Go {
-    pub label_to_go_to: String
+    pub label_to_go_to: String,
 }
-
-
-
-
-

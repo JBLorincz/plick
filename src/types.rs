@@ -1,9 +1,12 @@
-use std::{fmt::Display, mem::{discriminant, Discriminant}, };
+use std::{
+    fmt::Display,
+    mem::{discriminant, Discriminant},
+};
 
 use inkwell::{
     context::Context,
     types::{AnyType, AnyTypeEnum, ArrayType, BasicType, BasicTypeEnum, StructType},
-    values::{FloatValue, StructValue, IntValue, PointerValue},
+    values::{FloatValue, IntValue, PointerValue, StructValue},
 };
 use log::debug;
 
@@ -56,10 +59,9 @@ impl Display for Type {
     }
 }
 
-impl Into<String> for Type
-{
+impl Into<String> for Type {
     fn into(self) -> String {
-        format!("{}",self)
+        format!("{}", self)
     }
 }
 
@@ -97,14 +99,12 @@ pub fn resolve_types(type_one: &Type, type_two: &Type) -> Result<Type, String> {
     Ok(Type::FixedDecimal)
 }
 
-pub fn do_types_match(_type1: &Type, _type2: &Type) -> bool
-{
+pub fn do_types_match(_type1: &Type, _type2: &Type) -> bool {
     let lhs: Discriminant<Type> = discriminant(_type1);
     let rhs: Discriminant<Type> = discriminant(_type2);
 
     lhs == rhs
 }
-
 
 impl<'ctx> TypeModule<'ctx> {
     pub fn new(ctx: &'ctx Context) -> Self {
@@ -122,7 +122,8 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     }
 
     pub fn gen_const_fixed_decimal(&self, value: f64) -> StructValue<'ctx> {
-        let struc: StructValue<'ctx> = generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into();
+        let struc: StructValue<'ctx> =
+            generate_fixed_decimal_code(self.context, self.type_module.fixed_type, value).into();
 
         struc
     }

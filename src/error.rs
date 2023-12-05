@@ -4,7 +4,6 @@ use std::collections::HashMap;
 #[macro_use]
 pub mod errors;
 
-
 pub fn get_error(params: &[&str]) -> String {
     if params.len() == 0 {
         return "Unknown Error".to_string();
@@ -46,5 +45,5 @@ create_errors! {
     E010: "Cannot find a block named '[0]'",
     E011: "Cannot define a block more than once: '[0]'",
     E012: "Variable '[0]' is undefined!",
-                        
+
 }

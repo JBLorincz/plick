@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display, cell::RefCell};
+use std::{cell::RefCell, error::Error, fmt::Display};
 
 use super::*;
 
@@ -14,76 +14,59 @@ macro_rules! create_errors
 }
 
 #[derive(Debug)]
-pub struct ErrorModule
-{
+pub struct ErrorModule {
     compile_errors: RefCell<Vec<CodegenError>>,
     pub is_error_test: bool,
 }
-impl ErrorModule
-{
-    pub fn new(is_error_test: bool) -> Self
-    {
-        ErrorModule { 
+impl ErrorModule {
+    pub fn new(is_error_test: bool) -> Self {
+        ErrorModule {
             compile_errors: RefCell::new(vec![]),
-            is_error_test
+            is_error_test,
         }
     }
 
-    pub fn store_error_msg(&self, message: &str)
-    {
-
+    pub fn store_error_msg(&self, message: &str) {
         let message = message.to_owned();
 
-        self.compile_errors.borrow_mut().push(CodegenError{message});
+        self.compile_errors
+            .borrow_mut()
+            .push(CodegenError { message });
     }
-    pub fn store_msg_from_number(&self, params: &[&str])
-    {
+    pub fn store_msg_from_number(&self, params: &[&str]) {
         let message = get_error(params);
         self.store_error_msg(&message);
     }
-    pub fn get_number_of_errors(&self) -> usize
-    {
+    pub fn get_number_of_errors(&self) -> usize {
         return self.compile_errors.borrow().len();
-
     }
-    pub fn get_all_errors(&self) -> Vec<CodegenError>
-    {
+    pub fn get_all_errors(&self) -> Vec<CodegenError> {
         self.compile_errors.borrow().clone()
     }
 }
 
-
-
 #[derive(Debug, Clone)]
-pub struct CodegenError
-{
-    pub message: String
+pub struct CodegenError {
+    pub message: String,
 }
 
-impl Display for CodegenError
-{
+impl Display for CodegenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "CodegenError: {}", self.message)
     }
 }
 
-impl Error for CodegenError
-{
-}
+impl Error for CodegenError {}
 
 #[derive(Debug, Clone)]
-pub struct ParseError
-{
-    pub message: String
+pub struct ParseError {
+    pub message: String,
 }
 
-impl Display for ParseError
-{
+impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ParseError: {}", self.message)
     }
 }
 
-impl Error for ParseError
-{
-}
+impl Error for ParseError {}

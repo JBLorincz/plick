@@ -1,11 +1,13 @@
 use inkwell::{
-    types::{ArrayType, BasicTypeEnum, StructType, BasicMetadataTypeEnum, FunctionType},
-    values::{ArrayValue, IntValue, PointerValue, BasicValueEnum, BasicMetadataValueEnum}, AddressSpace, module::Linkage,
+    module::Linkage,
+    types::{ArrayType, BasicMetadataTypeEnum, BasicTypeEnum, FunctionType, StructType},
+    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum, IntValue, PointerValue},
+    AddressSpace,
 };
 
 use crate::codegen::codegen::Compiler;
 
-use super::{SIZE_OF_STRINGS, traits::Puttable};
+use super::{traits::Puttable, SIZE_OF_STRINGS};
 
 ///Represents a CHAR PL/1 value.
 ///A string is just an array of characters (which are i8 integers for ASCII)
@@ -30,7 +32,6 @@ pub fn get_character_type<'ctx>(
     ctx: &'ctx inkwell::context::Context,
     size_of_string: u32,
 ) -> ArrayType<'ctx> {
-
     //add 1 for the null terminator
     let char_array = ctx.i8_type().array_type(size_of_string + 1);
 
@@ -57,17 +58,15 @@ pub fn generate_character_code<'ctx>(
     CharValue { value }
 }
 
-
 pub fn generate_character_code_for_size<'ctx>(
     ctx: &'ctx inkwell::context::Context,
     value: &str,
-    size: u32
+    size: u32,
 ) -> CharValue<'ctx> {
     let string_with_terminator = value.to_string();
 
     let mut chars_as_numbers: Vec<IntValue> = vec![];
     let sign_extend = false;
-
 
     for char in string_with_terminator.chars() {
         let eight_bit_num: i8 = char as i8;
@@ -75,62 +74,66 @@ pub fn generate_character_code_for_size<'ctx>(
         chars_as_numbers.push(ctx.i8_type().const_int(num, sign_extend));
     }
 
-
     chars_as_numbers.push(ctx.i8_type().const_zero()); //terminator
     let empty_character_count = size - string_with_terminator.chars().count() as u32;
-    for i in 0..empty_character_count
-    {
+    for i in 0..empty_character_count {
         chars_as_numbers.push(ctx.i8_type().const_int(1, false));
     }
-
-
 
     let value = ctx.i8_type().const_array(&chars_as_numbers[..]);
 
     CharValue { value }
 }
 
+impl<'a, 'ctx> Puttable<'a, 'ctx> for CharValue<'ctx> {
+    unsafe fn print_object(&self, compiler: &'a Compiler<'a, 'ctx>) {
+        let print_func = compiler.get_function("printf").unwrap();
 
-impl<'a, 'ctx> Puttable<'a, 'ctx> for CharValue<'ctx>
-{
+        let mallocd_string = compiler
+            .builder
+            .build_malloc(self.value.get_type(), "storing_string")
+            .unwrap();
+        compiler
+            .builder
+            .build_store(mallocd_string, self.value)
+            .unwrap();
 
-        unsafe fn print_object(&self, compiler: &'a Compiler<'a, 'ctx>) 
-        {
-            let print_func = compiler.get_function("printf").unwrap();
+        let bitc: BasicValueEnum<'ctx> = compiler
+            .builder
+            .build_bitcast(
+                mallocd_string,
+                compiler.context.i8_type().ptr_type(AddressSpace::default()),
+                "mybitcast",
+            )
+            .unwrap();
 
+        compiler
+            .builder
+            .build_call(print_func, &[bitc.into()], "printing_char_from_puttable")
+            .unwrap();
 
-            let mallocd_string = compiler.builder.build_malloc(self.value.get_type(), "storing_string").unwrap();
-            compiler.builder.build_store(mallocd_string, self.value).unwrap();
-            
-            let bitc: BasicValueEnum<'ctx> = compiler
-                    .builder
-                    .build_bitcast(
-                        mallocd_string,
-                        compiler.context.i8_type().ptr_type(AddressSpace::default()),
-                        "mybitcast",
-                    )
-                    .unwrap();
+        compiler.builder.build_free(mallocd_string).unwrap();
+    }
+    fn get_pointer_to_printable_string(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> PointerValue<'ctx> {
+        let string_array = self.value;
+        let const_string = self.value.get_string_constant().unwrap();
+        let allocd_string = compiler
+            .builder
+            .build_global_string_ptr(const_string.to_str().unwrap(), "char_const")
+            .unwrap();
 
-            compiler.builder.build_call(print_func, &[bitc.into()], "printing_char_from_puttable").unwrap();
+        let bitc: BasicValueEnum<'ctx> = compiler
+            .builder
+            .build_bitcast(
+                allocd_string,
+                compiler.context.i8_type().ptr_type(AddressSpace::default()),
+                "mybitcast",
+            )
+            .unwrap();
 
-
-            compiler.builder.build_free(mallocd_string).unwrap();
-        }
-    fn get_pointer_to_printable_string(&self,compiler: &'a Compiler<'a,'ctx>) -> PointerValue<'ctx> {
-        let string_array  = self.value;
-                let const_string = self.value.get_string_constant().unwrap(); 
-                let allocd_string = compiler.builder.build_global_string_ptr(const_string.to_str().unwrap(), "char_const").unwrap();
-                
-                let bitc: BasicValueEnum<'ctx> = compiler
-                    .builder
-                    .build_bitcast(
-                        allocd_string,
-                        compiler.context.i8_type().ptr_type(AddressSpace::default()),
-                        "mybitcast",
-                    )
-                    .unwrap();
-
-                bitc.into_pointer_value()
-
+        bitc.into_pointer_value()
     }
 }

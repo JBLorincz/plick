@@ -43,7 +43,7 @@ impl<'a, 'b> TokenManager<'a, 'b> {
     ///Thus function returns the next token from the token iterator.
     pub fn next_token(&mut self) -> &Option<Token> {
         self.current_token = self.token_iter.next();
-        trace!("Next Token: {:?}",&self.current_token);
+        trace!("Next Token: {:?}", &self.current_token);
 
         &self.current_token
     }
@@ -131,15 +131,14 @@ impl<'a, 'b> TokenIterator<'a, 'b> {
         Some(())
     }
 
-fn process_mult(&mut self) -> Option<Token> {
+    fn process_mult(&mut self) -> Option<Token> {
+        let current_char = self.get_next_char()?;
 
-            let current_char = self.get_next_char()?;
-
-            if current_char == '*' {
-                self.get_next_char()?;
-                return Some(Token::EXPONENT);
-            } 
-            Some(Token::MULTIPLY)
+        if current_char == '*' {
+            self.get_next_char()?;
+            return Some(Token::EXPONENT);
+        }
+        Some(Token::MULTIPLY)
     }
 }
 impl Iterator for TokenIterator<'_, '_> {
@@ -157,17 +156,12 @@ impl Iterator for TokenIterator<'_, '_> {
             }
             let is_special = TokenIterator::is_character_special(current_character);
 
-            if is_special && !current_word_buffer.is_empty()
-            {
+            if is_special && !current_word_buffer.is_empty() {
                 return convert_string_to_token(&current_word_buffer);
-            }
-            else if is_special && current_character == '\'' {
-
+            } else if is_special && current_character == '\'' {
                 current_word_buffer = self.process_string(current_word_buffer);
                 return Some(Token::STRING(current_word_buffer));
-
             } else if is_special && current_character == '/' {
-
                 trace!("/ character found in lexing");
 
                 let next_lext_char = self.get_next_char();
@@ -177,12 +171,9 @@ impl Iterator for TokenIterator<'_, '_> {
                     self.process_comment()?;
                     continue;
                 } else {
-
                     return Some(Token::DIVIDE);
                 }
-            }
-            else if is_special && current_character == '*'
-            {
+            } else if is_special && current_character == '*' {
                 return Some(self.process_mult().unwrap());
             }
 
@@ -215,53 +206,50 @@ impl Iterator for TokenIterator<'_, '_> {
     }
 }
 
-
-pub fn convert_string_to_token(input: &str) -> Option<Token>
-{
-        if let Ok(number) = input.parse() {
-            return Some(Token::NumVal(number));
-        }
-        if input.len() == 0 {
-            return None;
-        }
-        Some(match input.to_uppercase().as_str() {
-            "PROCEDURE" | "PROC" => Token::PROCEDURE,
-            ";" => Token::SEMICOLON,
-            "," => Token::COMMA,
-            "**" => Token::EXPONENT,
-            "*" => Token::MULTIPLY,
-            "(" => Token::OPEN_PAREN,
-            ")" => Token::CLOSED_PAREN,
-            "<" => Token::LESS_THAN,
-            ">" => Token::GREATER_THAN,
-            //"," => Token::COMMA,
-            "/" => Token::DIVIDE,
-            "+" => Token::PLUS,
-            "-" => Token::MINUS,
-            "IF" => Token::IF,
-            "ELSE" => Token::ELSE,
-            "THEN" => Token::THEN,
-            "DO" => Token::DO,
-            "FIXED" => Token::FIXED,
-            "FLOAT" => Token::FLOAT,
-            "=" => Token::EQ,
-            "PUT" => Token::PUT,
-            "GET" => Token::GET,
-            "RETURN" | "RET" => Token::RETURN,
-            "DATA" => Token::DATA,
-            "END" => Token::END,
-            "WHILE" => Token::WHILE,
-            "LIST" => Token::LIST,
-            "SKIP" => Token::SKIP,
-            "GO" => Token::GO,
-            "DECLARE" | "DCL" => Token::DECLARE,
-            "CHARACTER" | "CHAR" => Token::CHARACTER,
-            "OPTIONS" => Token::OPTIONS,
-            "AND" | "&" => Token::AND,
-            _ => Token::Identifier(input.to_owned()),
-        })
+pub fn convert_string_to_token(input: &str) -> Option<Token> {
+    if let Ok(number) = input.parse() {
+        return Some(Token::NumVal(number));
+    }
+    if input.len() == 0 {
+        return None;
+    }
+    Some(match input.to_uppercase().as_str() {
+        "PROCEDURE" | "PROC" => Token::PROCEDURE,
+        ";" => Token::SEMICOLON,
+        "," => Token::COMMA,
+        "**" => Token::EXPONENT,
+        "*" => Token::MULTIPLY,
+        "(" => Token::OPEN_PAREN,
+        ")" => Token::CLOSED_PAREN,
+        "<" => Token::LESS_THAN,
+        ">" => Token::GREATER_THAN,
+        //"," => Token::COMMA,
+        "/" => Token::DIVIDE,
+        "+" => Token::PLUS,
+        "-" => Token::MINUS,
+        "IF" => Token::IF,
+        "ELSE" => Token::ELSE,
+        "THEN" => Token::THEN,
+        "DO" => Token::DO,
+        "FIXED" => Token::FIXED,
+        "FLOAT" => Token::FLOAT,
+        "=" => Token::EQ,
+        "PUT" => Token::PUT,
+        "GET" => Token::GET,
+        "RETURN" | "RET" => Token::RETURN,
+        "DATA" => Token::DATA,
+        "END" => Token::END,
+        "WHILE" => Token::WHILE,
+        "LIST" => Token::LIST,
+        "SKIP" => Token::SKIP,
+        "GO" => Token::GO,
+        "DECLARE" | "DCL" => Token::DECLARE,
+        "CHARACTER" | "CHAR" => Token::CHARACTER,
+        "OPTIONS" => Token::OPTIONS,
+        "AND" | "&" => Token::AND,
+        _ => Token::Identifier(input.to_owned()),
+    })
 }
-
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(non_camel_case_types)]
@@ -336,9 +324,13 @@ mod tests {
     fn lex_touching_multiply() {
         initialize_test_logger();
         let input = "5*5;";
-        let token_list: Vec<Token> = 
-            vec![Token::NumVal(5.0),Token::MULTIPLY,Token::NumVal(5.0),Token::SEMICOLON];
-        assert_eq!(get_token_list(input),token_list);
+        let token_list: Vec<Token> = vec![
+            Token::NumVal(5.0),
+            Token::MULTIPLY,
+            Token::NumVal(5.0),
+            Token::SEMICOLON,
+        ];
+        assert_eq!(get_token_list(input), token_list);
     }
     #[test]
     fn hello_world_parse() {
