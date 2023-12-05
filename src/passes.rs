@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, process};
+use std::{collections::HashMap, hash::Hash, process, error::Error};
 
 use crate::{
     ast::{Command, Statement},
@@ -11,26 +11,27 @@ use crate::{
 pub struct PassResult {
     statements: Vec<Statement>,
     function_return_types: HashMap<String, Type>,
+    pub found_errors: Vec<Box<dyn Error>>
 }
 
 ///Utilizes the Lexer's TokenManager to create the AST in the form of PassResult
-pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult, Vec<CodegenError>> {
+pub fn perform_parse_pass(token_manager: &mut TokenManager) -> PassResult {
     let result = parse_opening(token_manager);
 
 
     let mut found_top_level_end = false;
     let mut statements: Vec<Statement> = vec![];
     let mut function_return_types: HashMap<String, Type> = HashMap::new();
-    let mut parsing_errors: Vec<CodegenError> = vec![];
+    let mut found_errors: Vec<Box<dyn Error>> = vec![];
 
-        if let Err(err_msg) = result {
-            let msg = format!("{}", err_msg);
-            parsing_errors.push(CodegenError { message: msg });
+        if let Err(parse_error) = result {
+            found_errors.push(Box::new(parse_error));
         }
 
 
 
     while let Some(ref token) = token_manager.current_token {
+        log::trace!("Cycling to token: {:#?}", token);
         if let Token::END = token {
             found_top_level_end = true;
             break;
@@ -38,18 +39,31 @@ pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult
 
         let parser_result = parser::parse_statement(token_manager);
 
-        if let Err(ref err_msg) = parser_result {
-            let msg = format!("{}", err_msg);
-            parsing_errors.push(CodegenError { message: msg });
+        if let Err(parse_error) = parser_result {
+
+            found_errors.push(Box::new(parse_error));
+            
+            while token_manager.current_token != Some(Token::SEMICOLON)
+            {
+
+                if let None = token_manager.current_token
+                {
+                    break;
+                }
+
+                token_manager.next_token();
+            }
+
+                token_manager.next_token();
         }
         else
         {
             let parser_result = parser_result.unwrap();
-// if the statement is a function declaration,
+            
+        // if the statement is a function declaration,
         // then we store its return type.
         if let Command::FunctionDec(ref func) = parser_result.command {
             function_return_types.insert(func.prototype.fn_name.clone(), func.return_type);
-            //todo!("Handle function dec storing! {:?}", func);
         }
 
         statements.push(parser_result);
@@ -60,30 +74,25 @@ pub fn perform_parse_pass(token_manager: &mut TokenManager) -> Result<PassResult
     if !found_top_level_end {
         let message = "Did not find an end to the program!".to_string();
         let err = CodegenError {message};
-        parsing_errors.push(err);
+        found_errors.push(Box::new(err));
     }
     let output = PassResult {
         statements,
         function_return_types,
+        found_errors
     };
-    if parsing_errors.len() > 0
-    {
-        Err(parsing_errors)
-    }
-    else
-    {
-        Ok(output)
-    }
+
+        output
 }
 
 impl PassResult {
-    ///Does all the type checking and type handling
+
+    ///Reserved function for pre-codegen type inference
     pub fn perform_type_pass(mut self) -> Result<PassResult, String> {
         let mut annotated_statements: Vec<Statement> = vec![];
         for i in &self.statements {
-            let mut statement_clone = i.clone();
 
-            //statement_clone.
+            let statement_clone = i.clone();
 
             annotated_statements.push(statement_clone);
         }
@@ -92,10 +101,9 @@ impl PassResult {
         Ok(self)
     }
 
-    ///Actually does the AST to LLVM IR conversion
-    pub unsafe fn code_generation_pass(self, compiler: &mut Compiler) -> Result<(), String> {
-        for i in self.statements {
-            i.codegen(compiler);
+    pub unsafe fn code_generation_pass(mut self, compiler: &mut Compiler) -> Result<Self, String> {
+        for i in &self.statements {
+            i.clone().codegen(compiler);
         }
         
         if let None = compiler.builder.get_insert_block().unwrap().get_terminator()
@@ -108,14 +116,26 @@ impl PassResult {
 
 
         compiler.verify_no_placeholder_blocks_exist();
-        let num_of_errors = compiler.error_module.get_number_of_errors();
-         
-        if num_of_errors > 0
-        {
-            let message = format!("Halting compilation due to {} errors!", num_of_errors);
-            return Err(message);
-        }
 
-        Ok(())
+        
+        let mut mapped_vec: Vec<Box<dyn Error>> = compiler.error_module.get_all_errors()
+            .iter()
+            .map(|item| Box::new(item.clone()).into())
+            .collect();
+
+        self.found_errors.append(&mut mapped_vec);
+
+        Ok(self)
+    }
+
+
+    pub fn get_errors_as_string(&self) -> Vec<String>
+    {
+        let mut string_vec: Vec<String> = vec![];
+        for ref error in &self.found_errors
+        {
+            string_vec.push(error.to_string());
+        }
+        string_vec
     }
 }

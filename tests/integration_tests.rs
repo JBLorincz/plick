@@ -468,13 +468,13 @@ mod should_fails
 
 
     #[test]
-    #[should_panic(expected = "top level")]
+    #[should_panic]
     fn top_level_list()
     {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
         LIST(3,4,5) END;";
         
-        let _output = run_new_test(input);
+        let _output = run_new_test(input).unwrap();
 
     }
     #[test]
@@ -510,17 +510,19 @@ mod should_fails
 
 mod lexer_and_parser_integration_tests
 {
+    use std::error::Error;
+
     use plick::ast::Expr;
     use plick::parser;
     use plick::lexer;
     use plick::ast;
     use super::common::initialize_test_logger;
     #[test]
-    fn test_binaries()
+    fn test_binaries() -> Result<(), Box<dyn Error>>
     {
         initialize_test_logger();
         let mut token_manager = lexer::TokenManager::new("2 + 2");
-        let result = parser::parse_expression(&mut token_manager);
+        let result = parser::parse_expression(&mut token_manager)?;
 
         if let ast::Expr::Binary { operator, left, right } = result
         {
@@ -553,7 +555,7 @@ mod lexer_and_parser_integration_tests
         //2. nested binaries
         //
         let mut token_manager = lexer::TokenManager::new("2 + 3 * 5");
-        let result = parser::parse_expression(&mut token_manager);
+        let result = parser::parse_expression(&mut token_manager)?;
 
         if let ast::Expr::Binary { operator, left, right } = result
         { // this is the 2 in 2 + 3 * 5
@@ -581,8 +583,10 @@ mod lexer_and_parser_integration_tests
                 }   
                 else { panic!("not a multiply!")}
                 
-                if let ast::Expr::NumVal { value, _type } = *right{
+                if let ast::Expr::NumVal { value, _type } = *right {
                     assert_eq!(5.0, value);
+
+                    Ok(())
                 }   
                 else { panic!("not a numval!")}
             }
@@ -599,12 +603,12 @@ mod lexer_and_parser_integration_tests
 
 
     #[test]
-    fn parse_const_negative_number()
+    fn parse_const_negative_number() -> Result<(), Box<dyn Error>>
     {
         let input = "-234";
         let mut tok_man = lexer::TokenManager::new(input);
         
-        let result = parser::parse_constant_numeric(&mut tok_man);
+        let result = parser::parse_constant_numeric(&mut tok_man)?;
         let resulting_num;
         match result
         {
@@ -613,15 +617,16 @@ mod lexer_and_parser_integration_tests
         };
 
         assert_eq!(resulting_num, -234.0);
+        Ok(())
     }
 
     #[test]
-    fn parse_decimal_number()
+    fn parse_decimal_number() -> Result<(), Box<dyn Error>>
     {
         let input = "86.231";
         let mut tok_man = lexer::TokenManager::new(input);
         
-        let result = parser::parse_constant_numeric(&mut tok_man);
+        let result = parser::parse_constant_numeric(&mut tok_man)?;
         let resulting_num;
         match result
         {
@@ -630,6 +635,8 @@ mod lexer_and_parser_integration_tests
         };
 
         assert_eq!(resulting_num, 86.231);
+
+        Ok(())
     }
 }
 

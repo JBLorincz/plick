@@ -18,7 +18,7 @@ use inkwell::{
 use lexer::{Token, TokenManager};
 use log::error;
 use parser::{parse_expression, parse_function, parse_opening};
-use passes::perform_parse_pass;
+use passes::{perform_parse_pass, PassResult};
 use std::path::Path;
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -53,22 +53,39 @@ fn drive_compilation<'a, 'ctx>(
     
     unsafe {
         
-        let resulty = perform_parse_pass(token_manager);
+        let parse_result = perform_parse_pass(token_manager);
 
-        if let Err(ref list) = resulty
-        {
-            let clone_list = list.clone();
-            let string_list: Vec<String> = clone_list.iter().map(|mything| mything.message.clone()).collect();
-
-            let final_message = string_list.join("\n");
-            return Err(final_message);
-        }
-
-            resulty.unwrap()    
+      
+            let parse_result = parse_result
             .perform_type_pass()?
             .code_generation_pass(compiler)?;
-    }
 
+
+        check_for_errors(parse_result)
+
+    }
+}
+
+pub fn check_for_errors(parse_result: PassResult) -> Result<(), String>
+{
+
+    let num_of_errors = parse_result.found_errors.len();
+    if num_of_errors > 0
+        {
+        
+            let string_list: Vec<String> = parse_result.get_errors_as_string();
+
+
+            let message = format!("Halting compilation due to {} errors! \n", num_of_errors);
+            let final_message = message.clone() + &string_list.join("\n");
+
+            for message in string_list
+            {
+                log::error!("{}",message);
+            }
+
+            return Err(message);
+        }
     Ok(())
 }
 pub fn initialize_logger() {
