@@ -31,7 +31,6 @@ impl ErrorModule
 
     pub fn store_error_msg(&self, message: &str)
     {
-        log::error!("{}", message);
 
         let message = message.to_owned();
 
@@ -55,7 +54,7 @@ impl ErrorModule
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodegenError
 {
     pub message: String
@@ -72,9 +71,19 @@ impl Error for CodegenError
 {
 }
 
-impl Clone for CodegenError
+#[derive(Debug, Clone)]
+pub struct ParseError
 {
-    fn clone(&self) -> Self {
-        CodegenError { message: self.message.clone() }
+    pub message: String
+}
+
+impl Display for ParseError
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ParseError: {}", self.message)
     }
+}
+
+impl Error for ParseError
+{
 }
