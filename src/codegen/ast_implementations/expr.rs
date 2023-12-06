@@ -1,6 +1,8 @@
+use std::borrow::BorrowMut;
 use std::error::Error;
 
 use crate::codegen::{named_value_store::NamedValueStore, utils::build_pow};
+use crate::lexer::Token;
 use crate::{
     ast,
     codegen::{
@@ -64,6 +66,20 @@ impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr {
             }
             ast::Expr::NumVal { value, _type } => {
                 Box::new(compiler.gen_const_fixed_decimal(value as f64))
+            }
+            ast::Expr::Infix { operator, operand } => {
+                let operand_type = operand.get_type(compiler);
+                let operand_as_codegen = operand.codegen(compiler);
+
+                let operand_mathable = get_mathable_type(operand_as_codegen, operand_type).unwrap();
+
+                let operand_float = operand_mathable.convert_to_float(compiler);
+
+                let mather = InfixMathCodeEmitter::new(operand_float, operator, operand_type);
+                let result = mather.gen_into_type(compiler);
+                let res: Box<dyn AnyValue<'ctx> + 'ctx> = result.unwrap();
+
+                res
             }
             ast::Expr::Char { value } => {
                 let character_value = character::generate_character_code(compiler.context, &value);
@@ -159,6 +175,32 @@ struct BinaryMathCodeEmitter<'ctx> {
     output_type: Type,
 }
 
+trait MathCodeEmitter<'ctx> {
+    unsafe fn get_type(&self) -> Type;
+    unsafe fn inner_gen<'a>(
+        &self,
+        compiler: &Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, String>;
+    unsafe fn gen_into_type<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> Result<Box<dyn AnyValue<'ctx> + 'ctx>, String> {
+        let math_float_result: Result<FloatValue<'ctx>, String> = self.inner_gen(compiler);
+
+        let x = math_float_result.unwrap();
+
+        let result = match self.get_type() {
+            Type::FixedDecimal => {
+                let fixed_value = FixedValue::create_mathable(&x, compiler);
+                let fd_as_struct: StructValue<'ctx> = fixed_value.value;
+                return Ok(Box::new(fd_as_struct));
+            }
+            other => {
+                panic!("Can't convert math output into type {}", other);
+            }
+        };
+    }
+}
 impl<'ctx> BinaryMathCodeEmitter<'ctx> {
     fn new(
         lhs_float: FloatValue<'ctx>,
@@ -342,5 +384,69 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             .build_unsigned_int_to_float(val, compiler.context.f64_type(), "tmpbool")
             .map_err(|e| format!("Unable to convert unsigned int to float: {}", e))?;
         Ok(cmp_as_float)
+    }
+}
+
+struct InfixMathCodeEmitter<'ctx> {
+    operand: FloatValue<'ctx>,
+    operator: lexer::Token,
+    output_type: Type,
+}
+
+impl<'ctx> InfixMathCodeEmitter<'ctx> {
+    fn new(operand: FloatValue<'ctx>, operator: lexer::Token, output_type: Type) -> Self {
+        InfixMathCodeEmitter {
+            operand,
+            operator,
+            output_type,
+        }
+    }
+
+    pub fn generate_not_code<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
+        let zero_intval = compiler.context.f64_type().const_zero();
+        let current_value_as_boolean = compiler
+            .builder
+            .build_float_compare(FloatPredicate::ONE, self.operand, zero_intval, "left_and")
+            .map_err(|builder_error| {
+                format!("Unable to create greater than situation: {}", builder_error)
+            })?;
+
+        let notted_value = compiler
+            .builder
+            .build_not(current_value_as_boolean, "notoperation")?;
+
+        let float_result = compiler.builder.build_unsigned_int_to_float(
+            notted_value,
+            self.operand.get_type(),
+            "not_result",
+        )?;
+
+        Ok(float_result)
+    }
+}
+
+impl<'ctx> MathCodeEmitter<'ctx> for InfixMathCodeEmitter<'ctx> {
+    unsafe fn get_type(&self) -> Type {
+        self.output_type
+    }
+    unsafe fn inner_gen<'a>(
+        &self,
+        compiler: &Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, String> {
+        let result = match self.operator {
+            Token::NOT => self.generate_not_code(compiler),
+            _ => {
+                return Err("Unknown infix operator!".to_owned());
+            }
+        };
+
+        if let Err(something) = result {
+            return Err("Err generating infix operator!".to_owned());
+        }
+
+        Ok(result.unwrap())
     }
 }

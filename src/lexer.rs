@@ -247,6 +247,7 @@ pub fn convert_string_to_token(input: &str) -> Option<Token> {
         "CHARACTER" | "CHAR" => Token::CHARACTER,
         "OPTIONS" => Token::OPTIONS,
         "AND" | "&" => Token::AND,
+        "NOT" => Token::NOT,
         _ => Token::Identifier(input.to_owned()),
     })
 }
@@ -287,6 +288,7 @@ pub enum Token {
     GO,
     OPTIONS,
     AND,
+    NOT,
     LIST,
     CHARACTER,
     NumVal(f64),        // integer

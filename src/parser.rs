@@ -393,12 +393,25 @@ pub fn build_recursive_binary_tree(
 pub fn parse_primary_expression(
     token_manager: &mut lexer::TokenManager,
 ) -> Result<PrimaryExpressionParseResult, ParseError> {
+    let current_token = token_manager.current_token.as_ref().unwrap().clone();
     log::debug!(
         "parsing primary expression! Token found: {:#?}",
-        token_manager.current_token.as_ref().unwrap()
+        current_token
     );
 
     let mut was_in_parenthesis = false;
+    if is_token_infix_operator(current_token.clone()) {
+        token_manager.next_token();
+        let result_expr: Expr = Expr::Infix {
+            operator: current_token.clone(),
+            operand: Box::new(parse_primary_expression(token_manager).unwrap().expression),
+        };
+
+        return Ok(PrimaryExpressionParseResult::new(
+            result_expr,
+            was_in_parenthesis,
+        ));
+    }
 
     let result_expr = match token_manager.current_token.as_ref().unwrap() {
         Token::OPEN_PAREN => {
@@ -407,6 +420,7 @@ pub fn parse_primary_expression(
         }
         Token::Identifier(_) => parse_identifier(token_manager)?,
         Token::NumVal(_) => parse_constant_numeric(token_manager)?,
+        Token::NOT => parse_constant_numeric(token_manager)?,
         Token::MINUS => {
             token_manager.next_token();
             let expression_value = Expr::Binary {
@@ -433,6 +447,12 @@ pub fn parse_primary_expression(
         result_expr,
         was_in_parenthesis,
     ))
+}
+fn is_token_infix_operator(current_token: Token) -> bool {
+    match current_token {
+        Token::NOT => true,
+        _ => false,
+    }
 }
 
 pub struct PrimaryExpressionParseResult {
