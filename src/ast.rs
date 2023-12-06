@@ -24,6 +24,10 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+    Infix {
+        operator: lexer::Token,
+        operand: Box<Expr>,
+    },
 
     Call {
         fn_name: String,
@@ -67,6 +71,10 @@ impl Expr {
                 ref _type,
                 ref value,
             } => return *_type,
+            Expr::Infix {
+                ref operator,
+                ref operand,
+            } => return operand.get_type(compiler),
             Expr::Call {
                 ref _type,
                 ref args,
