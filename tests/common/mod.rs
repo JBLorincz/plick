@@ -1,10 +1,14 @@
-use std::{error::Error, env, process::{Command, Output}, path::Path};
+use std::{
+    env,
+    error::Error,
+    path::Path,
+    process::{Command, Output},
+};
 
-use plick::{Config, compile_input};
+use plick::{compile_input, Config};
 use uuid::Uuid;
 const RUST_LOG_CONFIG_STRING: &str = "trace";
-pub fn initialize_test_logger()
-{
+pub fn initialize_test_logger() {
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", RUST_LOG_CONFIG_STRING)
     }
@@ -12,242 +16,191 @@ pub fn initialize_test_logger()
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>>
-{
-
+pub fn test_normal_compile(input: &str) -> Result<(), Box<dyn Error>> {
     let conf = generate_test_config();
-        compile_input(input,conf);
-        Ok(())
+    compile_input(input, conf);
+    Ok(())
 }
 
+pub fn run_new_test(input: &str) -> Result<RunTestResult, Box<dyn Error>> {
+    initialize_test_logger();
 
-pub fn run_new_test(input: &str) -> Result<RunTestResult, Box<dyn Error>>
-{
-       initialize_test_logger();
+    let output = full_compile_test_and_run(input)?;
 
-        let output = full_compile_test_and_run(input)?;
+    let output_string: String;
+    let stderr_string: String;
+    let exit_code: i32;
+    unsafe {
+        output_string = String::from_utf8_unchecked(output.stdout);
+        stderr_string = String::from_utf8_unchecked(output.stderr);
+        exit_code = output.status.code().unwrap_or(0);
+    }
 
-            let output_string: String;
-            let stderr_string: String;
-            let exit_code: i32;
-    unsafe
-        {
-            output_string = String::from_utf8_unchecked(output.stdout);
-            stderr_string = String::from_utf8_unchecked(output.stderr);
-            exit_code = output.status.code().unwrap_or(0);
-        }
-
-        
-        
-        Ok(RunTestResult::new(output_string,stderr_string,exit_code))
-
+    Ok(RunTestResult::new(output_string, stderr_string, exit_code))
 }
 
-pub fn full_compile_test_and_run(input: &str) -> Result<Output, Box<dyn Error>>
-{
-
+pub fn full_compile_test_and_run(input: &str) -> Result<Output, Box<dyn Error>> {
     let mut conf = generate_test_config();
 
-        let mystr: String = Uuid::new_v4().into();
-        let path_to_object_file = "TEST_".to_string() + &mystr + ".o";
-        let path_to_exe = "EXE_".to_string() + &mystr + ".exe";
-        conf.filename = path_to_object_file.clone();
-        
-        compile_input(input,conf);
-        
+    let mystr: String = Uuid::new_v4().into();
+    let path_to_object_file = "TEST_".to_string() + &mystr + ".o";
+    let path_to_exe = "EXE_".to_string() + &mystr + ".exe";
+    conf.filename = path_to_object_file.clone();
 
-        let path_to_exe = "./".to_string()+&path_to_exe;
+    compile_input(input, conf);
 
-        let test_file = TestFile::new(&path_to_exe, &path_to_object_file);
+    let path_to_exe = "./".to_string() + &path_to_exe;
 
-        test_file.link_file()?;
-        let output = test_file.run_file()?;
-        dbg!(&output);
-        test_file.cleanup();
+    let test_file = TestFile::new(&path_to_exe, &path_to_object_file);
 
-             Ok(output) 
+    test_file.link_file()?;
+    let output = test_file.run_file()?;
+    dbg!(&output);
+    test_file.cleanup();
+
+    Ok(output)
 }
 
-
-
-struct TestFile
-{
+struct TestFile {
     path_to_exe: String,
-    path_to_object_file: String
+    path_to_object_file: String,
 }
-impl TestFile
-{
-pub fn new(exe: &str, obj: &str) -> Self
-{
-    TestFile { path_to_exe: exe.to_string(), path_to_object_file: obj.to_string() }
-}
-
-fn link_file(&self) -> Result<(), Box<dyn Error>>
-{
-    if cfg!(target_env="msvc")
-    {
-    return self.link_file_msvc();
+impl TestFile {
+    pub fn new(exe: &str, obj: &str) -> Self {
+        TestFile {
+            path_to_exe: exe.to_string(),
+            path_to_object_file: obj.to_string(),
+        }
     }
-    else
-    {
-    return self.link_file_gnu();
+
+    fn link_file(&self) -> Result<(), Box<dyn Error>> {
+        if cfg!(target_env = "msvc") {
+            return self.link_file_msvc();
+        } else {
+            return self.link_file_gnu();
+        }
     }
-}
 
-fn link_file_gnu(&self) -> Result<(), Box<dyn Error>>
-{
-       Command::new("cc")
-        .arg(&self.path_to_object_file)
-        .arg("-o")
-        .arg(&self.path_to_exe)
-        .arg("-lm")
-        .spawn()
-        .expect("cc command failed to start")
-        .wait()?;
-
-       Ok(())
-}
-
-
-fn link_file_msvc(&self) -> Result<(), Box<dyn Error>>
-{
-       Command::new("cl")
-        .arg(&self.path_to_object_file)
-        .arg("/Fe".to_owned()+&self.path_to_exe)
-        .arg("/link")
-        .arg("msvcrt.lib")
-        .arg("legacy_stdio_definitions.lib")
-        .spawn()
-        .expect("cc command failed to start")
-        .wait()?;
+    fn link_file_gnu(&self) -> Result<(), Box<dyn Error>> {
+        Command::new("cc")
+            .arg(&self.path_to_object_file)
+            .arg("-o")
+            .arg(&self.path_to_exe)
+            .arg("-lm")
+            .spawn()
+            .expect("cc command failed to start")
+            .wait()?;
 
         Ok(())
-}
-
-
-
-fn run_file(&self) -> Result<Output, Box<dyn Error>>
-{
-
-    if cfg!(target_env="msvc")
-    {
-    return self.run_file_windows();
     }
-    else
-    {
-    return self.run_file_unix();
-    }
-}
 
-fn run_file_unix(&self) -> Result<Output, Box<dyn Error>>
-{
+    fn link_file_msvc(&self) -> Result<(), Box<dyn Error>> {
+        Command::new("cl")
+            .arg(&self.path_to_object_file)
+            .arg("/Fe".to_owned() + &self.path_to_exe)
+            .arg("/link")
+            .arg("msvcrt.lib")
+            .arg("legacy_stdio_definitions.lib")
+            .spawn()
+            .expect("cc command failed to start")
+            .wait()?;
+
+        Ok(())
+    }
+
+    fn run_file(&self) -> Result<Output, Box<dyn Error>> {
+        if cfg!(target_env = "msvc") {
+            return self.run_file_windows();
+        } else {
+            return self.run_file_unix();
+        }
+    }
+
+    fn run_file_unix(&self) -> Result<Output, Box<dyn Error>> {
         dbg!(&self.path_to_exe);
-       let program_output = Command::new(&self.path_to_exe)
-           .output()
-           .expect("Failed to run the test command!")
-           ;
+        let program_output = Command::new(&self.path_to_exe)
+            .output()
+            .expect("Failed to run the test command!");
 
-
-       Ok(program_output)
-
-}
-
-fn run_file_windows(&self) -> Result<Output, Box<dyn Error>>
-{
-    let file_name = Path::new(&self.path_to_exe).file_name().unwrap();
-
-       let program_output = Command::new("cmd")
-           .arg("/C")
-           .arg(file_name)
-           .output()
-           .expect("Failed to run the test command!")
-           ;
-
-
-       Ok(program_output)
-}
-fn cleanup(&self)
-{
-
-    if cfg!(target_os = "windows")
-    {
-    return self.cleanup_windows();
+        Ok(program_output)
     }
-    else
-    {
-    return self.cleanup_unix();
-    }
-}
 
-fn cleanup_unix(&self)
-{
-       Command::new("rm")
+    fn run_file_windows(&self) -> Result<Output, Box<dyn Error>> {
+        let file_name = Path::new(&self.path_to_exe).file_name().unwrap();
+
+        let program_output = Command::new("cmd")
+            .arg("/C")
+            .arg(file_name)
+            .output()
+            .expect("Failed to run the test command!");
+
+        Ok(program_output)
+    }
+    fn cleanup(&self) {
+        if cfg!(target_os = "windows") {
+            return self.cleanup_windows();
+        } else {
+            return self.cleanup_unix();
+        }
+    }
+
+    fn cleanup_unix(&self) {
+        Command::new("rm")
             .arg(&self.path_to_exe)
             .arg(&self.path_to_object_file)
-           .spawn()
-           .expect("Failed to run the test command!")
-           .wait()
-           .expect("Trouble running file!");
-}
+            .spawn()
+            .expect("Failed to run the test command!")
+            .wait()
+            .expect("Trouble running file!");
+    }
 
-fn cleanup_windows(&self)
-{
-    let exe_filename = Path::new(&self.path_to_exe).file_name().unwrap();
-    let obj_filename = Path::new(&self.path_to_object_file).file_name().unwrap();
-       Command::new("cmd")
+    fn cleanup_windows(&self) {
+        let exe_filename = Path::new(&self.path_to_exe).file_name().unwrap();
+        let obj_filename = Path::new(&self.path_to_object_file).file_name().unwrap();
+        Command::new("cmd")
             .arg("/C")
             .arg("del")
             .arg(exe_filename)
             .arg(obj_filename)
-           .spawn()
-           .expect("Failed to run the test command!")
-           .wait()
-           .expect("Trouble running file!");
+            .spawn()
+            .expect("Failed to run the test command!")
+            .wait()
+            .expect("Trouble running file!");
+    }
 }
 
-}
-
-
-pub struct RunTestResult
-{
+pub struct RunTestResult {
     pub stdout: String,
     pub stderr: String,
     pub error_code: i32,
 }
 
-impl RunTestResult
-{
-    pub fn new(stdout: String, stderr: String, errorcode: i32) -> Self
-    {
-        RunTestResult { stdout, stderr, error_code: errorcode }
+impl RunTestResult {
+    pub fn new(stdout: String, stderr: String, errorcode: i32) -> Self {
+        RunTestResult {
+            stdout,
+            stderr,
+            error_code: errorcode,
+        }
     }
 }
 
-
-pub fn generate_test_config() -> Config
-{
-    let config = 
-         Config
-         {
-            dry_run: false,
-            verify: true,
-            ..Config::default()
-         };
-
+pub fn generate_test_config() -> Config {
+    let config = Config {
+        dry_run: false,
+        verify: true,
+        ..Config::default()
+    };
 
     config
 }
-pub fn generate_error_test_config() -> Config
-{
-    let config = 
-         Config
-         {
-            dry_run: true,
-            verify: true,
-            error_test: true,
-            ..Config::default()
-         };
-
+pub fn generate_error_test_config() -> Config {
+    let config = Config {
+        dry_run: true,
+        verify: true,
+        error_test: true,
+        ..Config::default()
+    };
 
     config
 }
