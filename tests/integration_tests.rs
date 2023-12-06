@@ -135,16 +135,16 @@ mod full_compile_tests {
         Ok(())
     }
     #[test]
-    #[ignore = "very rightmost decimal digit gets set to 1 for some reason, find and fix please"]
+    //#[ignore = "very rightmost decimal digit gets set to 1 for some reason, find and fix please"]
     fn decimal_tests() -> Result<(), Box<dyn Error>> {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
 
 	FLAG = 6.2;
 	FLAG = FLAG - 0.7;
-	PUT LIST(FLAG, '\n');
+	PUT LIST(FLAG);
 
-	BARS = 4.98;
-	PUT LIST(BARS, '\n');
+	BARS = 4.99;
+	PUT LIST(BARS);
 	BARS = BARS - 0.3;
 	PUT LIST(BARS);
 
@@ -152,7 +152,7 @@ END;";
 
         let output = run_new_test(input)?;
 
-        assert_eq!("+(5000000000000000.500000000000000)\n+(4000000000000000.980000000000000)\n+(4000000000000000.680000000000000)", output.stdout);
+        assert_eq!("+(0000000000000005.500000000000000)+(0000000000000004.990000000000000)+(0000000000000004.690000000000000)", output.stdout);
 
         Ok(())
     }
