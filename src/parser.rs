@@ -421,18 +421,18 @@ pub fn parse_primary_expression(
         Token::Identifier(_) => parse_identifier(token_manager)?,
         Token::NumVal(_) => parse_constant_numeric(token_manager)?,
         Token::NOT => parse_constant_numeric(token_manager)?,
-        Token::MINUS => {
-            token_manager.next_token();
-            let expression_value = Expr::Binary {
-                operator: Token::MINUS,
-                left: Box::new(Expr::NumVal {
-                    value: 0.0,
-                    _type: Type::FixedDecimal,
-                }),
-                right: Box::new(parse_primary_expression(token_manager)?.expression),
-            };
-            return Ok(PrimaryExpressionParseResult::new(expression_value, true));
-        }
+        // Token::MINUS => {
+        //     token_manager.next_token();
+        //     let expression_value = Expr::Binary {
+        //         operator: Token::MINUS,
+        //         left: Box::new(Expr::NumVal {
+        //             value: 0.0,
+        //             _type: Type::FixedDecimal,
+        //         }),
+        //         right: Box::new(parse_primary_expression(token_manager)?.expression),
+        //     };
+        //     return Ok(PrimaryExpressionParseResult::new(expression_value, true));
+        // }
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
@@ -451,6 +451,7 @@ pub fn parse_primary_expression(
 fn is_token_infix_operator(current_token: Token) -> bool {
     match current_token {
         Token::NOT => true,
+        Token::MINUS => true,
         _ => false,
     }
 }

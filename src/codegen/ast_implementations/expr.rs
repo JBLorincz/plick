@@ -410,9 +410,7 @@ impl<'ctx> InfixMathCodeEmitter<'ctx> {
         let current_value_as_boolean = compiler
             .builder
             .build_float_compare(FloatPredicate::ONE, self.operand, zero_intval, "left_and")
-            .map_err(|builder_error| {
-                format!("Unable to create greater than situation: {}", builder_error)
-            })?;
+            .map_err(|builder_error| format!("Unable to generate not code:: {}", builder_error))?;
 
         let notted_value = compiler
             .builder
@@ -426,6 +424,19 @@ impl<'ctx> InfixMathCodeEmitter<'ctx> {
 
         Ok(float_result)
     }
+    pub fn generate_negative_code<'a>(
+        &self,
+        compiler: &'a Compiler<'a, 'ctx>,
+    ) -> Result<FloatValue<'ctx>, Box<dyn Error>> {
+        let negative_one_value = compiler.context.f64_type().const_float(-1.0);
+
+        let multied_value = compiler
+            .builder
+            .build_float_mul(self.operand, negative_one_value, "negate_float")
+            .map_err(|builder_error| format!("Unable to negate: {}", builder_error))?;
+
+        Ok(multied_value)
+    }
 }
 
 impl<'ctx> MathCodeEmitter<'ctx> for InfixMathCodeEmitter<'ctx> {
@@ -438,12 +449,13 @@ impl<'ctx> MathCodeEmitter<'ctx> for InfixMathCodeEmitter<'ctx> {
     ) -> Result<FloatValue<'ctx>, String> {
         let result = match self.operator {
             Token::NOT => self.generate_not_code(compiler),
+            Token::MINUS => self.generate_negative_code(compiler),
             _ => {
                 return Err("Unknown infix operator!".to_owned());
             }
         };
 
-        if let Err(something) = result {
+        if let Err(_something) = result {
             return Err("Err generating infix operator!".to_owned());
         }
 
