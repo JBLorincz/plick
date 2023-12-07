@@ -113,8 +113,6 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, Pa
         }
     }
 
-    //parse_token(token_manager, Token::SEMICOLON)?;
-
     Ok(If {
         conditional,
         then_statements,
@@ -131,7 +129,9 @@ pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare,
     if let Some(Token::Identifier(ref name)) = token_manager.current_token {
         new_variable_name = name.clone();
     } else {
-        panic!("waht?");
+        let source_loc = token_manager.get_source_location().to_string();
+        let message = get_error(&["1", "an identifier", "a non-identifier", &source_loc]);
+        return Err(ParseError { message });
     }
     token_manager.next_token();
 
@@ -421,18 +421,6 @@ pub fn parse_primary_expression(
         Token::Identifier(_) => parse_identifier(token_manager)?,
         Token::NumVal(_) => parse_constant_numeric(token_manager)?,
         Token::NOT => parse_constant_numeric(token_manager)?,
-        // Token::MINUS => {
-        //     token_manager.next_token();
-        //     let expression_value = Expr::Binary {
-        //         operator: Token::MINUS,
-        //         left: Box::new(Expr::NumVal {
-        //             value: 0.0,
-        //             _type: Type::FixedDecimal,
-        //         }),
-        //         right: Box::new(parse_primary_expression(token_manager)?.expression),
-        //     };
-        //     return Ok(PrimaryExpressionParseResult::new(expression_value, true));
-        // }
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },

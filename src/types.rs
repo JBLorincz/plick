@@ -10,13 +10,16 @@ use inkwell::{
 };
 use log::debug;
 
-use crate::{codegen::codegen::Compiler, error::get_error};
+use crate::{
+    codegen::codegen::Compiler, error::get_error, types::float_decimal::PLIFloatDecimalValue,
+};
 
 use self::fixed_decimal::{generate_fixed_decimal_code, FixedValue};
 
 pub mod character;
 /// Holds all type data
 pub mod fixed_decimal;
+pub mod float_decimal;
 pub mod traits;
 const SIZE_OF_STRINGS: u32 = 255;
 
@@ -27,22 +30,9 @@ const SIZE_OF_STRINGS: u32 = 255;
 // FIXED DECIMAL (3) or (3,0) means a number with 3 digits before period i.e 100
 // FIXED DECIMAL (3.1) means a number with 3 digits before period, one after i.e 100.1
 
-//FIXED BINARY -> use LLVM's APInt data type: arbitrary precision integers
-//FIXED DECIMAL -> use LLVM's APInt data type: arbitrary precision integers
-//BINARY FLOAT -> use double like we are currently using
-//DECIMAL FLOAT -> use double like we are currently using
-#[derive(Debug, Clone)]
-pub enum BaseAttributes {
-    DECIMAL, //if you specify only decimal, then float is assumed too
-    FLOAT,
-    FIXED, //if you speecify only fixed, then decimal is assumed too
-}
-
 #[derive(Clone, Debug, Copy, PartialEq, PartialOrd)]
 pub enum Type {
-    ///Our custom FixedValue struct
     FixedDecimal,
-    ///Just a Inkwell FloatValue
     Float,
     /// Not a type: just represents something
     /// whose type has to be determined later.
@@ -132,7 +122,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         let result = match _type {
             Type::FixedDecimal => self.type_module.fixed_type.as_basic_type_enum(),
             Type::Char(size) => self.get_character_type(size).as_basic_type_enum(),
-            Type::Float => todo!("implement float type"),
+            Type::Float => PLIFloatDecimalValue::get_llvm_basic_type(self),
             Type::Void => panic!("Can't convert void type to basic type enum!"),
             Type::TBD => panic!("Can't convert TBD type to basic type enum!"),
         };

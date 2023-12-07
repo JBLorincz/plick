@@ -7,7 +7,6 @@ use crate::codegen::named_value_store::NamedValueStore;
 use crate::lexer;
 use crate::types;
 use crate::types::resolve_types;
-use crate::types::BaseAttributes;
 use crate::types::Type;
 
 use crate::codegen::named_value_store::NamedValueHashmapStore;
