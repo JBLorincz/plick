@@ -213,6 +213,7 @@ fn verify_module(compiler: &Compiler) -> Result<(), LLVMString> {
         Err(ref err_message) => {
             error!("Module verification failed:");
             error!("{}", err_message);
+            compiler.module.print_to_file("error_module").unwrap();
         }
     };
     module_verification_result

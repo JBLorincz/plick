@@ -3,6 +3,7 @@ use std::error::Error;
 
 use crate::codegen::{named_value_store::NamedValueStore, utils::build_pow};
 use crate::lexer::Token;
+use crate::types::float_decimal::PLIFloatDecimalValue;
 use crate::{
     ast,
     codegen::{
@@ -64,9 +65,19 @@ impl<'a, 'ctx> CodeGenable<'a, 'ctx> for ast::Expr {
 
                 comparison_operation.codegen(compiler)
             }
-            ast::Expr::NumVal { value, _type } => {
-                Box::new(compiler.gen_const_fixed_decimal(value as f64))
-            }
+            ast::Expr::NumVal { value, _type } => match _type {
+                Type::FixedDecimal => Box::new(compiler.gen_const_fixed_decimal(value as f64)),
+                Type::Float => {
+                    let const_as_float = compiler.context.f64_type().const_float(value);
+                    let pli_floatvalue: Box<PLIFloatDecimalValue> =
+                        PLIFloatDecimalValue::create_mathable(&const_as_float, compiler);
+
+                    Box::new(pli_floatvalue.value)
+                }
+                other => {
+                    panic!("don't how how to generate for type {:#?}", other);
+                }
+            },
             ast::Expr::Infix { operator, operand } => {
                 let operand_type = operand.get_type(compiler);
                 let operand_as_codegen = operand.codegen(compiler);
@@ -113,7 +124,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         } = binary_expr
         {
             let lhstype = left.get_type(self);
+            log::debug!("Type of LEFT: {:#?} ", &lhstype);
             let rhstype = right.get_type(self);
+            log::debug!("Type of RIGHT: {:#?} ", &rhstype);
 
             let lhs_codegen = left.codegen(self);
             let rhs_codegen = right.codegen(self);
@@ -136,6 +149,12 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
             let output_type = resolve_types(&lhstype, &rhstype).unwrap();
 
+            log::debug!(
+                "Return type for {:#?}, {:#?}? {:#?}",
+                &lhstype,
+                &rhstype,
+                &output_type
+            );
             if true {
                 //TODO: Make this function return anyvalue and a fixed decimal
                 let compile_result =
@@ -195,6 +214,11 @@ trait MathCodeEmitter<'ctx> {
                 let fd_as_struct: StructValue<'ctx> = fixed_value.value;
                 return Ok(Box::new(fd_as_struct));
             }
+            Type::Float => {
+                let float_value = PLIFloatDecimalValue::create_mathable(&x, compiler);
+                let fd_as_struct: StructValue<'ctx> = float_value.value;
+                return Ok(Box::new(fd_as_struct));
+            }
             other => {
                 panic!("Can't convert math output into type {}", other);
             }
@@ -246,6 +270,11 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
                 let fd_as_struct: StructValue<'ctx> = fixed_value.value;
                 return Ok(Box::new(fd_as_struct));
             }
+            Type::Float => {
+                let pli_float_value = PLIFloatDecimalValue::create_mathable(&x, compiler);
+                let pli_float_as_struct: StructValue<'ctx> = pli_float_value.value;
+                return Ok(Box::new(pli_float_as_struct));
+            }
             other => {
                 panic!("Can't convert math output into type {}", other);
             }
@@ -261,9 +290,6 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             .build_float_add(self.lhs_float, self.rhs_float, "tmpadd")
             .unwrap();
 
-        //let fix: StructValue<'ctx> = compiler.float_value_to_fixed_decimal(var).into();
-
-        //Ok(Box::new(fix))
         Ok(var)
     }
     unsafe fn gen_min<'a>(
@@ -285,8 +311,7 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             .builder
             .build_float_mul(self.lhs_float, self.rhs_float, "tmpmul")
             .unwrap();
-        //let fix: StructValue<'ctx> = compiler.float_value_to_fixed_decimal(var).into();
-        //Ok(Box::new(fix))
+
         Ok(var)
     }
     unsafe fn gen_div<'a>(
@@ -297,8 +322,7 @@ impl<'ctx> BinaryMathCodeEmitter<'ctx> {
             .builder
             .build_float_div(self.lhs_float, self.rhs_float, "tmpdiv")
             .unwrap();
-        //let fix: StructValue<'ctx> = compiler.float_value_to_fixed_decimal(var).into();
-        //Ok(Box::new(fix))
+
         Ok(var)
     }
     unsafe fn gen_exp<'a>(

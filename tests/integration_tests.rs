@@ -138,12 +138,13 @@ mod full_compile_tests {
     fn float_decimal_test() -> Result<(), Box<dyn Error>> {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
                 DECLARE VAR FLOAT;
-                VAR = 4;
-                PRINT VAR;
+                VAR = 4E+01;
+                VAR = VAR + 1E+01;
+                PUT LIST(VAR);
                 END;";
 
         let output = run_new_test(input)?;
-        assert_eq!("4", output.stdout);
+        assert_eq!("5.000000", output.stdout);
         Ok(())
     }
     #[test]

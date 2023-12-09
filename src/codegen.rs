@@ -423,7 +423,8 @@ pub mod codegen {
                     panic!("Tried to retrieve a variable of type TBD!")
                 }
                 Type::Float => {
-                    panic!("Implement type Float")
+                    let float_decimal_struct = result_value.into_struct_value();
+                    return Ok(Box::new(float_decimal_struct));
                 }
                 Type::Void => {
                     panic!("Tried to retrieve a variable of type Void!")
