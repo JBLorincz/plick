@@ -135,6 +135,19 @@ mod full_compile_tests {
         Ok(())
     }
     #[test]
+    fn float_decimal_test() -> Result<(), Box<dyn Error>> {
+        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+                DECLARE VAR FLOAT;
+                VAR = 4E+01;
+                VAR = VAR + 1E+01;
+                PUT LIST(VAR);
+                END;";
+
+        let output = run_new_test(input)?;
+        assert_eq!("5.000000", output.stdout);
+        Ok(())
+    }
+    #[test]
     //#[ignore = "very rightmost decimal digit gets set to 1 for some reason, find and fix please"]
     fn decimal_tests() -> Result<(), Box<dyn Error>> {
         let input = "HELLO:   PROCEDURE OPTIONS (MAIN);

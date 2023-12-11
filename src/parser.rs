@@ -113,8 +113,6 @@ pub fn parse_if<'a>(token_manager: &'a mut lexer::TokenManager) -> Result<If, Pa
         }
     }
 
-    //parse_token(token_manager, Token::SEMICOLON)?;
-
     Ok(If {
         conditional,
         then_statements,
@@ -131,7 +129,9 @@ pub fn parse_declare(token_manager: &mut lexer::TokenManager) -> Result<Declare,
     if let Some(Token::Identifier(ref name)) = token_manager.current_token {
         new_variable_name = name.clone();
     } else {
-        panic!("waht?");
+        let source_loc = token_manager.get_source_location().to_string();
+        let message = get_error(&["1", "an identifier", "a non-identifier", &source_loc]);
+        return Err(ParseError { message });
     }
     token_manager.next_token();
 
@@ -206,6 +206,7 @@ pub fn parse_identifier<'a>(
         identifier_string = val.clone();
         trace!("The identifier string is: {}", identifier_string);
     } else {
+        log::error!("Found token as {:#?}", token_manager.current_token);
         let message = "failed to parse identifier!".to_string();
         return Err(ParseError { message });
     }
@@ -418,21 +419,26 @@ pub fn parse_primary_expression(
             was_in_parenthesis = true;
             parse_parenthesis_expression(token_manager)?
         }
-        Token::Identifier(_) => parse_identifier(token_manager)?,
+        Token::Identifier(the_identifier) => {
+            log::trace!("running identifier code for {}", the_identifier);
+            if the_identifier.ends_with("E") {
+                let mut the_identifier = the_identifier.clone();
+                the_identifier.pop();
+
+                if let Ok(_float) = the_identifier.parse::<f64>() {
+                    log::trace!("PARSING FLOAT CONST {}", the_identifier);
+                    parse_float_const(token_manager)?
+                } else {
+                    log::trace!("NOT PARSING FLOAT CONST {}", the_identifier);
+                    parse_identifier(token_manager)?
+                }
+            } else {
+                log::trace!("The current token is: {:#?}", token_manager.current_token);
+                parse_identifier(token_manager)?
+            }
+        }
         Token::NumVal(_) => parse_constant_numeric(token_manager)?,
         Token::NOT => parse_constant_numeric(token_manager)?,
-        // Token::MINUS => {
-        //     token_manager.next_token();
-        //     let expression_value = Expr::Binary {
-        //         operator: Token::MINUS,
-        //         left: Box::new(Expr::NumVal {
-        //             value: 0.0,
-        //             _type: Type::FixedDecimal,
-        //         }),
-        //         right: Box::new(parse_primary_expression(token_manager)?.expression),
-        //     };
-        //     return Ok(PrimaryExpressionParseResult::new(expression_value, true));
-        // }
         Token::STRING(value) => Expr::Char {
             value: value.clone(),
         },
@@ -836,6 +842,58 @@ pub fn parse_statement(token_manager: &mut lexer::TokenManager) -> Result<Statem
     Ok(Statement { label, command })
 }
 
+pub fn parse_float_const(token_manager: &mut lexer::TokenManager) -> Result<Expr, ParseError> {
+    let identifier = token_manager.current_token.clone().unwrap();
+    let final_float: f64;
+    if let Token::Identifier(mystr) = identifier {
+        log::trace!("mystr is: {}", mystr);
+        let mut mystr = mystr.clone();
+
+        if !mystr.ends_with("E") {
+            return Err(ParseError {
+                message: "Not a float value!".to_owned(),
+            });
+        }
+        mystr.pop();
+        log::trace!("mystr is: {}", mystr);
+        let mut float_constant: f64 = mystr.parse().unwrap();
+
+        let sign: Token = token_manager.next_token().clone().unwrap();
+        let mut exp_sign = 1;
+        match sign {
+            Token::MINUS => {
+                exp_sign = -1;
+            }
+            Token::PLUS => {}
+            _ => {
+                return Err(ParseError {
+                    message: "Error parsing float".to_owned(),
+                });
+            }
+        };
+
+        token_manager.next_token();
+        let exponent_expr = parse_constant_numeric(token_manager)?;
+        if let Expr::NumVal { value, _type } = exponent_expr {
+            let exponent = value as i32 * exp_sign;
+            final_float = float_constant.powi(exponent);
+        } else {
+            return Err(ParseError {
+                message: "expected identifier".to_owned(),
+            });
+        }
+    } else {
+        return Err(ParseError {
+            message: "expected identifier".to_owned(),
+        });
+    }
+
+    Ok(Expr::NumVal {
+        value: final_float,
+        _type: Type::Float,
+    })
+}
+
 ///parses the beginning of a PL/1 Program.
 ///They look like this:
 /// ANY_LABEL_HERE : PROCDURE OPTIONS (MAIN);
@@ -973,6 +1031,22 @@ mod tests {
 
         if let Expr::NumVal { value, _type } = result {
             assert_eq!(4.0, value);
+
+            Ok(())
+        } else {
+            panic!("Result of parse numeric was not a numeric expression!");
+        }
+    }
+    #[test]
+    fn test_parsing_float_numeric() -> Result<(), ParseError> {
+        initialize_test_logger();
+        let mut tok_man = TokenManager::new("4.0E+01");
+
+        let result: Expr = parse_float_const(&mut tok_man)?;
+
+        if let Expr::NumVal { value, _type } = result {
+            assert_eq!(4.0, value);
+            assert_eq!(Type::Float, _type);
 
             Ok(())
         } else {

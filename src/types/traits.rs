@@ -2,7 +2,9 @@ use inkwell::values::{AnyValue, ArrayValue, FloatValue, PointerValue, StructValu
 
 use crate::codegen::codegen::Compiler;
 
-use super::{character::CharValue, fixed_decimal::FixedValue, Type};
+use super::{
+    character::CharValue, fixed_decimal::FixedValue, float_decimal::PLIFloatDecimalValue, Type,
+};
 
 pub trait Puttable<'a, 'ctx> {
     fn get_pointer_to_printable_string(
@@ -20,6 +22,11 @@ pub fn get_puttable_type<'a, 'ctx>(
         Type::FixedDecimal => {
             let struc: StructValue<'ctx> = value.as_any_value_enum().into_struct_value();
             let fd: FixedValue<'ctx> = FixedValue::new(struc);
+            Box::new(fd)
+        }
+        Type::Float => {
+            let struc: StructValue<'ctx> = value.as_any_value_enum().into_struct_value();
+            let fd: PLIFloatDecimalValue<'ctx> = PLIFloatDecimalValue::new(struc);
             Box::new(fd)
         }
         Type::Char(_size) => {
@@ -58,8 +65,19 @@ pub fn get_mathable_type<'a, 'ctx>(
     value: Box<dyn AnyValue<'ctx> + 'ctx>,
     _type: Type,
 ) -> Result<Box<dyn Mathable<'a, 'ctx> + 'ctx>, String> {
-    let struct_value: StructValue<'ctx> = value.as_any_value_enum().into_struct_value();
+    match _type {
+        Type::FixedDecimal => {
+            let struct_value: StructValue<'ctx> = value.as_any_value_enum().into_struct_value();
 
-    let fixed_value = FixedValue::new(struct_value);
-    Ok(Box::new(fixed_value))
+            let fixed_value = FixedValue::new(struct_value);
+            Ok(Box::new(fixed_value))
+        }
+        Type::Float => {
+            let struct_value: StructValue<'ctx> = value.as_any_value_enum().into_struct_value();
+
+            let pli_float_value = PLIFloatDecimalValue::new(struct_value);
+            Ok(Box::new(pli_float_value))
+        }
+        other => Err(format!("Type {:#?} is not mathable", other)),
+    }
 }
