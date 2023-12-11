@@ -142,7 +142,7 @@ impl<'a, 'ctx> MathableFactory<'a, 'ctx, PLIFloatDecimalValue<'ctx>>
         let newstruc = get_float_decimal_type(compiler).const_named_struct(&values);
         let ptr = compiler
             .builder
-            .build_alloca(newstruc.get_type(), "float_type")
+            .build_malloc(newstruc.get_type(), "float_type")
             .unwrap();
 
         let float_ptr = compiler
@@ -159,6 +159,7 @@ impl<'a, 'ctx> MathableFactory<'a, 'ctx, PLIFloatDecimalValue<'ctx>>
             .unwrap()
             .into_struct_value();
 
+        compiler.builder.build_free(ptr).unwrap();
         Box::new(PLIFloatDecimalValue::new(newstruc))
     }
 }
