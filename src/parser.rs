@@ -208,7 +208,6 @@ pub fn parse_identifier<'a>(
     } else {
         log::error!("Found token as {:#?}", token_manager.current_token);
         let message = "failed to parse identifier!".to_string();
-        panic!("WHY?");
         return Err(ParseError { message });
     }
     let mut args_list: Vec<Expr> = vec![];
