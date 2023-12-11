@@ -14,6 +14,7 @@ Plick is a LLVM Frontend Compiler for a very much work-in-progress dialect of [P
 
 
 ## Windows Setup
+### Tested on Windows 11
 
 To make a working copy of plick from source, you will require a copy of LLVM 14.0. Plick's tests also requires C/C++ development tooling, such as MSVC or Mingw-w64. Because Rust also uses LLVM you already have one of these - by default, MSVC.
 
@@ -32,3 +33,14 @@ Once LLVM is set up, plick should be able to run. Note that by default the outpu
 - You should now have an executable ready to run
 
 
+
+## Linux Setup
+### Tested on Debian 12 Bookworm
+
+Install the following packages:
+- llvm-14-dev
+- libpolly-14-dev
+- zlib1g-dev
+- build-essential
+
+Compile .pli files into .o files with `cargo run -- <PATH TO FILE HERE>`. Link to executable files with `cc -o <OUTPUT FILE NAME> <PATH TO OBJ FILE HERE> -lm`.
