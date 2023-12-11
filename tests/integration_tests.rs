@@ -426,14 +426,6 @@ mod should_fails {
     use super::*;
 
     #[test]
-    #[should_panic]
-    fn top_level_list() {
-        let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
-        LIST(3,4,5) END;";
-
-        let _output = run_new_test(input).unwrap();
-    }
-    #[test]
     #[should_panic(expected = "support type Char")]
     fn string_conditional_panic() -> () {
         initialize_test_logger();

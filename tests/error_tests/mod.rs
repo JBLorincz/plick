@@ -2,6 +2,16 @@ use plick::compile_input;
 
 use crate::common::{generate_error_test_config, initialize_test_logger};
 
+fn any_error_test(input: &str) {
+    initialize_test_logger();
+    let config = generate_error_test_config();
+    let results = compile_input(input, config);
+
+    for error in results.errors {
+        panic!("An error was found!");
+    }
+}
+
 fn run_error_test(input: &str, expected_error: &str) {
     initialize_test_logger();
     let config = generate_error_test_config();
@@ -82,4 +92,13 @@ fn test_double_label_panic() -> () {
                 END;";
 
     run_error_test(input, "E003");
+}
+
+#[test]
+#[should_panic]
+fn top_level_list() {
+    let input = "HELLO:   PROCEDURE OPTIONS (MAIN);
+        LIST(3,4,5) END;";
+
+    any_error_test(input);
 }
